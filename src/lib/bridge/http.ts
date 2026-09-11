@@ -23,6 +23,7 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  BundlePreview,
   ImportCandidate,
   ImportPreview,
   ImportSource,
@@ -164,6 +165,25 @@ export const api: AmberBeamApi = {
     call<void>("set-site-secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     call<void>("forget-site-secret", { id, kind }),
+
+  async chooseFile(): Promise<string | null> {
+    // A browser cannot hand over a path, and the container build has no file
+    // system of the viewer's to point at. Its way in is the drop target, and
+    // uploading arrives with the service itself in M7.
+    return null;
+  },
+  async chooseSaveFile(): Promise<string | null> {
+    // Likewise: a browser downloads rather than writes, which is a different
+    // shape of the same job and belongs with the service.
+    return null;
+  },
+
+  exportSites: (path: string, withPasswords: boolean, passphrase: string | null) =>
+    call<number>("export-sites", { path, withPasswords, passphrase }),
+  bundlePreview: (path: string, passphrase: string | null) =>
+    call<BundlePreview>("bundle-preview", { path, passphrase }),
+  bundleApply: (path: string, passphrase: string | null, chosen: number[], into: string) =>
+    call<number>("bundle-apply", { path, passphrase, chosen, into }),
 
   importCandidates: () => call<ImportCandidate[]>("import-candidates"),
   importPreview: (source: ImportSource, path: string) =>

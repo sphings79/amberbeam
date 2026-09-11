@@ -13,6 +13,7 @@
 //! 2. Nothing in this crate produces text for the user. Messages are values
 //!    the user interface translates; see the `i18n` module of the frontend.
 
+pub mod bundle;
 pub mod config;
 pub mod endpoint;
 pub mod engine;
@@ -26,6 +27,7 @@ pub mod ops;
 pub mod queue;
 pub mod registry;
 pub mod runner;
+pub mod sealed;
 pub mod secrets;
 pub mod session;
 pub mod sftp;

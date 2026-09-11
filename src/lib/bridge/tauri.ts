@@ -1,6 +1,7 @@
 /** Bridge implementation for the desktop build: Tauri's internal channel. */
 
 import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 
@@ -16,6 +17,7 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  BundlePreview,
   ImportCandidate,
   ImportPreview,
   ImportSource,
@@ -105,6 +107,21 @@ export const api: AmberBeamApi = {
     invoke<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     invoke<void>("forget_site_secret", { id, kind }),
+
+  async chooseFile(title: string): Promise<string | null> {
+    const chosen = await openDialog({ title, multiple: false, directory: false });
+    return typeof chosen === "string" ? chosen : null;
+  },
+  async chooseSaveFile(title: string, suggested: string): Promise<string | null> {
+    return await saveDialog({ title, defaultPath: suggested });
+  },
+
+  exportSites: (path: string, withPasswords: boolean, passphrase: string | null) =>
+    invoke<number>("export_sites", { path, withPasswords, passphrase }),
+  bundlePreview: (path: string, passphrase: string | null) =>
+    invoke<BundlePreview>("bundle_preview", { path, passphrase }),
+  bundleApply: (path: string, passphrase: string | null, chosen: number[], into: string) =>
+    invoke<number>("bundle_apply", { path, passphrase, chosen, into }),
 
   importCandidates: () => invoke<ImportCandidate[]>("import_candidates"),
   importPreview: (source: ImportSource, path: string) =>

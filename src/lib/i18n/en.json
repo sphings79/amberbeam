@@ -279,5 +279,20 @@
   "import.take": "Take {count} across",
   "import.back": "Back",
   "import.done": "{count} taken across.",
-  "sites.import": "Import…"
+  "sites.import": "Import…",
+  "import.choose": "Choose a file…",
+  "export.title": "Export servers",
+  "export.without": "Without passwords",
+  "export.with": "With passwords",
+  "export.without.hint": "Plain JSON: readable, diffable, fine in a backup. The passwords stay in this computer's credential store.",
+  "export.with.hint": "Sealed under a passphrase. There is no third option — a file carrying passwords is never written in the open.",
+  "export.passphrase": "Passphrase",
+  "export.passphrase.again": "Again",
+  "export.passphrase.mismatch": "The two do not match.",
+  "export.passphrase.hint": "At least eight characters. It is not stored anywhere: lose it and the file is lost with it.",
+  "export.write": "Write file…",
+  "export.done": "{count} servers written to {path}.",
+  "sites.export": "Export…",
+  "import.sealed": "This export is sealed. It needs the passphrase it was written with — there is no way round it and no copy of it anywhere.",
+  "import.unseal": "Open"
 }

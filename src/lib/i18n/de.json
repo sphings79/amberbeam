@@ -279,5 +279,20 @@
   "import.take": "{count} übernehmen",
   "import.back": "Zurück",
   "import.done": "{count} übernommen.",
-  "sites.import": "Importieren…"
+  "sites.import": "Importieren…",
+  "import.choose": "Datei wählen…",
+  "export.title": "Server exportieren",
+  "export.without": "Ohne Passwörter",
+  "export.with": "Mit Passwörtern",
+  "export.without.hint": "Reines JSON: lesbar, vergleichbar, unbedenklich in einer Sicherung. Die Passwörter bleiben im Zugangsdatenspeicher dieses Rechners.",
+  "export.with.hint": "Mit einem Kennwort verschlossen. Ein Drittes gibt es nicht — eine Datei mit Passwörtern wird nie offen geschrieben.",
+  "export.passphrase": "Kennwort",
+  "export.passphrase.again": "Wiederholen",
+  "export.passphrase.mismatch": "Die beiden stimmen nicht überein.",
+  "export.passphrase.hint": "Mindestens acht Zeichen. Es wird nirgends gespeichert: verloren heißt, die Datei ist mit verloren.",
+  "export.write": "Datei schreiben…",
+  "export.done": "{count} Server nach {path} geschrieben.",
+  "sites.export": "Exportieren…",
+  "import.sealed": "Dieser Export ist verschlossen. Er braucht das Kennwort, mit dem er geschrieben wurde — daran führt nichts vorbei, und eine Kopie davon gibt es nirgends.",
+  "import.unseal": "Öffnen"
 }

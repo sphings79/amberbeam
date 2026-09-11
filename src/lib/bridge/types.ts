@@ -362,6 +362,28 @@ export interface ImportPreview {
   warnings: string[];
 }
 
+/** One entry of an AmberBeam export, as the preview shows it. */
+export interface BundleRow {
+  folder: string;
+  name: string;
+  host: string;
+  user: string;
+  port: number;
+  hasPassword: boolean;
+}
+
+/**
+ * What an export holds.
+ *
+ * `sealed` with no entries means the passphrase is still wanted: whether a file
+ * is sealed can be seen from its first bytes, so nobody is prompted for a
+ * passphrase that does not exist.
+ */
+export interface BundlePreview {
+  sealed: boolean;
+  entries: BundleRow[];
+}
+
 /** Which secret of an entry is meant. */
 export type SecretKind = "password" | "passphrase";
 
@@ -479,6 +501,18 @@ export interface AmberBeamApi {
 
   // --- Importing somebody else's list ---
 
+  /**
+   * Asks the system for a file, and answers with its path or null when the
+   * person changed their mind.
+   *
+   * The one place a native dialog is worth the dependency: somebody whose
+   * server list lives in a folder nobody would look in has no other way to
+   * point at it than to type the path.
+   */
+  chooseFile(title: string): Promise<string | null>;
+  /** Asks the system where to write a file. */
+  chooseSaveFile(title: string, suggested: string): Promise<string | null>;
+
   /** Files that look like a server list, in the places they usually are. */
   importCandidates(): Promise<ImportCandidate[]>;
   /** What one of them holds. Never the passwords. */
@@ -496,6 +530,25 @@ export interface AmberBeamApi {
     chosen: number[],
     expected: number,
     takePasswords: boolean,
+    into: string,
+  ): Promise<number>;
+
+  // --- Taking the list with you ---
+
+  /**
+   * Writes the whole list to one file, and answers how many entries.
+   *
+   * Two shapes and no third: without passwords it is plain JSON anybody can
+   * read, with them it is sealed under a passphrase. Asking for passwords
+   * without a passphrase is refused rather than quietly written in the open.
+   */
+  exportSites(path: string, withPasswords: boolean, passphrase: string | null): Promise<number>;
+  /** Looks into an export. Never a password. */
+  bundlePreview(path: string, passphrase: string | null): Promise<BundlePreview>;
+  bundleApply(
+    path: string,
+    passphrase: string | null,
+    chosen: number[],
     into: string,
   ): Promise<number>;
 

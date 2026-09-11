@@ -18,6 +18,7 @@
   import { ACCENTS } from "../theme/index.svelte";
   import { describe } from "./errors";
   import Icon from "./Icon.svelte";
+  import ExportDialog from "./ExportDialog.svelte";
   import ImportDialog from "./ImportDialog.svelte";
 
   /** The four a person chooses between, as in the connect dialog. */
@@ -61,6 +62,7 @@
    */
   let naming = $state<{ title: string; value: string; apply: (name: string) => void } | null>(null);
   let importing = $state(false);
+  let exporting = $state(false);
   let dragging = $state<string | null>(null);
   let dropFolder = $state<string | null>(null);
 
@@ -337,6 +339,14 @@
       </button>
       <button type="button" onclick={() => (importing = true)} title={t("sites.import")}>
         <Icon name="transfer" size={14} />
+      </button>
+      <button
+        type="button"
+        onclick={() => (exporting = true)}
+        title={t("sites.export")}
+        disabled={rows.length === 0}
+      >
+        <Icon name="disconnect" size={14} />
       </button>
     </div>
 
@@ -677,6 +687,16 @@
     {/if}
   </section>
 </div>
+
+{#if exporting}
+  <ExportDialog
+    onclose={() => (exporting = false)}
+    ondone={(count, path) => {
+      exporting = false;
+      note = t("export.done", { count, path });
+    }}
+  />
+{/if}
 
 {#if importing}
   <ImportDialog

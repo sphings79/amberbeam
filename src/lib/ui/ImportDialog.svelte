@@ -9,6 +9,7 @@
    */
   import {
     api,
+    type BundlePreview,
     type ImportCandidate,
     type ImportPreview,
     type ImportSource,
@@ -29,6 +30,10 @@
   let candidates = $state<ImportCandidate[]>([]);
   let looking = $state(true);
   let preview = $state<ImportPreview | null>(null);
+  /** An AmberBeam export of our own, which is read a different way. */
+  let bundle = $state<BundlePreview | null>(null);
+  let bundlePath = $state("");
+  let passphrase = $state("");
   let chosen = $state(new Set<number>());
   let takePasswords = $state(false);
   let busy = $state(false);
@@ -52,11 +57,18 @@
       .onFileDrop((paths) => {
         dropping = false;
         const path = paths[0];
-        if (path) void look(guess(path), path);
+        if (!path) return;
+        if (isOurs(path)) void lookIntoBundle(path);
+        else void look(guess(path), path);
       })
       .then((off) => (stop = off));
     return () => stop?.();
   });
+
+  /** Our own export, told apart by its name before anything is read. */
+  function isOurs(path: string): boolean {
+    return path.toLowerCase().endsWith(".amberbeam-sites");
+  }
 
   /** Which reader a dropped file wants, judged by its name. */
   function guess(path: string): ImportSource {
@@ -68,6 +80,47 @@
     if (name === "config") return "ssh-config";
     if (name.endsWith(".xml") || name.endsWith(".ftp")) return "sites-xml";
     return "ssh-config";
+  }
+
+  /**
+   * Our own export.
+   *
+   * Whether it is sealed can be seen from its first bytes, so a plain one opens
+   * straight away and a sealed one asks — rather than everybody being asked for
+   * a passphrase that may not exist.
+   */
+  async function lookIntoBundle(path: string): Promise<void> {
+    busy = true;
+    failure = null;
+    bundlePath = path;
+    try {
+      const read = await api.bundlePreview(path, passphrase || null);
+      bundle = read;
+      chosen = new Set(read.entries.map((_, index) => index));
+    } catch (problem) {
+      failure = problem;
+      bundle = null;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function applyBundle(): Promise<void> {
+    busy = true;
+    failure = null;
+    try {
+      const taken = await api.bundleApply(
+        bundlePath,
+        passphrase || null,
+        [...chosen].sort((a, b) => a - b),
+        into,
+      );
+      ondone(taken);
+    } catch (problem) {
+      failure = problem;
+    } finally {
+      busy = false;
+    }
   }
 
   async function look(source: ImportSource, path: string): Promise<void> {
@@ -135,7 +188,44 @@
       <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>
     </header>
 
-    {#if !preview}
+    {#if bundle}
+      <p class="where mono">{bundlePath}</p>
+
+      {#if bundle.sealed && bundle.entries.length === 0}
+        <p>{t("import.sealed")}</p>
+        <label class="field">
+          <span>{t("export.passphrase")}</span>
+          <!-- svelte-ignore a11y_autofocus -->
+          <input
+            type="password"
+            bind:value={passphrase}
+            autofocus
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            onkeydown={(event) => {
+              if (event.key === "Enter") void lookIntoBundle(bundlePath);
+            }}
+          />
+        </label>
+      {:else}
+        <div class="rows">
+          {#each bundle.entries as entry, index (index)}
+            <label class="row">
+              <input type="checkbox" checked={chosen.has(index)} onchange={() => toggle(index)} />
+              <span class="name">
+                {#if entry.folder}<span class="folder">{entry.folder}/</span>{/if}{entry.name}
+              </span>
+              <span class="where mono">{entry.user}@{entry.host}:{entry.port}</span>
+              {#if entry.hasPassword}
+                <span class="tag">{t("import.has-password")}</span>
+              {/if}
+            </label>
+          {/each}
+        </div>
+      {/if}
+    {:else if !preview}
       <p>{t("import.body")}</p>
 
       {#if looking}
@@ -155,7 +245,20 @@
         </ul>
       {/if}
 
-      <p class="hint">{t("import.drop")}</p>
+      <div class="pick">
+        <button
+          type="button"
+          onclick={async () => {
+            const path = await api.chooseFile(t("import.choose"));
+            if (!path) return;
+            if (isOurs(path)) await lookIntoBundle(path);
+            else await look(guess(path), path);
+          }}
+        >
+          {t("import.choose")}
+        </button>
+        <p class="hint">{t("import.drop")}</p>
+      </div>
     {:else}
       <p class="where mono">{preview.path}</p>
 
@@ -196,12 +299,41 @@
     {/if}
 
     <div class="actions">
-      {#if preview}
-        <button type="button" onclick={() => (preview = null)}>{t("import.back")}</button>
+      {#if preview || bundle}
+        <button
+          type="button"
+          onclick={() => {
+            preview = null;
+            bundle = null;
+            passphrase = "";
+          }}
+        >
+          {t("import.back")}
+        </button>
       {/if}
       <span class="spacer"></span>
       <button type="button" onclick={onclose}>{t("action.cancel")}</button>
-      {#if preview}
+      {#if bundle}
+        {#if bundle.sealed && bundle.entries.length === 0}
+          <button
+            type="button"
+            class="primary"
+            disabled={busy || passphrase.length === 0}
+            onclick={() => void lookIntoBundle(bundlePath)}
+          >
+            {t("import.unseal")}
+          </button>
+        {:else}
+          <button
+            type="button"
+            class="primary"
+            disabled={busy || chosen.size === 0}
+            onclick={() => void applyBundle()}
+          >
+            {t("import.take", { count: chosen.size })}
+          </button>
+        {/if}
+      {:else if preview}
         <button
           type="button"
           class="primary"
@@ -359,6 +491,47 @@
     background: var(--accent-soft);
     padding: 1px 6px;
     border-radius: 999px;
+  }
+
+  .pick {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .pick button {
+    font: inherit;
+    font-size: 0.84rem;
+    padding: 5px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1);
+    color: var(--text);
+    cursor: default;
+  }
+
+  .pick button:hover {
+    background: var(--surface-2);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+
+  .field input {
+    font: inherit;
+    font-size: 0.86rem;
+    padding: 5px 8px;
+    border-radius: 0.4rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-0);
+    color: var(--text);
+    width: 100%;
   }
 
   .check {

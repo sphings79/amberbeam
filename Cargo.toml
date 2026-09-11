@@ -35,6 +35,10 @@ keyring = { version = "4.2", features = [
 # Two of the six site formats are XML. Writing an XML reader by hand would be
 # the wrong sort of thrift.
 quick-xml = "0.38"
+# Already in the tree through rustls, so declaring it costs nothing in the
+# binary. Used for the one thing this program encrypts itself: an export that
+# carries passwords.
+ring = "0.17"
 sha2 = "0.11"
 # The operating system's trust store, so a certificate authority the user
 # installed is trusted here as well. Chosen over a bundled list for that reason.

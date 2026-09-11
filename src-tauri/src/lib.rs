@@ -9,6 +9,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use amberbeam_core::bundle;
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
@@ -250,6 +251,100 @@ fn open_site(app: tauri::AppHandle, id: String, side: String) -> Result<(), Erro
     }
     app.emit(OPEN_SITE_CHANNEL, OpenSite { id, side })
         .map_err(Error::other)
+}
+
+// --- Taking the list with you ----------------------------------------------
+
+/// Writes the whole list to one file.
+///
+/// Two shapes and no third: without passwords it is plain JSON anybody can
+/// read, and with them it is sealed under a passphrase. The core refuses the
+/// combination that would be neither.
+#[tauri::command]
+fn export_sites(
+    state: tauri::State<'_, Arc<State>>,
+    path: PathBuf,
+    with_passwords: bool,
+    passphrase: Option<String>,
+) -> Result<usize, Error> {
+    let filed = state.config.sites().load();
+    let made = bundle::gather(&filed, state.secrets.as_ref(), with_passwords);
+    let bytes = bundle::to_bytes(&made, passphrase.as_deref().filter(|p| !p.is_empty()))?;
+
+    std::fs::write(&path, bytes).map_err(Error::from)?;
+    Ok(made.entries.len())
+}
+
+/// What an export holds, before any of it is taken over.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BundlePreview {
+    sealed: bool,
+    entries: Vec<BundleRow>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BundleRow {
+    folder: String,
+    name: String,
+    host: String,
+    user: String,
+    port: u16,
+    has_password: bool,
+}
+
+/// Looks into an export. Answers what is in it, never a password.
+#[tauri::command]
+fn bundle_preview(path: PathBuf, passphrase: Option<String>) -> Result<BundlePreview, Error> {
+    let bytes = std::fs::read(&path).map_err(Error::from)?;
+    let is_sealed = amberbeam_core::sealed::is_sealed(&bytes);
+
+    // Asked before a passphrase is, so somebody opening a plain export is not
+    // prompted for one that does not exist.
+    if is_sealed && passphrase.as_deref().unwrap_or_default().is_empty() {
+        return Ok(BundlePreview {
+            sealed: true,
+            entries: Vec::new(),
+        });
+    }
+
+    let read = bundle::from_bytes(&bytes, passphrase.as_deref().filter(|p| !p.is_empty()))?;
+    Ok(BundlePreview {
+        sealed: is_sealed,
+        entries: read
+            .entries
+            .iter()
+            .map(|entry| BundleRow {
+                folder: entry.folder.clone(),
+                name: entry.site.name.clone(),
+                host: entry.site.host.clone(),
+                user: entry.site.user.clone(),
+                port: entry.site.port,
+                has_password: entry.password.is_some(),
+            })
+            .collect(),
+    })
+}
+
+/// Takes the ticked entries of an export over.
+#[tauri::command]
+fn bundle_apply(
+    state: tauri::State<'_, Arc<State>>,
+    path: PathBuf,
+    passphrase: Option<String>,
+    chosen: Vec<usize>,
+    into: String,
+) -> Result<usize, Error> {
+    let bytes = std::fs::read(&path).map_err(Error::from)?;
+    let read = bundle::from_bytes(&bytes, passphrase.as_deref().filter(|p| !p.is_empty()))?;
+    bundle::apply(
+        &read,
+        &chosen,
+        &state.config.sites(),
+        state.secrets.as_ref(),
+        &into,
+    )
 }
 
 // --- Importing somebody else's list ----------------------------------------
@@ -918,6 +1013,7 @@ pub fn run() {
 
     let started = Arc::clone(&state);
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
             // Inside an async block, so the queue's loops are spawned where a
             // runtime exists.
@@ -974,6 +1070,9 @@ pub fn run() {
             forget_quick_connect,
             save_as_site,
             open_site_manager,
+            export_sites,
+            bundle_preview,
+            bundle_apply,
             import_candidates,
             import_preview,
             import_apply,

@@ -17,6 +17,7 @@ russh-sftp.workspace = true
 dirs.workspace = true
 keyring.workspace = true
 quick-xml.workspace = true
+ring.workspace = true
 rustls-native-certs.workspace = true
 sha2.workspace = true
 suppaftp.workspace = true
