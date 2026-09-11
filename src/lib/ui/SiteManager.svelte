@@ -663,6 +663,7 @@
               spellcheck="false"
             />
           </label>
+          <p class="hint">{t("quick.key-path.hint")}</p>
         {/if}
 
         {#if draft.auth !== "agent"}

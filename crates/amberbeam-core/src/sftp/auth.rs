@@ -2,8 +2,13 @@
 //!
 //! Everything a current server offers: password, a key file with or without a
 //! passphrase, a key held by the agent, and keyboard-interactive for servers
-//! that turned plain passwords off. PuTTY's `.ppk` is missing on purpose — it
-//! needs its own parser and arrives with the site import of milestone M4.
+//! that turned plain passwords off.
+//!
+//! PuTTY's `.ppk` works too, in both versions, and needed no work at all —
+//! `russh` recognises the header and reads the file. This comment used to say
+//! the opposite, that it needed its own parser and would arrive later. It was
+//! wrong, and it was wrong for a year of commits because nobody tried. See
+//! `tests/ppk.rs`, which tries, against files PuTTY itself wrote.
 
 use std::sync::Arc;
 

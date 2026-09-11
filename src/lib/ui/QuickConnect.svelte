@@ -235,6 +235,7 @@
             <span>{t("quick.key-path")}</span>
             <input bind:value={keyPath} placeholder="~/.ssh/id_ed25519" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
           </label>
+          <p class="hint">{t("quick.key-path.hint")}</p>
           <label>
             <span>{t("quick.passphrase")}</span>
             <input type="password" bind:value={passphrase} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />

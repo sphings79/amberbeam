@@ -386,5 +386,6 @@
   "filter.none": "Nothing found in {directories} directories",
   "filter.truncated": "— stopped early, so there may be more",
   "pane.count.one": "1 entry",
-  "filter.count.one": "1 found, {directories} directories read"
+  "filter.count.one": "1 found, {directories} directories read",
+  "quick.key-path.hint": "OpenSSH and PuTTY (.ppk) alike, encrypted or not."
 }

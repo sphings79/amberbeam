@@ -386,5 +386,6 @@
   "filter.none": "Nichts gefunden in {directories} Verzeichnissen",
   "filter.truncated": "— vorzeitig abgebrochen, es kann mehr geben",
   "pane.count.one": "1 Eintrag",
-  "filter.count.one": "1 gefunden, {directories} Verzeichnisse gelesen"
+  "filter.count.one": "1 gefunden, {directories} Verzeichnisse gelesen",
+  "quick.key-path.hint": "OpenSSH und PuTTY (.ppk) gleichermaßen, verschlüsselt oder nicht."
 }
