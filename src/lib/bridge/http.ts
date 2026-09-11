@@ -23,6 +23,7 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  Release,
   Totals,
   Settings,
   Unsubscribe,
@@ -133,6 +134,9 @@ export const api: AmberBeamApi = {
   queueMove: (id: string, by?: number, to?: number) => call<void>("queue-move", { id, by, to }),
   queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
     call<void>("queue-decide", { id, policy, forAll }),
+
+  updateSource: () => call<string>("update-source"),
+  newerRelease: (answer: string) => call<Release | null>("newer-release", { answer }),
 
   async openUrl(url: string): Promise<void> {
     // In a browser the window can simply do it, and should: asking the server

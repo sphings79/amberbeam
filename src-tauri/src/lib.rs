@@ -435,6 +435,24 @@ fn remember_path(
 /// https are accepted: this takes a string and hands it to the shell, and the
 /// day something other than the window's own footer calls it, that check is
 /// what stands between a link and a command line.
+/// Judges an answer from GitHub against the version running.
+///
+/// The window makes the request — it needs no Rust HTTP client for one address,
+/// and the content security policy names that one host. The judgement stays
+/// here, where comparing version numbers is written once and tested: a text
+/// comparison puts 0.10 before 0.9, and that is the release people would miss.
+#[tauri::command]
+fn newer_release(answer: String) -> Option<amberbeam_core::update::Release> {
+    let release = amberbeam_core::update::read_answer(&answer)?;
+    amberbeam_core::update::is_newer(env!("CARGO_PKG_VERSION"), &release.version).then_some(release)
+}
+
+/// Where to ask. Named by the core so the window cannot ask somewhere else.
+#[tauri::command]
+fn update_source() -> &'static str {
+    amberbeam_core::update::LATEST_RELEASE
+}
+
 #[tauri::command]
 fn open_url(url: String) -> Result<(), Error> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
@@ -560,6 +578,8 @@ pub fn run() {
             settings,
             set_settings,
             open_url,
+            newer_release,
+            update_source,
             enqueue,
             queue_snapshot,
             queue_totals,

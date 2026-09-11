@@ -197,5 +197,9 @@
   "queue.reveal": "Doppelklick öffnet den Zielordner",
   "conflict.existing": "Vorhanden",
   "conflict.new": "Neu",
-  "conflict.unknown": "unbekannt"
+  "conflict.unknown": "unbekannt",
+  "update.available": "Fassung {version}",
+  "update.hint": "Fassung {version} ist erschienen. Öffnet die Versionshinweise.",
+  "settings.check-updates": "Auf neue Fassungen prüfen",
+  "settings.check-updates.hint": "Fragt GitHub einmal kurz nach dem Start nach der neuesten Fassung. Über dich wird nichts gesendet — keine Version, keine Kennung, keine Zählung. Es ist die einzige Anfrage, die AmberBeam von sich aus stellt."
 }

@@ -3,6 +3,7 @@
   import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
+  import { availableUpdate, checkForUpdate, dismissUpdate } from "./lib/state/update.svelte";
   import {
     focusedSide,
     focusPane,
@@ -191,6 +192,13 @@
    * whichever pane happens to be showing it or not. The pane under the pointer
    * decides where they go.
    */
+  // Once, shortly after the window opens, so it does not compete with the
+  // first listing for attention or bandwidth.
+  $effect(() => {
+    const timer = setTimeout(() => void checkForUpdate(), 3000);
+    return () => clearTimeout(timer);
+  });
+
   let unsubscribeDrop: Unsubscribe | null = null;
   $effect(() => {
     void api
@@ -417,6 +425,28 @@
   <footer>
     <span class="keys mono">{t("status.keys")}</span>
     <div class="actions">
+      {#if availableUpdate()}
+        {@const release = availableUpdate()}
+        {#if release}
+          <button
+            type="button"
+            class="support update"
+            onclick={() => api.openUrl(release.url)}
+            title={t("update.hint", { version: release.version })}
+          >
+            <Icon name="star" size={14} />
+            {t("update.available", { version: release.version })}
+          </button>
+          <button
+            type="button"
+            class="dismiss"
+            onclick={dismissUpdate}
+            aria-label={t("action.cancel")}
+          >
+            ×
+          </button>
+        {/if}
+      {/if}
       <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
         {t("appearance.title")}
       </button>
@@ -660,5 +690,24 @@
   .support.coffee:hover {
     background: var(--warn);
     color: var(--surface-1);
+  }
+
+  .support.update {
+    border-color: var(--ok);
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .support.update:hover {
+    background: var(--ok);
+    color: var(--surface-1);
+  }
+
+  .dismiss {
+    border: none;
+    background: none;
+    color: var(--text-faint);
+    padding: 0 2px;
+    font-size: 0.9rem;
   }
 </style>

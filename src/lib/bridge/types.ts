@@ -150,6 +150,8 @@ export interface Settings {
   keepPermissions: boolean;
   /** Write to a temporary name and rename when the file is whole. */
   temporaryName: boolean;
+  /** Ask GitHub now and then whether a newer release exists. */
+  checkForUpdates: boolean;
 }
 
 /** What a recursive delete is about to remove. */
@@ -229,6 +231,13 @@ export interface EnqueueRequest {
   targetDirectory: string;
 }
 
+/** A release newer than the one running. */
+export interface Release {
+  tag: string;
+  version: string;
+  url: string;
+}
+
 /** Stops a subscription. */
 export type Unsubscribe = () => void;
 
@@ -306,6 +315,11 @@ export interface AmberBeamApi {
 
   /** Opens a web address in the system's browser. */
   openUrl(url: string): Promise<void>;
+
+  /** Where to ask about releases. Named by the core, not by the window. */
+  updateSource(): Promise<string>;
+  /** Judges an answer from GitHub against the version running. */
+  newerRelease(answer: string): Promise<Release | null>;
 
   settings(): Promise<Settings>;
   setSettings(value: Settings): Promise<void>;

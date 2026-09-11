@@ -16,6 +16,7 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  Release,
   Totals,
   Settings,
   Unsubscribe,
@@ -81,6 +82,8 @@ export const api: AmberBeamApi = {
     invoke<void>("queue_decide", { id, policy, forAll }),
 
   openUrl: (url: string) => invoke<void>("open_url", { url }),
+  updateSource: () => invoke<string>("update_source"),
+  newerRelease: (answer: string) => invoke<Release | null>("newer_release", { answer }),
 
   settings: () => invoke<Settings>("settings"),
   setSettings: (value: Settings) => invoke<void>("set_settings", { value }),

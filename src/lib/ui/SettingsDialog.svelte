@@ -96,6 +96,16 @@
         </label>
         <p class="hint">{t("settings.keep-permissions.hint")}</p>
 
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={settings.checkForUpdates}
+            onchange={(event) => change({ checkForUpdates: event.currentTarget.checked })}
+          />
+          <span>{t("settings.check-updates")}</span>
+        </label>
+        <p class="hint">{t("settings.check-updates.hint")}</p>
+
         <p class="note">{t("settings.per-connection")}</p>
       </div>
     {/if}
