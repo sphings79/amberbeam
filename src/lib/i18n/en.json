@@ -95,5 +95,8 @@
   "layout.queue": "Queue",
   "layout.top": "Top",
   "layout.bottom": "Bottom",
-  "pane.tree.toggle": "Folder tree"
+  "pane.tree.toggle": "Folder tree",
+  "log.tag.local": "loc",
+  "log.tag.left": "L",
+  "log.tag.right": "R"
 }

@@ -166,8 +166,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    direction: rtl;
-    text-align: left;
+    /* No right-to-left trick to cut long paths from the front: it moves the
+       leading slash to the end, so /Users/sphings reads as Users/sphings/. A
+       path that lies about its own shape is worse than one that is cut off. */
   }
 
   .busy,

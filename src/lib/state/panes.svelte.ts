@@ -125,9 +125,19 @@ export async function openSession(
   startPath?: string | null,
 ): Promise<void> {
   const state = panes[side];
+  // Endpoint and path change together. Setting the endpoint first and reading
+  // the directory afterwards leaves a moment where the pane claims to be on
+  // the new server while still showing the old path — and anything deriving
+  // from the pane in that moment asks the new server for the old path. That
+  // really happened: a freshly connected server was asked for /Users/sphings.
   state.endpoint = session.endpoint;
   state.title = title;
   state.historyId = historyId;
+  state.path = "";
+  state.entries = [];
+  state.selected = new Set<string>();
+  state.cursor = 0;
+  state.failure = null;
   state.expanded = new Set<string>();
   await navigate(side, startPath || session.home);
 }

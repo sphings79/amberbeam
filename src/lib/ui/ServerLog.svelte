@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LOCAL } from "../bridge";
   import { clearLog, logLines } from "../state/log.svelte";
   import { t } from "../i18n/index.svelte";
   import { formatTime } from "./format";
@@ -26,6 +27,14 @@
     received: "←",
     note: "·",
   };
+
+  /** Short tag for the pane a line came from. */
+  function tag(endpoint: string): string {
+    if (endpoint === LOCAL) return t("log.tag.local");
+    if (endpoint.startsWith("left")) return t("log.tag.left");
+    if (endpoint.startsWith("right")) return t("log.tag.right");
+    return endpoint;
+  }
 </script>
 
 <section class="log">
@@ -41,6 +50,7 @@
     {#each lines as line (line.id)}
       <div class="line {line.direction}">
         <span class="time">{formatTime(line.at)}</span>
+        <span class="who">{tag(line.endpoint)}</span>
         <span class="arrow">{arrow[line.direction]}</span>
         <span class="text">{line.text}</span>
       </div>
@@ -103,7 +113,7 @@
 
   .line {
     display: grid;
-    grid-template-columns: 72px 16px 1fr;
+    grid-template-columns: 72px 28px 16px 1fr;
     gap: 4px;
     padding: 0 10px;
     font-size: 0.74rem;
@@ -112,6 +122,11 @@
 
   .time {
     color: var(--text-faint);
+  }
+
+  .who {
+    color: var(--text-faint);
+    text-align: right;
   }
 
   .arrow {

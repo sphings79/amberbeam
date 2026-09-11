@@ -95,5 +95,8 @@
   "layout.queue": "Warteschlange",
   "layout.top": "Oben",
   "layout.bottom": "Unten",
-  "pane.tree.toggle": "Ordnerbaum"
+  "pane.tree.toggle": "Ordnerbaum",
+  "log.tag.local": "lok",
+  "log.tag.left": "L",
+  "log.tag.right": "R"
 }

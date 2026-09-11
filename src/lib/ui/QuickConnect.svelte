@@ -87,17 +87,17 @@
         <div class="row">
           <label class="grow">
             <span>{t("quick.host")}</span>
-            <input bind:value={host} placeholder="beispiel.de" autocomplete="off" required />
+            <input bind:value={host} placeholder="beispiel.de" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required />
           </label>
           <label class="port">
             <span>{t("quick.port")}</span>
-            <input type="number" bind:value={port} min="1" max="65535" />
+            <input type="number" bind:value={port} min="1" max="65535" autocomplete="off" />
           </label>
         </div>
 
         <label>
           <span>{t("quick.user")}</span>
-          <input bind:value={user} autocomplete="off" required />
+          <input bind:value={user} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required />
         </label>
 
         <fieldset>
@@ -118,17 +118,17 @@
         {#if auth === "password"}
           <label>
             <span>{t("quick.password")}</span>
-            <input type="password" bind:value={password} autocomplete="off" />
+            <input type="password" bind:value={password} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
           </label>
           <p class="hint">{t("quick.password.hint")}</p>
         {:else if auth === "key-file"}
           <label>
             <span>{t("quick.key-path")}</span>
-            <input bind:value={keyPath} placeholder="~/.ssh/id_ed25519" autocomplete="off" />
+            <input bind:value={keyPath} placeholder="~/.ssh/id_ed25519" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
           </label>
           <label>
             <span>{t("quick.passphrase")}</span>
-            <input type="password" bind:value={passphrase} autocomplete="off" />
+            <input type="password" bind:value={passphrase} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
           </label>
         {:else}
           <p class="hint">{t("quick.agent.hint")}</p>

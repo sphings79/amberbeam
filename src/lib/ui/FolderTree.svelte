@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { api, type DirEntry } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { isDirectory, navigate, pane, type Side } from "../state/panes.svelte";
 
@@ -11,94 +10,51 @@
 
   let view = $derived(pane(side));
 
-  /** Directories read so far, by path. Nothing is read before it is opened. */
-  let children = $state<Record<string, DirEntry[]>>({});
-  let loading = $state<Set<string>>(new Set());
-  let open = $state<Set<string>>(new Set());
-
   interface Row {
     path: string;
     name: string;
     depth: number;
-    expanded: boolean;
+    current: boolean;
   }
 
   /**
-   * The chain from the root down to the current directory, plus whatever the
-   * user opened. Subfolders are read on expanding and never before: a server
-   * with thousands of directories is unusable any other way, which the concept
-   * paper says in so many words.
+   * The chain from the root down to the current directory, and under it the
+   * subfolders of that directory.
+   *
+   * Everything here comes from what the pane already read. Asking the server a
+   * second time for a listing it just fetched doubled every line in the server
+   * log and every round trip on the wire — and a directory with fifty thousand
+   * entries is not something to fetch twice for decoration.
    */
   let rows = $derived.by<Row[]>(() => {
     const path = view.path;
     if (!path) return [];
 
-    const separator = path.includes("\\") && !path.startsWith("/") ? "\\" : "/";
+    const windowsStyle = /^[A-Za-z]:/.test(path);
+    const separator = windowsStyle || path.includes("\\") ? "\\" : "/";
     const parts = path.split(separator).filter((part) => part.length > 0);
-    const chain: Row[] = [];
-    let walked = separator === "/" ? "" : "";
 
-    // The root itself, so there is always something to click back to.
-    chain.push({
-      path: separator === "/" ? "/" : parts[0] ?? path,
-      name: separator === "/" ? "/" : (parts[0] ?? path),
-      depth: 0,
-      expanded: true,
-    });
-
-    parts.forEach((part, index) => {
-      walked = `${walked}${separator}${part}`;
-      if (separator === "/" || index > 0) {
-        chain.push({ path: walked, name: part, depth: index + 1, expanded: true });
-      }
-    });
-
-    // Under the deepest opened directory, its own subfolders.
     const out: Row[] = [];
-    for (const row of chain) {
-      out.push(row);
-    }
-    const deepest = chain[chain.length - 1];
-    if (deepest) {
-      for (const entry of children[deepest.path] ?? []) {
-        out.push({
-          path: `${deepest.path === "/" ? "" : deepest.path}${separator}${entry.name}`,
-          name: entry.name,
-          depth: deepest.depth + 1,
-          expanded: open.has(entry.name),
-        });
-      }
+    // The root: "/" on POSIX, the drive on Windows. Always there, so there is
+    // always something to climb back to.
+    const root = windowsStyle ? (parts.shift() ?? path) : separator;
+    out.push({ path: root, name: root, depth: 0, current: root === path });
+
+    let walked = windowsStyle ? root : "";
+    parts.forEach((part, index) => {
+      walked = windowsStyle && index === 0 ? `${root}${separator}${part}` : `${walked}${separator}${part}`;
+      out.push({ path: walked, name: part, depth: index + 1, current: walked === path });
+    });
+
+    const depth = out.length;
+    for (const entry of view.entries.filter(isDirectory)) {
+      if (!view.showHidden && entry.name.startsWith(".")) continue;
+      const child = path.endsWith(separator)
+        ? `${path}${entry.name}`
+        : `${path}${separator}${entry.name}`;
+      out.push({ path: child, name: entry.name, depth, current: false });
     }
     return out;
-  });
-
-  // The directory a pane is showing has its subfolders read once, so the tree
-  // is not empty below the current level.
-  $effect(() => {
-    const path = view.path;
-    const endpoint = view.endpoint;
-    if (!path || children[path] || loading.has(path)) return;
-    loading = new Set(loading).add(path);
-    api
-      .listDir(endpoint, path)
-      .then((listing) => {
-        children = { ...children, [path]: listing.entries.filter(isDirectory) };
-      })
-      .catch(() => {
-        children = { ...children, [path]: [] };
-      })
-      .finally(() => {
-        const next = new Set(loading);
-        next.delete(path);
-        loading = next;
-      });
-  });
-
-  // A different endpoint means a different tree.
-  $effect(() => {
-    void view.endpoint;
-    children = {};
-    open = new Set();
   });
 </script>
 
@@ -107,12 +63,12 @@
     <button
       type="button"
       class="row"
-      class:current={row.path === view.path}
+      class:current={row.current}
       style:padding-left="{8 + row.depth * 11}px"
       onclick={() => navigate(side, row.path)}
       title={row.path}
     >
-      <span class="glyph" aria-hidden="true">{row.path === view.path ? "▾" : "▸"}</span>
+      <span class="glyph" aria-hidden="true">{row.current ? "▾" : "▸"}</span>
       <span class="name">{row.name}</span>
     </button>
   {/each}
