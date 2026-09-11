@@ -18,6 +18,9 @@ tokio = { version = "1", features = ["fs", "rt-multi-thread", "macros", "sync", 
 russh = "0.63"
 russh-sftp = "3"
 dirs = "7"
+# tokio with rustls-ring: the same TLS stack russh already brings, so the
+# binary carries one implementation rather than two.
+suppaftp = { version = "12", default-features = false, features = ["tokio", "tokio-rustls-ring", "async-secure"] }
 
 # Release profile lives here so both the desktop shell and a future headless
 # server binary (milestone M7) are built with the same settings.

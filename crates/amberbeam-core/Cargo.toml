@@ -15,6 +15,7 @@ tokio.workspace = true
 russh.workspace = true
 russh-sftp.workspace = true
 dirs.workspace = true
+suppaftp.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }
