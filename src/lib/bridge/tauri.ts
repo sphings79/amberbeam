@@ -16,6 +16,9 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  ImportCandidate,
+  ImportPreview,
+  ImportSource,
   OpenSide,
   Release,
   SecretKind,
@@ -102,6 +105,18 @@ export const api: AmberBeamApi = {
     invoke<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     invoke<void>("forget_site_secret", { id, kind }),
+
+  importCandidates: () => invoke<ImportCandidate[]>("import_candidates"),
+  importPreview: (source: ImportSource, path: string) =>
+    invoke<ImportPreview>("import_preview", { source, path }),
+  importApply: (
+    source: ImportSource,
+    path: string,
+    chosen: number[],
+    expected: number,
+    takePasswords: boolean,
+    into: string,
+  ) => invoke<number>("import_apply", { source, path, chosen, expected, takePasswords, into }),
 
   openSiteManager: () => invoke<void>("open_site_manager"),
   openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),

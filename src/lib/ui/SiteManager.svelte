@@ -18,6 +18,7 @@
   import { ACCENTS } from "../theme/index.svelte";
   import { describe } from "./errors";
   import Icon from "./Icon.svelte";
+  import ImportDialog from "./ImportDialog.svelte";
 
   /** The four a person chooses between, as in the connect dialog. */
   const KINDS = [
@@ -59,6 +60,7 @@
    * an ugly box.
    */
   let naming = $state<{ title: string; value: string; apply: (name: string) => void } | null>(null);
+  let importing = $state(false);
   let dragging = $state<string | null>(null);
   let dropFolder = $state<string | null>(null);
 
@@ -332,6 +334,9 @@
       </button>
       <button type="button" onclick={addFolder} title={t("sites.folder.new")}>
         <Icon name="new-folder" size={14} />
+      </button>
+      <button type="button" onclick={() => (importing = true)} title={t("sites.import")}>
+        <Icon name="transfer" size={14} />
       </button>
     </div>
 
@@ -672,6 +677,18 @@
     {/if}
   </section>
 </div>
+
+{#if importing}
+  <ImportDialog
+    into={draftFolder}
+    onclose={() => (importing = false)}
+    ondone={(taken) => {
+      importing = false;
+      note = t("import.done", { count: taken });
+      void reload();
+    }}
+  />
+{/if}
 
 {#if naming}
   <div class="backdrop" role="presentation">

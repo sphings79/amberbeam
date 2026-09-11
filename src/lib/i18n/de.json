@@ -266,5 +266,18 @@
   "import.source.sites-xml": ".ftp-Export eines älteren Windows-Clients",
   "import.warning.master-password": "Diese Datei ist durch ein Hauptpasswort geschützt. Die Server lassen sich lesen, die Passwörter nicht.",
   "import.warning.some-passwords": "Einige Passwörter ließen sich nicht lesen. Diese Einträge kommen ohne an statt mit einem falschen.",
-  "import.warning.cleartext": "Diese Datei enthält alle Passwörter im Klartext. AmberBeam übernimmt sie in den Zugangsdatenspeicher; die Datei selbst sollte danach gelöscht werden."
+  "import.warning.cleartext": "Diese Datei enthält alle Passwörter im Klartext. AmberBeam übernimmt sie in den Zugangsdatenspeicher; die Datei selbst sollte danach gelöscht werden.",
+  "import.title": "Server importieren",
+  "import.body": "An den üblichen Orten gefunden. Eine Datei wählen, um zu sehen was drinsteht — geschrieben wird erst, wenn du es sagst.",
+  "import.looking": "Wird gesucht…",
+  "import.none": "An den üblichen Orten nichts gefunden. Zieh eine Datei auf dieses Fenster.",
+  "import.drop": "Oder zieh eine Datei auf dieses Fenster: sitemanager.xml, WinSCP.ini, wcx_ftp.ini, Sites.dat, einen .ftp-Export oder eine SSH-Konfiguration.",
+  "import.empty": "In dieser Datei stehen keine Server.",
+  "import.has-password": "Passwort",
+  "import.take-passwords": "Die {count} hinterlegten Passwörter mit übernehmen",
+  "import.take-passwords.hint": "In der Quelldatei sind sie nur verschleiert, nicht verschlüsselt. AmberBeam liest sie aus und legt sie in den Zugangsdatenspeicher dieses Rechners, nie in eine eigene Datei.",
+  "import.take": "{count} übernehmen",
+  "import.back": "Zurück",
+  "import.done": "{count} übernommen.",
+  "sites.import": "Importieren…"
 }

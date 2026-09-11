@@ -185,10 +185,19 @@ pub struct Candidate {
 /// both and offering a file picker beside the result is one click fewer than
 /// asking first whether to look.
 pub fn discover() -> Vec<Candidate> {
+    match home_directory() {
+        Some(home) => discover_in(&home),
+        None => Vec::new(),
+    }
+}
+
+/// The search itself, against a given home directory.
+///
+/// Split out so it can be tested against a directory made for the purpose. The
+/// alternative would be setting `HOME` during a test, which every other test in
+/// the process would then be running inside.
+pub fn discover_in(home: &Path) -> Vec<Candidate> {
     let mut found = Vec::new();
-    let Some(home) = home_directory() else {
-        return found;
-    };
 
     // Where each program keeps its own file, on the system it runs on.
     let native: &[(Source, PathBuf)] = &[
@@ -229,6 +238,86 @@ pub fn discover() -> Vec<Candidate> {
         scan(&home.join(folder), 2, &mut found);
     }
     found
+}
+
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+
+    fn scratch(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("amberbeam-discover-{name}"));
+        let _ = std::fs::remove_dir_all(&root);
+        root
+    }
+
+    #[test]
+    fn the_usual_places_and_wherever_somebody_dropped_them() {
+        let home = scratch("both");
+        std::fs::create_dir_all(home.join(".ssh")).unwrap();
+        std::fs::write(
+            home.join(".ssh").join("config"),
+            "Host a
+",
+        )
+        .unwrap();
+        std::fs::create_dir_all(home.join(".config").join("filezilla")).unwrap();
+        std::fs::write(
+            home.join(".config")
+                .join("filezilla")
+                .join("sitemanager.xml"),
+            "<FileZilla3/>",
+        )
+        .unwrap();
+        // Copied off the old computer and forgotten in a subfolder.
+        std::fs::create_dir_all(home.join("Downloads").join("alter Rechner")).unwrap();
+        std::fs::write(
+            home.join("Downloads")
+                .join("alter Rechner")
+                .join("WinSCP.ini"),
+            "[Sessions\\a]
+",
+        )
+        .unwrap();
+        // And something that is none of our business.
+        std::fs::write(home.join("Downloads").join("urlaub.jpg"), "not a list").unwrap();
+
+        let found = discover_in(&home);
+        let sources: Vec<Source> = found.iter().map(|candidate| candidate.source).collect();
+
+        assert!(sources.contains(&Source::SshConfig));
+        assert!(sources.contains(&Source::FileZilla));
+        assert!(sources.contains(&Source::WinScp));
+        assert_eq!(found.len(), 3, "and nothing else: {found:?}");
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn the_same_file_is_offered_once() {
+        let home = scratch("once");
+        std::fs::create_dir_all(home.join(".config").join("filezilla")).unwrap();
+        let path = home
+            .join(".config")
+            .join("filezilla")
+            .join("sitemanager.xml");
+        std::fs::write(&path, "<FileZilla3/>").unwrap();
+
+        // Both halves of the search can reach the same file when somebody's
+        // Downloads folder is where their configuration lives.
+        let found = discover_in(&home);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].path, path);
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_home_with_nothing_in_it_finds_nothing() {
+        let home = scratch("empty");
+        std::fs::create_dir_all(&home).unwrap();
+        assert!(discover_in(&home).is_empty());
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }
 
 /// Looks through one directory for anything recognisable, `depth` levels deep.

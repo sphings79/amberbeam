@@ -317,6 +317,51 @@ export interface Site {
   colour: string | null;
 }
 
+/** Where an importable list came from. */
+export type ImportSource =
+  | "ssh-config"
+  | "winscp"
+  | "wcx-ftp"
+  | "filezilla"
+  | "sites-dat"
+  | "sites-xml";
+
+/** A file that looks like one of those lists. */
+export interface ImportCandidate {
+  source: ImportSource;
+  path: string;
+}
+
+/**
+ * One server out of somebody else's file.
+ *
+ * `hasPassword` says whether one was found and could be read; the value stays
+ * in the core, which moves it into the credential store without it ever
+ * reaching a window.
+ */
+export interface ImportedEntry {
+  name: string;
+  folder: string;
+  protocol: Protocol;
+  host: string;
+  port: number;
+  user: string;
+  auth: AuthKind;
+  keyPath: string | null;
+  remotePath: string | null;
+  encryption: Encryption | null;
+  hasPassword: boolean;
+}
+
+/** What one file turned out to hold. */
+export interface ImportPreview {
+  source: ImportSource;
+  path: string;
+  entries: ImportedEntry[];
+  /** Translation keys for anything the reader could not do. */
+  warnings: string[];
+}
+
 /** Which secret of an entry is meant. */
 export type SecretKind = "password" | "passphrase";
 
@@ -431,6 +476,28 @@ export interface AmberBeamApi {
   /** One way only: a secret goes in, and never comes back out here. */
   setSiteSecret(id: string, kind: SecretKind, value: string): Promise<void>;
   forgetSiteSecret(id: string, kind: SecretKind): Promise<void>;
+
+  // --- Importing somebody else's list ---
+
+  /** Files that look like a server list, in the places they usually are. */
+  importCandidates(): Promise<ImportCandidate[]>;
+  /** What one of them holds. Never the passwords. */
+  importPreview(source: ImportSource, path: string): Promise<ImportPreview>;
+  /**
+   * Takes the ticked entries over, and answers how many.
+   *
+   * `expected` is how many entries the preview showed: the file is read again
+   * rather than the preview trusted, which is what keeps the passwords out of
+   * the window, and the count guards against it having changed in between.
+   */
+  importApply(
+    source: ImportSource,
+    path: string,
+    chosen: number[],
+    expected: number,
+    takePasswords: boolean,
+    into: string,
+  ): Promise<number>;
 
   /** Opens the site manager in a window of its own. */
   openSiteManager(): Promise<void>;

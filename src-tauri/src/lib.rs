@@ -6,6 +6,7 @@
 //! headless HTTP and WebSocket service of milestone M7 will expose, which only
 //! works as long as nothing of substance settles here.
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
@@ -15,6 +16,7 @@ use amberbeam_core::events::{Event, RecvError};
 use amberbeam_core::fs::Listing;
 use amberbeam_core::ftp::tls::{CertificateDecision, Exceptions};
 use amberbeam_core::ftp::{Encryption, FtpParams};
+use amberbeam_core::import;
 use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::queue::{Queue, Totals};
 use amberbeam_core::registry::{Connected, Sessions};
@@ -248,6 +250,97 @@ fn open_site(app: tauri::AppHandle, id: String, side: String) -> Result<(), Erro
     }
     app.emit(OPEN_SITE_CHANNEL, OpenSite { id, side })
         .map_err(Error::other)
+}
+
+// --- Importing somebody else's list ----------------------------------------
+
+/// What one file holds, without the passwords.
+///
+/// The preview exists to be ticked through, and ticking needs a name and a
+/// host, not a secret. The passwords stay in the core: [`import_apply`] reads
+/// the file again and moves them straight into the credential store, so no
+/// password ever travels to a window even once.
+#[tauri::command]
+fn import_candidates() -> Vec<import::Candidate> {
+    import::discover()
+}
+
+#[tauri::command]
+fn import_preview(source: import::Source, path: PathBuf) -> Result<import::Found, Error> {
+    import::read(source, &path)
+}
+
+/// Takes the ticked entries over.
+///
+/// The file is read a second time rather than the preview being trusted: that
+/// is what keeps the passwords out of the window, and it costs a few
+/// milliseconds on a file of thirty servers.
+#[tauri::command]
+fn import_apply(
+    state: tauri::State<'_, Arc<State>>,
+    source: import::Source,
+    path: PathBuf,
+    chosen: Vec<usize>,
+    expected: usize,
+    take_passwords: bool,
+    into: String,
+) -> Result<usize, Error> {
+    let found = import::read(source, &path)?;
+    if found.entries.len() != expected {
+        // The file changed between being looked at and being taken over, and
+        // the ticks no longer point at what somebody ticked.
+        return Err(Error::other("the file changed; look at it again"));
+    }
+
+    let sites = state.config.sites();
+    let mut taken = 0;
+
+    for index in chosen {
+        let Some(entry) = found.entries.get(index) else {
+            continue;
+        };
+
+        let site = Site {
+            id: Site::new_id(),
+            name: entry.name.clone(),
+            protocol: entry.protocol,
+            host: entry.host.clone(),
+            port: entry.port,
+            user: entry.user.clone(),
+            auth: entry.auth,
+            key_path: entry.key_path.clone(),
+            remote_path: entry.remote_path.clone(),
+            local_path: None,
+            concurrency: entry.protocol.default_concurrency(),
+            retries: None,
+            temporary_name: None,
+            encryption: entry.encryption,
+            passive: None,
+            latin1: None,
+            keep_alive: None,
+            remember_password: take_passwords && entry.has_password,
+            colour: None,
+        };
+
+        let folder = match (into.trim(), entry.folder.as_str()) {
+            ("", inner) => inner.to_string(),
+            (outer, "") => outer.to_string(),
+            (outer, inner) => format!("{outer}/{inner}"),
+        };
+        sites.save(&folder, &site)?;
+
+        // Straight from the file into the credential store, with no stop in
+        // between. This is the only place an imported password exists outside
+        // the file it came from.
+        if take_passwords {
+            if let Some(password) = entry.password.as_deref() {
+                state.secrets.set(&site.id, Secret::Password, password)?;
+            }
+        }
+        taken += 1;
+    }
+
+    Ok(taken)
 }
 
 // --- The site manager ------------------------------------------------------
@@ -881,6 +974,9 @@ pub fn run() {
             forget_quick_connect,
             save_as_site,
             open_site_manager,
+            import_candidates,
+            import_preview,
+            import_apply,
             open_site,
             sites,
             site_folders,

@@ -23,6 +23,9 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  ImportCandidate,
+  ImportPreview,
+  ImportSource,
   OpenSide,
   Release,
   SecretKind,
@@ -161,6 +164,18 @@ export const api: AmberBeamApi = {
     call<void>("set-site-secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     call<void>("forget-site-secret", { id, kind }),
+
+  importCandidates: () => call<ImportCandidate[]>("import-candidates"),
+  importPreview: (source: ImportSource, path: string) =>
+    call<ImportPreview>("import-preview", { source, path }),
+  importApply: (
+    source: ImportSource,
+    path: string,
+    chosen: number[],
+    expected: number,
+    takePasswords: boolean,
+    into: string,
+  ) => call<number>("import-apply", { source, path, chosen, expected, takePasswords, into }),
 
   async openSiteManager(): Promise<void> {
     // A browser tab cannot open a native window, and the container build shows

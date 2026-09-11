@@ -266,5 +266,18 @@
   "import.source.sites-xml": ".ftp site export of an older Windows client",
   "import.warning.master-password": "This file is protected by a master password. The servers can be read, the passwords cannot.",
   "import.warning.some-passwords": "Some passwords could not be read. Those entries arrive without one rather than with a wrong one.",
-  "import.warning.cleartext": "This file holds every password in plain text. AmberBeam moves them into the credential store; the file itself is worth deleting afterwards."
+  "import.warning.cleartext": "This file holds every password in plain text. AmberBeam moves them into the credential store; the file itself is worth deleting afterwards.",
+  "import.title": "Import servers",
+  "import.body": "Files found in the usual places. Pick one to see what is in it — nothing is written before you say so.",
+  "import.looking": "Looking…",
+  "import.none": "Nothing found in the usual places. Drag a file onto this window.",
+  "import.drop": "Or drag a file onto this window: sitemanager.xml, WinSCP.ini, wcx_ftp.ini, Sites.dat, an .ftp export, or an SSH config.",
+  "import.empty": "This file holds no servers.",
+  "import.has-password": "password",
+  "import.take-passwords": "Take the {count} stored passwords across",
+  "import.take-passwords.hint": "They are only obscured in the source file, not encrypted. AmberBeam reads them and puts them in this computer's credential store, never in a file of its own.",
+  "import.take": "Take {count} across",
+  "import.back": "Back",
+  "import.done": "{count} taken across.",
+  "sites.import": "Import…"
 }
