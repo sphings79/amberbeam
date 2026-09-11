@@ -129,8 +129,11 @@ jobs:
           right-click the app and choose *Open*, then confirm. After that it
           starts normally.
 
-          **Windows and Linux:** built by CI on every release. macOS is the only
-          one tested by hand so far; reports from the other two are welcome.
+          **Windows and Linux:** built by CI on every release. The Debian
+          package has been installed into a clean Debian 12 and checked — right
+          dependencies, nothing missing, everything where it belongs — but the
+          window itself has not been seen open on a real Linux machine, and
+          Windows is untested beyond building. Reports are welcome.
 
           Full notes: [CHANGELOG.md](https://github.com/sphings79/amberbeam/blob/main/CHANGELOG.md) ·
           [auf Deutsch](https://github.com/sphings79/amberbeam/blob/main/CHANGELOG.de.md)

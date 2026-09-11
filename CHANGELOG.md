@@ -68,5 +68,8 @@ missing is listed at the end.
 - No remote editing.
 - No scheduled jobs.
 - The container build with its web interface is still to come.
-- Windows and Linux are built by CI on every release but have not been tested
-  by hand.
+- macOS is the only one used in anger. On Linux the Debian package has been
+  installed into a clean Debian 12 and checked: its dependencies are right,
+  nothing is missing, and the program, the launcher entry and the icons land
+  where they should — but nobody has yet seen the window open on a real Linux
+  machine. Windows is built by CI and otherwise untested.

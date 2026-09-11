@@ -71,5 +71,8 @@ was fehlt, steht am Ende.
 - Kein entferntes Bearbeiten.
 - Keine zeitgesteuerten Aufträge.
 - Die Container-Fassung mit Weboberfläche kommt noch.
-- Windows und Linux werden bei jeder Veröffentlichung von der CI gebaut, sind
-  aber nicht von Hand geprüft.
+- Nur macOS ist wirklich im Einsatz. Unter Linux ist das Debian-Paket in ein
+  frisches Debian 12 installiert und geprüft worden: Abhängigkeiten stimmen,
+  nichts fehlt, und Programm, Starteintrag und Symbole landen dort, wo sie
+  hingehören — aber das Fenster hat noch niemand auf einem echten Linux-Rechner
+  aufgehen sehen. Windows baut die CI, sonst ist es ungeprüft.
