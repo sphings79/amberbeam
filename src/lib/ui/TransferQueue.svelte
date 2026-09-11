@@ -2,7 +2,9 @@
   import { api, LOCAL, type QueuedJob } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import {
+    dismissLowered,
     jobProgress,
+    loweredNotice,
     percentOf,
     queueState,
     queueTotals,
@@ -92,6 +94,16 @@
       {t("queue.clear")}
     </button>
   </header>
+
+  {#if loweredNotice()}
+    {@const notice = loweredNotice()}
+    {#if notice}
+      <p class="lowered">
+        {t("queue.lowered", { allowed: notice.allowed })}
+        <button type="button" onclick={dismissLowered}>×</button>
+      </p>
+    {/if}
+  {/if}
 
   <div class="rows">
     {#each queue.jobs as job, index (job.id)}
@@ -357,5 +369,27 @@
     padding: 12px;
     font-size: 0.78rem;
     color: var(--text-faint);
+  }
+
+  .lowered {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 5px 10px;
+    font-size: 0.76rem;
+    color: var(--warn);
+    background: var(--warn-soft);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .lowered button {
+    margin-left: auto;
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 0.9rem;
+    cursor: default;
+    padding: 0 4px;
   }
 </style>

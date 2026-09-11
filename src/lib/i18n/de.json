@@ -189,5 +189,6 @@
   "quick.advanced": "Mehr",
   "quick.from-settings": "Einstellungen",
   "quick.yes": "ja",
-  "quick.no": "nein"
+  "quick.no": "nein",
+  "queue.lowered": "Der Server hat weitere Verbindungen abgelehnt. Es laufen jetzt {allowed} gleichzeitig; in den Einstellungen lässt sich das wieder anheben."
 }

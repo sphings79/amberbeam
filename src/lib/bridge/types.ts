@@ -132,6 +132,7 @@ export type CoreEvent =
   | ({ event: "connection"; endpoint: string } & ConnectionState)
   | { event: "listed"; endpoint: string; path: string }
   | { event: "progress"; jobs: JobProgress[] }
+  | { event: "concurrency-lowered"; endpoint: string; allowed: number }
   | { event: "queue" };
 
 export type ConnectionState =

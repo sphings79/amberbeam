@@ -189,5 +189,6 @@
   "quick.advanced": "More",
   "quick.from-settings": "settings",
   "quick.yes": "yes",
-  "quick.no": "no"
+  "quick.no": "no",
+  "queue.lowered": "The server refused more connections. Running {allowed} at a time now; raise it again in the settings if you disagree."
 }

@@ -66,6 +66,10 @@ pub enum Event {
     /// Sent on a timer rather than per chunk: a transfer moves a thousand
     /// chunks a second and the window redraws sixty times.
     Progress { jobs: Vec<JobProgress> },
+    /// A server refused another channel and the connection is now asking for
+    /// fewer. Worth saying out loud: a queue that suddenly runs three at a time
+    /// instead of eight otherwise looks broken.
+    ConcurrencyLowered { endpoint: EndpointId, allowed: u32 },
     /// The queue changed in a way the window cannot infer from progress alone:
     /// a job finished, failed, was added or needs an answer.
     Queue,

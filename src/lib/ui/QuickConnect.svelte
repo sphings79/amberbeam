@@ -400,17 +400,25 @@
     color: var(--text-faint);
   }
 
+  /* A row of its own with a visible edge: the settings behind it — how many
+     transfers at once, how many attempts — are the ones people go looking for
+     and do not find when they are hidden behind grey text. */
   .more {
-    align-self: flex-start;
-    border: none;
-    background: none;
-    padding: 2px 0;
-    font-size: 0.76rem;
-    color: var(--text-faint);
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.6rem;
+    background: var(--surface-2);
+    color: var(--text-muted);
   }
 
   .more:hover {
-    background: none;
+    border-color: var(--accent);
+    background: var(--accent-soft);
     color: var(--accent);
   }
 

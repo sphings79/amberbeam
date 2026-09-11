@@ -393,31 +393,32 @@
 
   <footer>
     <span class="keys mono">{t("status.keys")}</span>
-    <span class="spacer"></span>
-    <button
-      type="button"
-      class="support star"
-      onclick={() => api.openUrl("https://github.com/sphings79/amberbeam")}
-      title={t("support.star.hint")}
-    >
-      <Icon name="star" size={14} />
-      {t("support.star")}
-    </button>
-    <button
-      type="button"
-      class="support coffee"
-      onclick={() => api.openUrl("https://buymeacoffee.com/sphings")}
-      title={t("support.coffee.hint")}
-    >
-      <Icon name="coffee" size={14} />
-      {t("support.coffee")}
-    </button>
-    <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
-      {t("settings.title")}
-    </button>
-    <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
-      {t("appearance.title")}
-    </button>
+    <div class="actions">
+      <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
+        {t("appearance.title")}
+      </button>
+      <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
+        {t("settings.title")}
+      </button>
+      <button
+        type="button"
+        class="support star"
+        onclick={() => api.openUrl("https://github.com/sphings79/amberbeam")}
+        title={t("support.star.hint")}
+      >
+        <Icon name="star" size={14} />
+        {t("support.star")}
+      </button>
+      <button
+        type="button"
+        class="support coffee"
+        onclick={() => api.openUrl("https://buymeacoffee.com/sphings")}
+        title={t("support.coffee.hint")}
+      >
+        <Icon name="coffee" size={14} />
+        {t("support.coffee")}
+      </button>
+    </div>
   </footer>
 
   {#if settingsOpen}
@@ -541,8 +542,23 @@
     flex: none;
   }
 
+  /* The four stay together and stay on the right. The key hint gives way
+     instead: a reminder that is cut short still reminds, a row of buttons that
+     wraps onto a second line looks like a mistake. */
+  .actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+  }
+
   .keys {
     font-size: 0.7rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .settings-bar .label {

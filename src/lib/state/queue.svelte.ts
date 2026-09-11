@@ -46,10 +46,31 @@ export async function refreshQueue(): Promise<void> {
   live = Object.fromEntries(Object.entries(live).filter(([id]) => running.has(id)));
 }
 
+/**
+ * The last time a server asked for fewer transfers at once.
+ *
+ * Shown in the queue's header for a while: a queue that suddenly runs three at
+ * a time instead of eight looks broken unless somebody says why.
+ */
+let lowered = $state<{ endpoint: string; allowed: number; at: number } | null>(null);
+
+export function loweredNotice(): { endpoint: string; allowed: number } | null {
+  if (!lowered) return null;
+  return { endpoint: lowered.endpoint, allowed: lowered.allowed };
+}
+
+export function dismissLowered(): void {
+  lowered = null;
+}
+
 /** Takes what belongs to the queue out of the core's event stream. */
 export function recordQueueEvent(event: CoreEvent): void {
   if (event.event === "queue") {
     void refreshQueue();
+    return;
+  }
+  if (event.event === "concurrency-lowered") {
+    lowered = { endpoint: event.endpoint, allowed: event.allowed, at: Date.now() };
     return;
   }
   if (event.event === "progress") {
