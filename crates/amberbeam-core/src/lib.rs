@@ -15,6 +15,7 @@
 
 pub mod config;
 pub mod endpoint;
+pub mod engine;
 pub mod error;
 pub mod events;
 pub mod fs;
@@ -23,6 +24,7 @@ pub mod ops;
 pub mod registry;
 pub mod session;
 pub mod sftp;
+pub mod stream;
 pub mod system;
 pub mod transfer;
 

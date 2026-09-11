@@ -14,6 +14,7 @@ use crate::fs::{self, Listing};
 use crate::local::LocalSession;
 use crate::ops::Measurement;
 use crate::sftp::SftpSession;
+use crate::stream::{Reader, Writer};
 
 /// An open session on one endpoint.
 #[derive(Debug)]
@@ -107,7 +108,78 @@ impl Session {
         }
     }
 
-    pub async fn disconnect(&mut self) {
+    /// Opens a file for reading at an offset. The lease, where there is one,
+    /// holds the channel the transfer runs on and must be kept alive for as
+    /// long as the reader is used.
+    pub async fn open_read(
+        &self,
+        path: &str,
+        offset: u64,
+    ) -> Result<(Reader, Option<crate::sftp::Lease<'_>>)> {
+        match self {
+            Session::Local(session) => Ok((session.open_read(path, offset).await?, None)),
+            Session::Sftp(session) => {
+                let (reader, lease) = session.open_read(path, offset).await?;
+                Ok((reader, Some(lease)))
+            }
+        }
+    }
+
+    pub async fn open_write(
+        &self,
+        path: &str,
+        offset: u64,
+    ) -> Result<(Writer, Option<crate::sftp::Lease<'_>>)> {
+        match self {
+            Session::Local(session) => Ok((session.open_write(path, offset).await?, None)),
+            Session::Sftp(session) => {
+                let (writer, lease) = session.open_write(path, offset).await?;
+                Ok((writer, Some(lease)))
+            }
+        }
+    }
+
+    /// Puts a finished file under its final name, replacing whatever was there.
+    pub async fn replace(&self, from: &str, to: &str) -> Result<()> {
+        match self {
+            Session::Local(session) => session.replace(from, to).await,
+            Session::Sftp(session) => session.replace(from, to).await,
+        }
+    }
+
+    /// Size and modification time, for deciding whether a resume is safe.
+    pub async fn stat(&self, path: &str) -> Result<(u64, Option<i64>)> {
+        match self {
+            Session::Local(session) => session.stat(path).await,
+            Session::Sftp(session) => session.stat(path).await,
+        }
+    }
+
+    pub async fn set_modified(&self, path: &str, seconds: i64) -> Result<()> {
+        match self {
+            Session::Local(session) => session.set_modified(path, seconds).await,
+            Session::Sftp(session) => session.set_modified(path, seconds).await,
+        }
+    }
+
+    /// How many transfers this endpoint currently allows at once.
+    pub async fn concurrency(&self) -> u32 {
+        match self {
+            // The local disk has no session limit worth speaking of; what
+            // limits a local copy is the disk, and that needs no permit.
+            Session::Local(_) => u32::from(Protocol::MAX_CONCURRENCY),
+            Session::Sftp(session) => session.concurrency().await,
+        }
+    }
+
+    pub async fn set_concurrency(&self, wanted: u32) {
+        match self {
+            Session::Local(_) => {}
+            Session::Sftp(session) => session.set_concurrency(wanted).await,
+        }
+    }
+
+    pub async fn disconnect(&self) {
         match self {
             Session::Local(_) => {}
             Session::Sftp(session) => session.disconnect().await,

@@ -136,5 +136,6 @@
   "delete.links.hint": "Verweise werden als Verweise entfernt. Ihr Ziel bleibt.",
   "delete.confirm": "Löschen",
   "tree.expand": "Ordner aufklappen",
-  "tree.collapse": "Ordner zuklappen"
+  "tree.collapse": "Ordner zuklappen",
+  "error.source-changed": "Die Quelle hat sich geändert, seit die Übertragung abgerissen ist. Fortsetzen würde zwei Fassungen zusammensetzen."
 }

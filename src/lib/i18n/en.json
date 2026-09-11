@@ -136,5 +136,6 @@
   "delete.links.hint": "Links are removed as links. What they point at stays.",
   "delete.confirm": "Delete",
   "tree.expand": "Open folder",
-  "tree.collapse": "Close folder"
+  "tree.collapse": "Close folder",
+  "error.source-changed": "The source has changed since the transfer stopped. Continuing would stitch two versions together."
 }

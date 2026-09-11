@@ -61,6 +61,20 @@ impl Protocol {
         }
     }
 
+    /// Whether a half written file can safely be given a temporary name and
+    /// renamed when it is whole.
+    ///
+    /// Locally and over SFTP, rename is part of the deal. Over FTP it needs a
+    /// right plenty of hosting accounts do not grant, and a transfer that fails
+    /// at the very last step — leaving `index.html.ampart` and no index.html —
+    /// would be worse than the risk it was meant to avoid.
+    pub const fn rename_is_dependable(self) -> bool {
+        match self {
+            Protocol::Local | Protocol::Sftp => true,
+            Protocol::Ftp | Protocol::Ftps => false,
+        }
+    }
+
     /// Stable identifier, used in configuration files and towards the frontend.
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -174,6 +188,16 @@ mod tests {
         let endpoint = Endpoint::remote("a", Protocol::Ftp, "example.org");
         assert_eq!(endpoint.security, Some(FtpSecurity::Explicit));
         assert_eq!(endpoint.port, Some(21));
+    }
+
+    #[test]
+    fn a_temporary_name_is_only_used_where_renaming_is_certain() {
+        assert!(Protocol::Local.rename_is_dependable());
+        assert!(Protocol::Sftp.rename_is_dependable());
+        // FTP accounts often cannot rename, and a transfer that completes and
+        // then fails to rename leaves nothing usable behind.
+        assert!(!Protocol::Ftp.rename_is_dependable());
+        assert!(!Protocol::Ftps.rename_is_dependable());
     }
 
     #[test]

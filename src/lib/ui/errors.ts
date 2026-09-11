@@ -32,6 +32,8 @@ export function describe(failure: unknown): string {
       return t("error.host-key-changed", { host: error.host });
     case "path":
       return t(`error.path.${error.reason}`, { path: error.path });
+    case "source-changed":
+      return t("error.source-changed");
     case "disconnected":
       return t("error.disconnected");
     case "not-connected":

@@ -11,6 +11,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::endpoint::{EndpointId, Protocol};
+use crate::engine::{self, Progress, ResumeVerdict};
 use crate::error::{Error, Result};
 use crate::events::{Events, LogDirection};
 use crate::fs::Listing;
@@ -18,11 +19,35 @@ use crate::local::LocalSession;
 use crate::ops::Measurement;
 use crate::session::Session;
 use crate::sftp::{ConnectParams, SftpSession};
+use crate::transfer::ResumeMarker;
 
 /// The identifier the local file system always has. The panes address it like
 /// any other endpoint — in the container build it is the container's own disk,
 /// not the user's.
 pub const LOCAL: &str = "local";
+
+/// One transfer, as the engine needs it.
+#[derive(Debug, Clone)]
+pub struct TransferRun {
+    pub source_endpoint: EndpointId,
+    pub source_path: String,
+    pub target_endpoint: EndpointId,
+    pub target_path: String,
+    /// Where a previous attempt stopped, when there was one.
+    pub resume: Option<ResumeMarker>,
+    pub keep_modified: bool,
+    pub keep_permissions: bool,
+    /// The source's bits, when they are to be carried across.
+    pub source_permissions: Option<u32>,
+}
+
+/// How a transfer ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Transferred {
+    pub complete: bool,
+    /// Where to pick up, when it was stopped rather than finished.
+    pub resume: Option<ResumeMarker>,
+}
 
 /// What a freshly opened session reports back.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -36,13 +61,13 @@ pub struct Connected {
 
 /// All open sessions.
 ///
-/// Each session carries its own lock, and the map is only held long enough to
-/// find one. Two panes on two servers therefore list at the same time, while
-/// two panes on the *same* connection take turns — which they must, because a
-/// session is a single channel and interleaved requests on it are nonsense.
+/// The map is held only long enough to find a session; nothing is locked while
+/// one is used. A session governs its own concurrency through its channels, so
+/// listing a directory does not wait behind eight running transfers — which was
+/// the whole reason for opening more than one channel.
 #[derive(Debug)]
 pub struct Sessions {
-    open: Mutex<HashMap<EndpointId, Arc<Mutex<Session>>>>,
+    open: Mutex<HashMap<EndpointId, Arc<Session>>>,
     events: Events,
 }
 
@@ -53,7 +78,7 @@ impl Sessions {
         let mut open = HashMap::new();
         open.insert(
             EndpointId::new(LOCAL),
-            Arc::new(Mutex::new(Session::Local(LocalSession::new()))),
+            Arc::new(Session::Local(LocalSession::new())),
         );
         Self {
             open: Mutex::new(open),
@@ -78,10 +103,10 @@ impl Sessions {
         let session = SftpSession::connect(params, endpoint, &self.events).await?;
         let home = session.home().await?;
 
-        self.open.lock().await.insert(
-            endpoint.clone(),
-            Arc::new(Mutex::new(Session::Sftp(Box::new(session)))),
-        );
+        self.open
+            .lock()
+            .await
+            .insert(endpoint.clone(), Arc::new(Session::Sftp(Box::new(session))));
 
         Ok(Connected {
             endpoint: endpoint.clone(),
@@ -95,7 +120,7 @@ impl Sessions {
     pub async fn local(&self) -> Result<Connected> {
         let endpoint = EndpointId::new(LOCAL);
         let session = self.find(&endpoint).await?;
-        let home = session.lock().await.home().await?;
+        let home = session.home().await?;
         Ok(Connected {
             endpoint,
             protocol: Protocol::Local,
@@ -105,7 +130,7 @@ impl Sessions {
 
     pub async fn list_dir(&self, endpoint: &EndpointId, path: &str) -> Result<Listing> {
         let session = self.find(endpoint).await?;
-        let listing = session.lock().await.list_dir(path).await?;
+        let listing = session.list_dir(path).await?;
         self.events.emit(crate::events::Event::Listed {
             endpoint: endpoint.clone(),
             path: listing.path.clone(),
@@ -115,44 +140,39 @@ impl Sessions {
 
     pub async fn parent(&self, endpoint: &EndpointId, path: &str) -> Result<Option<String>> {
         let session = self.find(endpoint).await?;
-        let parent = session.lock().await.parent(path);
+        let parent = session.parent(path);
         Ok(parent)
     }
 
     pub async fn join(&self, endpoint: &EndpointId, directory: &str, name: &str) -> Result<String> {
         let session = self.find(endpoint).await?;
-        let joined = session.lock().await.join(directory, name);
+        let joined = session.join(directory, name);
         Ok(joined)
     }
 
     pub async fn create_dir(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        let result = session.lock().await.create_dir(path).await;
-        result
+        session.create_dir(path).await
     }
 
     pub async fn create_file(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        let result = session.lock().await.create_file(path).await;
-        result
+        session.create_file(path).await
     }
 
     pub async fn rename(&self, endpoint: &EndpointId, from: &str, to: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        let result = session.lock().await.rename(from, to).await;
-        result
+        session.rename(from, to).await
     }
 
     pub async fn measure(&self, endpoint: &EndpointId, path: &str) -> Result<Measurement> {
         let session = self.find(endpoint).await?;
-        let result = session.lock().await.measure(path).await;
-        result
+        session.measure(path).await
     }
 
     pub async fn remove(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        let result = session.lock().await.remove(path).await;
-        result
+        session.remove(path).await
     }
 
     pub async fn set_permissions(
@@ -163,12 +183,79 @@ impl Sessions {
         recursive: bool,
     ) -> Result<()> {
         let session = self.find(endpoint).await?;
-        let result = session
-            .lock()
-            .await
-            .set_permissions(path, mode, recursive)
-            .await;
-        result
+        session.set_permissions(path, mode, recursive).await
+    }
+
+    /// Moves one file from one endpoint to another.
+    ///
+    /// Neither side is privileged: a download, an upload and a copy between two
+    /// servers are the same call with different endpoints. What differs is what
+    /// the target protocol can promise about renaming, which decides whether
+    /// the file is written under a temporary name first.
+    pub async fn transfer(&self, job: &TransferRun, progress: &Progress) -> Result<Transferred> {
+        let source = self.find(&job.source_endpoint).await?;
+        let target = self.find(&job.target_endpoint).await?;
+
+        let (size, modified) = source.stat(&job.source_path).await?;
+        progress.set_total(size);
+
+        // Nothing is appended to before the source has been shown to be what it
+        // was. A file stitched together from two versions looks complete and is
+        // not, which is the one failure this program must never produce.
+        let verdict = engine::may_resume(job.resume.as_ref(), size, modified);
+        let offset = match verdict {
+            ResumeVerdict::Safe => job.resume.as_ref().map_or(0, |marker| marker.offset),
+            ResumeVerdict::Changed => return Err(Error::SourceChanged),
+            ResumeVerdict::Fresh => 0,
+        };
+        progress.set_done(offset);
+
+        let use_partial = target.protocol().rename_is_dependable();
+        let write_path = if use_partial {
+            engine::partial_name(&job.target_path)
+        } else {
+            job.target_path.clone()
+        };
+
+        {
+            let (mut reader, _source_lease) = source.open_read(&job.source_path, offset).await?;
+            let (mut writer, _target_lease) = target.open_write(&write_path, offset).await?;
+            engine::copy(&mut reader, &mut writer, progress).await?;
+        }
+
+        if progress.is_cancelled() {
+            return Ok(Transferred {
+                complete: false,
+                resume: Some(ResumeMarker {
+                    offset: progress.done(),
+                    source_size: size,
+                    source_modified: modified,
+                }),
+            });
+        }
+
+        if use_partial {
+            // The final name appears only now, when the file behind it is
+            // whole. Anything watching the directory never sees a half file
+            // wearing a finished name.
+            target.replace(&write_path, &job.target_path).await?;
+        }
+
+        if job.keep_modified {
+            if let Some(seconds) = modified {
+                // A timestamp that cannot be set is not worth failing a
+                // transfer that otherwise worked.
+                let _ = target.set_modified(&job.target_path, seconds).await;
+            }
+        }
+        if let (true, Some(mode)) = (job.keep_permissions, job.source_permissions) {
+            let _ = target.set_permissions(&job.target_path, mode, false).await;
+        }
+
+        Ok(Transferred {
+            complete: true,
+            resume: None,
+        })
     }
 
     /// Closes a session. The local one stays: there is nothing to close, and a
@@ -179,7 +266,7 @@ impl Sessions {
         }
         let session = self.open.lock().await.remove(endpoint);
         if let Some(session) = session {
-            session.lock().await.disconnect().await;
+            session.disconnect().await;
             self.events
                 .log(endpoint, LogDirection::Note, "disconnected");
         }
@@ -190,7 +277,7 @@ impl Sessions {
     }
 
     /// Finds a session without holding the map while it is used.
-    async fn find(&self, endpoint: &EndpointId) -> Result<Arc<Mutex<Session>>> {
+    pub async fn find(&self, endpoint: &EndpointId) -> Result<Arc<Session>> {
         self.open
             .lock()
             .await

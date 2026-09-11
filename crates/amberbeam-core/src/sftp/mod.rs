@@ -19,12 +19,14 @@ use russh::keys::{PublicKey, PublicKeyOrCertificate};
 use russh::Disconnect;
 use russh_sftp::client::SftpSession as RawSftp;
 use russh_sftp::protocol::FileType;
+use tokio::sync::{Mutex, Semaphore};
 
 use crate::endpoint::EndpointId;
 use crate::error::{Error, PathProblem, Result};
 use crate::events::{ConnectionState, Events, LogDirection};
 use crate::fs::{join_remote, DirEntry, EntryKind, Listing, Permissions};
 use crate::ops::Measurement;
+use crate::stream::{Reader, Writer};
 
 pub use auth::AuthMethod;
 pub use hostkey::{fingerprint, HostKeyDecision};
@@ -38,6 +40,12 @@ pub struct ConnectParams {
     pub method: AuthMethod,
     /// What the user has already agreed to about the server's key.
     pub host_key: HostKeyDecision,
+    /// How many transfers this connection may run at once. Per connection,
+    /// because a shared hoster and a machine of one's own are not the same
+    /// thing — with a global setting as the fallback when nothing was said.
+    pub concurrency: u8,
+    /// How often a broken transfer is retried before the job is paused.
+    pub retries: u8,
     /// Which `known_hosts` file to consult. `None` means the one the terminal
     /// uses, `~/.ssh/known_hosts`, which is the point on a desktop. The
     /// container build of M7 has no such home directory, and tests must not
@@ -90,11 +98,59 @@ impl client::Handler for Verifier {
 }
 
 /// A live SFTP connection.
+///
+/// One SSH connection carries several SFTP channels. The one called `browse`
+/// belongs to the pane the user is clicking in and is never lent out, so a
+/// listing stays instant while eight transfers are running — which is the whole
+/// reason for opening more than one channel in the first place.
+///
+/// Channels are cheap, but not free: OpenSSH caps them through `MaxSessions`,
+/// whose default is ten. That is why the default concurrency for SFTP is eight
+/// rather than ten — see [`crate::endpoint::Protocol::default_concurrency`] —
+/// and why a server that refuses one is not an error but a signal to ask for
+/// fewer.
 pub struct SftpSession {
-    handle: Handle<Verifier>,
-    sftp: RawSftp,
+    /// Locked only to open a channel or to say goodbye. Everything else works
+    /// on channels, so browsing and eight transfers never queue behind one
+    /// another on a lock.
+    handle: Mutex<Handle<Verifier>>,
+    browse: RawSftp,
+    /// Channels opened for transfers, handed out and returned.
+    idle: Mutex<Vec<RawSftp>>,
+    /// How many transfer channels may exist at once.
+    limit: Arc<Semaphore>,
+    /// What the limit currently stands at, since a semaphore does not say.
+    allowed: Mutex<u32>,
     endpoint: EndpointId,
     events: Events,
+}
+
+/// A transfer channel on loan. Returns itself when dropped.
+pub struct Lease<'a> {
+    session: &'a SftpSession,
+    channel: Option<RawSftp>,
+    _permit: tokio::sync::SemaphorePermit<'a>,
+}
+
+impl Lease<'_> {
+    fn sftp(&self) -> &RawSftp {
+        self.channel
+            .as_ref()
+            .expect("a lease always holds a channel")
+    }
+}
+
+impl Drop for Lease<'_> {
+    fn drop(&mut self) {
+        if let Some(channel) = self.channel.take() {
+            // Back into the pool rather than closed: opening a channel costs a
+            // round trip, and a queue of a thousand small files would spend
+            // most of its time on that.
+            if let Ok(mut idle) = self.session.idle.try_lock() {
+                idle.push(channel);
+            }
+        }
+    }
 }
 
 impl std::fmt::Debug for SftpSession {
@@ -237,19 +293,111 @@ impl SftpSession {
         events.connection(endpoint, ConnectionState::Connected { banner: None });
         events.log(endpoint, LogDirection::Received, "sftp subsystem ready");
 
+        let allowed = params.concurrency.max(1);
         Ok(Self {
-            handle,
-            sftp,
+            handle: Mutex::new(handle),
+            browse: sftp,
+            idle: Mutex::new(Vec::new()),
+            limit: Arc::new(Semaphore::new(allowed as usize)),
+            allowed: Mutex::new(u32::from(allowed)),
             endpoint: endpoint.clone(),
             events: events.clone(),
         })
+    }
+
+    /// Opens one more SFTP channel on the same connection.
+    async fn open_channel(&self) -> Result<RawSftp> {
+        let channel = self
+            .handle
+            .lock()
+            .await
+            .channel_open_session()
+            .await
+            .map_err(Error::other)?;
+        channel
+            .request_subsystem(true, "sftp")
+            .await
+            .map_err(Error::other)?;
+        RawSftp::new(channel.into_stream())
+            .await
+            .map_err(Error::other)
+    }
+
+    /// Borrows a transfer channel, waiting when all of them are busy.
+    pub async fn lease(&self) -> Result<Lease<'_>> {
+        let permit = self.limit.acquire().await.map_err(Error::other)?;
+
+        if let Some(channel) = self.idle.lock().await.pop() {
+            return Ok(Lease {
+                session: self,
+                channel: Some(channel),
+                _permit: permit,
+            });
+        }
+
+        match self.open_channel().await {
+            Ok(channel) => Ok(Lease {
+                session: self,
+                channel: Some(channel),
+                _permit: permit,
+            }),
+            Err(error) => {
+                // A refused channel is almost always the server's session limit
+                // rather than a fault. Asking for fewer and saying so beats
+                // failing the rest of the queue one job at a time.
+                self.lower_limit().await;
+                Err(error)
+            }
+        }
+    }
+
+    /// How many transfers this connection currently allows at once.
+    pub async fn concurrency(&self) -> u32 {
+        *self.allowed.lock().await
+    }
+
+    /// Halves what the connection asks of the server, never below one.
+    ///
+    /// Deliberately one way. Creeping back up would walk into the same wall
+    /// every few minutes; raising it again is the user's decision, and they
+    /// have the setting.
+    pub async fn lower_limit(&self) {
+        let mut allowed = self.allowed.lock().await;
+        if *allowed <= 1 {
+            return;
+        }
+        let give_up = *allowed / 2;
+        // Permits are taken away as they become free, so running transfers
+        // finish rather than being cut off.
+        self.limit.forget_permits(give_up as usize);
+        *allowed -= give_up;
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Note,
+            format!(
+                "server refused another channel, using {} at a time now",
+                *allowed
+            ),
+        );
+    }
+
+    /// Raises the limit, for when the user changes the setting.
+    pub async fn set_concurrency(&self, wanted: u32) {
+        let mut allowed = self.allowed.lock().await;
+        let wanted = wanted.clamp(1, u32::from(crate::endpoint::Protocol::MAX_CONCURRENCY));
+        if wanted > *allowed {
+            self.limit.add_permits((wanted - *allowed) as usize);
+        } else if wanted < *allowed {
+            self.limit.forget_permits((*allowed - wanted) as usize);
+        }
+        *allowed = wanted;
     }
 
     /// Where the server puts us when we do not say otherwise.
     pub async fn home(&self) -> Result<String> {
         self.events
             .log(&self.endpoint, LogDirection::Sent, "realpath .");
-        self.sftp
+        self.browse
             .canonicalize(".")
             .await
             .map_err(|source| path_error(".", source))
@@ -268,7 +416,7 @@ impl SftpSession {
         );
 
         let listed = self
-            .sftp
+            .browse
             .read_dir(path)
             .await
             .map_err(|source| path_error(path, source))?;
@@ -284,9 +432,9 @@ impl SftpSession {
 
             let (link_target, kind_of_target) = if kind == EntryKind::Symlink {
                 let full = join_remote(path, &name);
-                let target = self.sftp.read_link(&full).await.ok();
+                let target = self.browse.read_link(&full).await.ok();
                 let resolved = self
-                    .sftp
+                    .browse
                     .metadata(&full)
                     .await
                     .ok()
@@ -331,7 +479,7 @@ impl SftpSession {
     pub async fn create_dir(&self, path: &str) -> Result<()> {
         self.events
             .log(&self.endpoint, LogDirection::Sent, format!("mkdir {path}"));
-        self.sftp
+        self.browse
             .create_dir(path)
             .await
             .map_err(|source| path_error(path, source))
@@ -348,7 +496,7 @@ impl SftpSession {
         self.events
             .log(&self.endpoint, LogDirection::Sent, format!("create {path}"));
         match self
-            .sftp
+            .browse
             .open_with_flags(
                 path,
                 OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
@@ -363,7 +511,7 @@ impl SftpSession {
                 // Servers disagree on which status an existing file earns —
                 // "failure" is as common as "file already exists" — so an
                 // existing file is recognised rather than guessed from the code.
-                if self.sftp.try_exists(path).await.unwrap_or(false) {
+                if self.browse.try_exists(path).await.unwrap_or(false) {
                     Err(Error::Path {
                         path: path.to_string(),
                         reason: PathProblem::AlreadyExists,
@@ -379,7 +527,7 @@ impl SftpSession {
         // Servers differ on whether rename replaces the target. Asking first
         // means the answer is the same everywhere, and a typo in a new name
         // never removes a file nobody mentioned.
-        if self.sftp.try_exists(to).await.unwrap_or(false) {
+        if self.browse.try_exists(to).await.unwrap_or(false) {
             return Err(Error::Path {
                 path: to.to_string(),
                 reason: PathProblem::AlreadyExists,
@@ -390,7 +538,7 @@ impl SftpSession {
             LogDirection::Sent,
             format!("rename {from} -> {to}"),
         );
-        self.sftp
+        self.browse
             .rename(from, to)
             .await
             .map_err(|source| path_error(from, source))
@@ -400,7 +548,7 @@ impl SftpSession {
     pub async fn measure(&self, path: &str) -> Result<Measurement> {
         let mut measured = Measurement::default();
         let meta = self
-            .sftp
+            .browse
             .symlink_metadata(path)
             .await
             .map_err(|source| path_error(path, source))?;
@@ -421,7 +569,7 @@ impl SftpSession {
                 measured.truncated = true;
                 return Ok(measured);
             }
-            let Ok(entries) = self.sftp.read_dir(directory.clone()).await else {
+            let Ok(entries) = self.browse.read_dir(directory.clone()).await else {
                 continue;
             };
             for entry in entries {
@@ -455,7 +603,7 @@ impl SftpSession {
     /// inside out. Links are unlinked, never followed.
     pub async fn remove(&self, path: &str) -> Result<()> {
         let meta = self
-            .sftp
+            .browse
             .symlink_metadata(path)
             .await
             .map_err(|source| path_error(path, source))?;
@@ -464,7 +612,7 @@ impl SftpSession {
             self.events
                 .log(&self.endpoint, LogDirection::Sent, format!("remove {path}"));
             return self
-                .sftp
+                .browse
                 .remove_file(path)
                 .await
                 .map_err(|source| path_error(path, source));
@@ -477,7 +625,7 @@ impl SftpSession {
         while let Some(directory) = pending.pop() {
             directories.push(directory.clone());
             let entries = self
-                .sftp
+                .browse
                 .read_dir(directory.clone())
                 .await
                 .map_err(|source| path_error(&directory, source))?;
@@ -490,7 +638,7 @@ impl SftpSession {
                 if kind_of(entry.file_type()) == EntryKind::Directory {
                     pending.push(child);
                 } else {
-                    self.sftp
+                    self.browse
                         .remove_file(&child)
                         .await
                         .map_err(|source| path_error(&child, source))?;
@@ -504,7 +652,7 @@ impl SftpSession {
             format!("rmdir {} director(ies)", directories.len()),
         );
         for directory in directories.into_iter().rev() {
-            self.sftp
+            self.browse
                 .remove_dir(&directory)
                 .await
                 .map_err(|source| path_error(&directory, source))?;
@@ -519,7 +667,7 @@ impl SftpSession {
     /// would reach outside what the user selected.
     pub async fn set_permissions(&self, path: &str, mode: u32, recursive: bool) -> Result<()> {
         let meta = self
-            .sftp
+            .browse
             .symlink_metadata(path)
             .await
             .map_err(|source| path_error(path, source))?;
@@ -539,7 +687,7 @@ impl SftpSession {
 
         let mut pending = vec![path.to_string()];
         while let Some(directory) = pending.pop() {
-            let Ok(entries) = self.sftp.read_dir(directory.clone()).await else {
+            let Ok(entries) = self.browse.read_dir(directory.clone()).await else {
                 continue;
             };
             for entry in entries {
@@ -568,7 +716,108 @@ impl SftpSession {
             permissions: Some(mode & 0o777),
             ..Default::default()
         };
-        self.sftp
+        self.browse
+            .set_metadata(path, attributes)
+            .await
+            .map_err(|source| path_error(path, source))
+    }
+
+    /// Opens a file for reading on a transfer channel, positioned at `offset`.
+    ///
+    /// The channel is held for as long as the reader lives, which is the whole
+    /// transfer. That is what the concurrency limit counts.
+    pub async fn open_read(&self, path: &str, offset: u64) -> Result<(Reader, Lease<'_>)> {
+        use tokio::io::AsyncSeekExt;
+
+        let lease = self.lease().await?;
+        let mut file = lease
+            .sftp()
+            .open(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+        if offset > 0 {
+            file.seek(std::io::SeekFrom::Start(offset))
+                .await
+                .map_err(Error::other)?;
+        }
+        Ok((Reader::Sftp(Box::new(file)), lease))
+    }
+
+    /// Opens a file for writing on a transfer channel, positioned at `offset`.
+    ///
+    /// An upload that continues must not truncate — that is the point of
+    /// continuing. Starting from zero truncates, because then the file is being
+    /// replaced.
+    pub async fn open_write(&self, path: &str, offset: u64) -> Result<(Writer, Lease<'_>)> {
+        use russh_sftp::protocol::OpenFlags;
+        use tokio::io::AsyncSeekExt;
+
+        let lease = self.lease().await?;
+        let flags = if offset > 0 {
+            OpenFlags::CREATE | OpenFlags::WRITE
+        } else {
+            OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE
+        };
+        let mut file = lease
+            .sftp()
+            .open_with_flags(path, flags)
+            .await
+            .map_err(|source| path_error(path, source))?;
+        if offset > 0 {
+            file.seek(std::io::SeekFrom::Start(offset))
+                .await
+                .map_err(Error::other)?;
+        }
+        Ok((Writer::Sftp(Box::new(file)), lease))
+    }
+
+    /// Renames over whatever is there.
+    ///
+    /// SFTP version 3 refuses to rename onto an existing name, so the old file
+    /// is removed first. Between the two calls the target is briefly absent —
+    /// unavoidable without the newer posix-rename extension, and still better
+    /// than writing a half file under the final name from the start.
+    pub async fn replace(&self, from: &str, to: &str) -> Result<()> {
+        if self.browse.try_exists(to).await.unwrap_or(false) {
+            let _ = self.browse.remove_file(to).await;
+        }
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("rename {from} -> {to}"),
+        );
+        self.browse
+            .rename(from, to)
+            .await
+            .map_err(|source| path_error(from, source))
+    }
+
+    /// Size and modification time, for deciding whether a resume is safe.
+    pub async fn stat(&self, path: &str) -> Result<(u64, Option<i64>)> {
+        let meta = self
+            .browse
+            .metadata(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+        Ok((meta.size.unwrap_or(0), meta.mtime.map(i64::from)))
+    }
+
+    /// Carries a modification time across a transfer.
+    pub async fn set_modified(&self, path: &str, seconds: i64) -> Result<()> {
+        let existing = self
+            .browse
+            .metadata(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+        let attributes = russh_sftp::protocol::FileAttributes {
+            // Access time comes along because the protocol sets both or
+            // neither; keeping the one already there is the closest to leaving
+            // it alone.
+            atime: existing.atime,
+            mtime: u32::try_from(seconds).ok(),
+            ..Default::default()
+        };
+        self.browse
             .set_metadata(path, attributes)
             .await
             .map_err(|source| path_error(path, source))
@@ -576,9 +825,11 @@ impl SftpSession {
 
     /// Closes the connection. Failing to say goodbye politely is not an error
     /// worth reporting — the socket goes either way.
-    pub async fn disconnect(&mut self) {
+    pub async fn disconnect(&self) {
         let _ = self
             .handle
+            .lock()
+            .await
             .disconnect(Disconnect::ByApplication, "", "en")
             .await;
         self.events

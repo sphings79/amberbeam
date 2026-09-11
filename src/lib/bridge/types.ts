@@ -105,6 +105,7 @@ export type CoreError =
       knownFingerprint: string;
     }
   | { kind: "path"; path: string; reason: PathProblem }
+  | { kind: "source-changed" }
   | { kind: "disconnected" }
   | { kind: "not-connected" }
   | { kind: "other"; detail: string };

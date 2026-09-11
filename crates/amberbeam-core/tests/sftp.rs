@@ -36,10 +36,14 @@
 use std::path::{Path, PathBuf};
 
 use amberbeam_core::endpoint::EndpointId;
+use amberbeam_core::endpoint::Protocol;
+use amberbeam_core::engine::Progress;
 use amberbeam_core::error::{Error, PathProblem};
 use amberbeam_core::events::{Event, Events, LogDirection};
 use amberbeam_core::fs::EntryKind;
+use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision, SftpSession};
+use amberbeam_core::transfer::ResumeMarker;
 
 /// Defaults match the server `dev/test-sftp-server.sh` starts. Overridable, so
 /// the same tests can be pointed at a real server elsewhere — which is worth
@@ -124,6 +128,8 @@ fn params(
         method,
         host_key,
         known_hosts: Some(known_hosts.to_string_lossy().into_owned()),
+        concurrency: 4,
+        retries: 5,
     }
 }
 
@@ -264,7 +270,7 @@ async fn accepting_the_fingerprint_connects_and_is_remembered() {
     let known_hosts = scratch_known_hosts("accept");
     let events = Events::new();
 
-    let mut session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
         .await
         .expect("connect after accepting the fingerprint");
     session.disconnect().await;
@@ -353,7 +359,7 @@ async fn a_key_file_connects() {
     }
     let events = Events::new();
 
-    let mut session = connect_ready(
+    let session = connect_ready(
         &host,
         port,
         AuthMethod::KeyFile {
@@ -404,7 +410,7 @@ async fn a_listing_carries_everything_the_panes_show() {
         return;
     }
     let events = Events::new();
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -472,7 +478,7 @@ async fn a_directory_without_permission_says_so() {
         return;
     }
     let events = Events::new();
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -497,7 +503,7 @@ async fn a_directory_without_permission_says_so() {
 async fn a_missing_directory_says_so() {
     let (host, port) = server_or_skip!("a_missing_directory");
     let events = Events::new();
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -522,7 +528,7 @@ async fn a_missing_directory_says_so() {
 async fn the_home_directory_comes_back_absolute() {
     let (host, port) = server_or_skip!("the_home_directory");
     let events = Events::new();
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -537,7 +543,7 @@ async fn the_server_log_fills_while_connecting() {
     let events = Events::new();
     let mut listener = events.subscribe();
 
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
     session.list_dir(&testdata()).await.expect("list");
@@ -572,7 +578,7 @@ async fn every_row_of_a_real_listing_is_complete() {
     // actually send, and SFTP implementations differ.
     let (host, port) = server_or_skip!("every_row_of_a_real_listing");
     let events = Events::new();
-    let mut session = connect_ready(&host, port, password(), &events)
+    let session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -673,7 +679,6 @@ async fn folders_and_files_can_be_made_renamed_and_removed() {
         3
     );
 
-    let mut session = session;
     session.remove(&base).await.expect("remove the tree");
     assert!(matches!(
         session.list_dir(&base).await,
@@ -716,7 +721,6 @@ async fn a_tree_is_measured_and_then_removed_whole() {
 
     // SFTP has no recursive delete; the tree has to be emptied from the
     // inside out, and a directory that is not empty cannot be removed.
-    let mut session = session;
     session.remove(&base).await.expect("remove");
     assert!(matches!(
         session.list_dir(&base).await,
@@ -787,7 +791,298 @@ async fn permissions_are_set_through_a_tree() {
         "a single change must not reach into the folder"
     );
 
-    let mut session = session;
     session.remove(&base).await.expect("clean up");
     session.disconnect().await;
+}
+
+/// A registry with the local disk and one server, the way the window has it.
+async fn two_endpoints(host: &str, port: u16, events: &Events) -> Option<(Sessions, EndpointId)> {
+    let sessions = Sessions::new(events.clone());
+    let server = EndpointId::new("server");
+    let shared = shared_known_hosts();
+
+    // The acceptance dance once, then hand the same decision to the registry.
+    let probe = connect_ready(host, port, password(), events).await.ok()?;
+    probe.disconnect().await;
+
+    let mut params = params(host, port, password(), &shared, HostKeyDecision::KnownOnly);
+    params.concurrency = 4;
+    sessions.connect_sftp(&server, &params).await.ok()?;
+    Some((sessions, server))
+}
+
+fn scratch_file(name: &str, contents: &[u8]) -> String {
+    let path = std::env::temp_dir().join(format!("amberbeam-transfer-{name}"));
+    std::fs::write(&path, contents).expect("write scratch file");
+    path.to_string_lossy().into_owned()
+}
+
+#[tokio::test]
+async fn a_file_travels_to_the_server_and_back() {
+    let (host, port) = server_or_skip!("a_file_travels");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+
+    let contents = b"0123456789".repeat(5_000); // 50 kB, more than one chunk
+    let source = scratch_file("up.bin", &contents);
+    let remote = format!("{}/amberbeam-transfer.bin", testdata());
+    let back = scratch_file("down.bin", b"");
+
+    // Up.
+    let progress = Progress::new(None, 0);
+    let up = TransferRun {
+        source_endpoint: local.clone(),
+        source_path: source.clone(),
+        target_endpoint: server.clone(),
+        target_path: remote.clone(),
+        resume: None,
+        keep_modified: true,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+    let done = sessions.transfer(&up, &progress).await.expect("upload");
+    assert!(done.complete);
+    assert_eq!(progress.done(), contents.len() as u64);
+
+    // The partial name must be gone: a finished file wears its own name.
+    let listing = sessions.list_dir(&server, &testdata()).await.expect("list");
+    assert!(!listing.entries.iter().any(|e| e.name.ends_with(".ampart")));
+    let uploaded = listing
+        .entries
+        .iter()
+        .find(|e| e.name == "amberbeam-transfer.bin")
+        .expect("the uploaded file");
+    assert_eq!(uploaded.size, Some(contents.len() as u64));
+
+    // And back down.
+    let progress = Progress::new(None, 0);
+    let down = TransferRun {
+        source_endpoint: server.clone(),
+        source_path: remote.clone(),
+        target_endpoint: local.clone(),
+        target_path: back.clone(),
+        resume: None,
+        keep_modified: true,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+    sessions.transfer(&down, &progress).await.expect("download");
+    assert_eq!(std::fs::read(&back).expect("read back"), contents);
+
+    sessions.remove(&server, &remote).await.expect("clean up");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&back);
+}
+
+#[tokio::test]
+async fn a_broken_download_carries_on_where_it_stopped() {
+    let (host, port) = server_or_skip!("a_broken_download");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+
+    // Distinct bytes, so a wrong offset shows up as wrong content rather than
+    // merely as a wrong length.
+    let contents: Vec<u8> = (0..200_000_u32).map(|index| (index % 251) as u8).collect();
+    let source = scratch_file("resume-source.bin", &contents);
+    let remote = format!("{}/amberbeam-resume.bin", testdata());
+    let target = scratch_file("resume-target.bin", b"");
+
+    let run = TransferRun {
+        source_endpoint: local.clone(),
+        source_path: source.clone(),
+        target_endpoint: server.clone(),
+        target_path: remote.clone(),
+        resume: None,
+        keep_modified: true,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+    sessions
+        .transfer(&run, &Progress::new(None, 0))
+        .await
+        .expect("upload");
+
+    // The state a broken download leaves behind, built by hand rather than by
+    // racing a cancellation: the first part in the partial file, and a marker
+    // describing the source as it was. Cancelling mid-flight is covered by the
+    // engine's own tests, where no network can decide the timing.
+    let offset = 70_000_u64;
+    let session = sessions.find(&server).await.expect("session");
+    let (size, modified) = session.stat(&remote).await.expect("stat");
+    std::fs::write(format!("{target}.ampart"), &contents[..offset as usize]).expect("partial");
+
+    let progress = Progress::new(None, offset);
+    let rest = TransferRun {
+        source_endpoint: server.clone(),
+        source_path: remote.clone(),
+        target_endpoint: local.clone(),
+        target_path: target.clone(),
+        resume: Some(ResumeMarker {
+            offset,
+            source_size: size,
+            source_modified: modified,
+        }),
+        keep_modified: true,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+    let finished = sessions.transfer(&rest, &progress).await.expect("resume");
+
+    assert!(finished.complete);
+    assert_eq!(
+        std::fs::read(&target).expect("read"),
+        contents,
+        "the file has to be whole and identical, not merely the right length"
+    );
+    assert!(
+        !std::path::Path::new(&format!("{target}.ampart")).exists(),
+        "the partial name is gone once the file is whole"
+    );
+    assert_eq!(progress.done(), contents.len() as u64);
+
+    sessions.remove(&server, &remote).await.expect("clean up");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&target);
+}
+
+#[tokio::test]
+async fn a_cancelled_transfer_reports_where_to_pick_up() {
+    let (host, port) = server_or_skip!("a_cancelled_transfer");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+
+    let source = scratch_file("cancel.bin", &b"y".repeat(50_000));
+    let remote = format!("{}/amberbeam-cancel.bin", testdata());
+
+    // Cancelled before a single chunk moves, which is the one moment the test
+    // can name exactly.
+    let progress = Progress::new(None, 0);
+    progress.cancel();
+
+    let run = TransferRun {
+        source_endpoint: local.clone(),
+        source_path: source.clone(),
+        target_endpoint: server.clone(),
+        target_path: remote.clone(),
+        resume: None,
+        keep_modified: false,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+    let stopped = sessions.transfer(&run, &progress).await.expect("cancelled");
+
+    assert!(!stopped.complete);
+    let marker = stopped.resume.expect("a place to pick up from");
+    assert_eq!(marker.offset, 0);
+    assert_eq!(marker.source_size, 50_000);
+
+    // Nothing under the final name: the file was never whole.
+    let listing = sessions.list_dir(&server, &testdata()).await.expect("list");
+    assert!(!listing
+        .entries
+        .iter()
+        .any(|entry| entry.name == "amberbeam-cancel.bin"));
+
+    let _ = sessions.remove(&server, &format!("{remote}.ampart")).await;
+    let _ = std::fs::remove_file(&source);
+}
+
+#[tokio::test]
+async fn a_source_that_changed_refuses_to_be_continued() {
+    let (host, port) = server_or_skip!("a_source_that_changed");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+
+    let source = scratch_file("changed.bin", &b"a".repeat(10_000));
+    let remote = format!("{}/amberbeam-changed.bin", testdata());
+
+    let run = TransferRun {
+        source_endpoint: local.clone(),
+        source_path: source.clone(),
+        target_endpoint: server.clone(),
+        target_path: remote.clone(),
+        // A marker from an earlier attempt, describing a source that no longer
+        // matches what is on disk.
+        resume: Some(ResumeMarker {
+            offset: 4_000,
+            source_size: 9_999,
+            source_modified: Some(1),
+        }),
+        keep_modified: true,
+        keep_permissions: false,
+        source_permissions: None,
+    };
+
+    let error = sessions
+        .transfer(&run, &Progress::new(None, 0))
+        .await
+        .expect_err("a changed source must not be appended to");
+    assert!(
+        matches!(error, Error::SourceChanged),
+        "expected the source to be refused, got {error:?}"
+    );
+
+    let _ = sessions.remove(&server, &remote).await;
+    let _ = std::fs::remove_file(&source);
+}
+
+#[tokio::test]
+async fn the_connection_carries_several_transfers_at_once() {
+    let (host, port) = server_or_skip!("several_transfers");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+    let sessions = std::sync::Arc::new(sessions);
+
+    assert_eq!(
+        sessions.find(&server).await.expect("session").protocol(),
+        Protocol::Sftp
+    );
+
+    let mut running = Vec::new();
+    for index in 0..4 {
+        let sessions = std::sync::Arc::clone(&sessions);
+        let local = local.clone();
+        let server = server.clone();
+        let source = scratch_file(&format!("parallel-{index}.bin"), &b"x".repeat(40_000));
+        let remote = format!("{}/amberbeam-parallel-{index}.bin", testdata());
+        running.push(tokio::spawn(async move {
+            let run = TransferRun {
+                source_endpoint: local,
+                source_path: source.clone(),
+                target_endpoint: server,
+                target_path: remote.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                source_permissions: None,
+            };
+            let done = sessions
+                .transfer(&run, &Progress::new(None, 0))
+                .await
+                .expect("parallel upload");
+            let _ = std::fs::remove_file(&source);
+            (done.complete, remote)
+        }));
+    }
+
+    for task in running {
+        let (complete, remote) = task.await.expect("task");
+        assert!(complete);
+        sessions.remove(&server, &remote).await.expect("clean up");
+    }
 }

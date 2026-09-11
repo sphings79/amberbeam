@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use crate::error::{Error, PathProblem, Result};
 use crate::fs::{DirEntry, EntryKind, Listing, Permissions};
 use crate::ops::Measurement;
+use crate::stream::{Reader, Writer};
 
 /// A session on the machine the core runs on. Holds nothing: there is no
 /// connection to keep, and every call works from an absolute path.
@@ -210,6 +211,79 @@ impl LocalSession {
             }
         }
         Ok(())
+    }
+}
+
+impl LocalSession {
+    /// Opens a file for reading, positioned at `offset`.
+    pub async fn open_read(&self, path: &str, offset: u64) -> Result<Reader> {
+        use tokio::io::AsyncSeekExt;
+
+        let mut file = tokio::fs::File::open(path)
+            .await
+            .map_err(|source| at(path, source))?;
+        if offset > 0 {
+            file.seek(std::io::SeekFrom::Start(offset))
+                .await
+                .map_err(|source| at(path, source))?;
+        }
+        Ok(Reader::Local(file))
+    }
+
+    /// Opens a file for writing, positioned at `offset`.
+    ///
+    /// Writing at an offset never truncates: that is what continuing a broken
+    /// transfer means. Starting from zero does truncate, because then the file
+    /// is being replaced rather than continued.
+    pub async fn open_write(&self, path: &str, offset: u64) -> Result<Writer> {
+        use tokio::io::AsyncSeekExt;
+
+        let mut file = tokio::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(offset == 0)
+            .open(path)
+            .await
+            .map_err(|source| at(path, source))?;
+        if offset > 0 {
+            file.seek(std::io::SeekFrom::Start(offset))
+                .await
+                .map_err(|source| at(path, source))?;
+        }
+        Ok(Writer::Local(file))
+    }
+
+    /// Renames over whatever is there.
+    ///
+    /// The opposite of [`LocalSession::rename`], which refuses to overwrite:
+    /// this is the last step of a transfer, where replacing the old file is
+    /// exactly the intention.
+    pub async fn replace(&self, from: &str, to: &str) -> Result<()> {
+        tokio::fs::rename(from, to)
+            .await
+            .map_err(|source| at(from, source))
+    }
+
+    /// Size and modification time, for deciding whether a resume is safe.
+    pub async fn stat(&self, path: &str) -> Result<(u64, Option<i64>)> {
+        let meta = tokio::fs::metadata(path)
+            .await
+            .map_err(|source| at(path, source))?;
+        Ok((meta.len(), modified_seconds(&meta)))
+    }
+
+    /// Sets a file's modification time, for carrying it across a transfer.
+    pub async fn set_modified(&self, path: &str, seconds: i64) -> Result<()> {
+        let when = if seconds >= 0 {
+            std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds as u64)
+        } else {
+            std::time::UNIX_EPOCH - std::time::Duration::from_secs(seconds.unsigned_abs())
+        };
+        let file = std::fs::File::options()
+            .write(true)
+            .open(path)
+            .map_err(|source| at(path, source))?;
+        file.set_modified(when).map_err(|source| at(path, source))
     }
 }
 

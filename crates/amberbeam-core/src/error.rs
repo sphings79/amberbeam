@@ -38,6 +38,10 @@ pub enum Error {
     },
     /// A path could not be listed, read or written.
     Path { path: String, reason: PathProblem },
+    /// The source changed since the transfer broke off, so continuing would
+    /// stitch two versions together. The window has to ask before anything
+    /// else happens.
+    SourceChanged,
     /// The connection was lost while something was in flight.
     Disconnected,
     /// The endpoint asked for is not connected.
@@ -80,6 +84,7 @@ impl Error {
             Error::HostKeyUnknown { .. } => "error.host-key-unknown",
             Error::HostKeyChanged { .. } => "error.host-key-changed",
             Error::Path { .. } => "error.path",
+            Error::SourceChanged => "error.source-changed",
             Error::Disconnected => "error.disconnected",
             Error::NotConnected => "error.not-connected",
             Error::Other { .. } => "error.other",
