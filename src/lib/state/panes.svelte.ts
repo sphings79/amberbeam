@@ -33,6 +33,8 @@ export interface PaneState {
   showHidden: boolean;
   /** Whether the folder tree beside the list is shown. */
   showTree: boolean;
+  /** Name of the row being renamed in place, or null. */
+  renaming: string | null;
   busy: boolean;
   /** Set when the last attempt failed, so the pane can say so. */
   failure: unknown;
@@ -51,8 +53,12 @@ function emptyPane(): PaneState {
     cursor: 0,
     sortBy: "name",
     sortAscending: true,
-    showHidden: false,
+    // Shown by default. This is a file transfer client, and the files its
+    // users came for — .htaccess, .env, .gitignore — all begin with a dot.
+    // Hiding them by default would hide the point of the program.
+    showHidden: true,
     showTree: true,
+    renaming: null,
     busy: false,
     failure: null,
     expanded: new Set<string>(),
@@ -153,6 +159,7 @@ export async function navigate(side: Side, path: string): Promise<void> {
     state.entries = listing.entries;
     state.selected = new Set<string>();
     state.cursor = 0;
+    state.renaming = null;
     if (state.historyId) {
       // Remembering where a server was left is what makes reconnecting feel
       // like coming back rather than starting over.
@@ -219,6 +226,45 @@ export function setSort(side: Side, column: SortColumn): void {
 
 export function toggleHidden(side: Side): void {
   panes[side].showHidden = !panes[side].showHidden;
+}
+
+export function setHiddenVisible(side: Side, visible: boolean): void {
+  panes[side].showHidden = visible;
+}
+
+/** The row the keyboard is on, if there is one. */
+export function currentEntry(side: Side): DirEntry | null {
+  const rows = visibleEntries(side);
+  return rows[panes[side].cursor] ?? null;
+}
+
+/**
+ * What an operation applies to: the marked rows, or the one under the cursor.
+ *
+ * Marking a row and then operating on the one under the cursor instead is the
+ * kind of surprise that deletes the wrong thing, so marks win whenever there
+ * are any.
+ */
+export function targets(side: Side): DirEntry[] {
+  const state = panes[side];
+  if (state.selected.size > 0) {
+    return visibleEntries(side).filter((entry) => state.selected.has(entry.name));
+  }
+  const entry = currentEntry(side);
+  return entry ? [entry] : [];
+}
+
+/** The name being renamed in place, or null. */
+export function renaming(side: Side): string | null {
+  return panes[side].renaming;
+}
+
+export function startRename(side: Side, name: string): void {
+  panes[side].renaming = name;
+}
+
+export function stopRename(side: Side): void {
+  panes[side].renaming = null;
 }
 
 export function toggleTree(side: Side): void {

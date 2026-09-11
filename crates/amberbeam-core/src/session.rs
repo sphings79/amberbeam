@@ -12,6 +12,7 @@ use crate::endpoint::Protocol;
 use crate::error::Result;
 use crate::fs::{self, Listing};
 use crate::local::LocalSession;
+use crate::ops::Measurement;
 use crate::sftp::SftpSession;
 
 /// An open session on one endpoint.
@@ -60,6 +61,49 @@ impl Session {
         match self {
             Session::Local(session) => session.join(directory, name),
             Session::Sftp(_) => fs::join_remote(directory, name),
+        }
+    }
+
+    pub async fn create_dir(&self, path: &str) -> Result<()> {
+        match self {
+            Session::Local(session) => session.create_dir(path).await,
+            Session::Sftp(session) => session.create_dir(path).await,
+        }
+    }
+
+    pub async fn create_file(&self, path: &str) -> Result<()> {
+        match self {
+            Session::Local(session) => session.create_file(path).await,
+            Session::Sftp(session) => session.create_file(path).await,
+        }
+    }
+
+    pub async fn rename(&self, from: &str, to: &str) -> Result<()> {
+        match self {
+            Session::Local(session) => session.rename(from, to).await,
+            Session::Sftp(session) => session.rename(from, to).await,
+        }
+    }
+
+    /// What a recursive delete would remove, so it can be shown before it is.
+    pub async fn measure(&self, path: &str) -> Result<Measurement> {
+        match self {
+            Session::Local(session) => session.measure(path).await,
+            Session::Sftp(session) => session.measure(path).await,
+        }
+    }
+
+    pub async fn remove(&self, path: &str) -> Result<()> {
+        match self {
+            Session::Local(session) => session.remove(path).await,
+            Session::Sftp(session) => session.remove(path).await,
+        }
+    }
+
+    pub async fn set_permissions(&self, path: &str, mode: u32, recursive: bool) -> Result<()> {
+        match self {
+            Session::Local(session) => session.set_permissions(path, mode, recursive).await,
+            Session::Sftp(session) => session.set_permissions(path, mode, recursive).await,
         }
     }
 

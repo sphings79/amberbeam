@@ -607,3 +607,187 @@ async fn every_row_of_a_real_listing_is_complete() {
     }
     session.disconnect().await;
 }
+
+#[tokio::test]
+async fn folders_and_files_can_be_made_renamed_and_removed() {
+    let (host, port) = server_or_skip!("folders_and_files");
+    let events = Events::new();
+    let session = connect_ready(&host, port, password(), &events)
+        .await
+        .expect("connect");
+
+    // A working directory of its own, so a failed run cannot take anything
+    // else with it.
+    let base = format!("{}/amberbeam-ops", testdata());
+    let _ = session.remove(&base).await;
+    session
+        .create_dir(&base)
+        .await
+        .expect("create the work directory");
+
+    session
+        .create_dir(&format!("{base}/images"))
+        .await
+        .expect("create a folder");
+    session
+        .create_file(&format!("{base}/notes.txt"))
+        .await
+        .expect("create a file");
+
+    let listing = session.list_dir(&base).await.expect("list");
+    assert_eq!(listing.entries.len(), 2);
+
+    // Creating over something that exists must not quietly replace it.
+    assert!(matches!(
+        session.create_file(&format!("{base}/notes.txt")).await,
+        Err(Error::Path {
+            reason: PathProblem::AlreadyExists,
+            ..
+        })
+    ));
+
+    session
+        .rename(&format!("{base}/notes.txt"), &format!("{base}/readme.txt"))
+        .await
+        .expect("rename");
+    let listing = session.list_dir(&base).await.expect("list");
+    assert!(listing.entries.iter().any(|e| e.name == "readme.txt"));
+    assert!(!listing.entries.iter().any(|e| e.name == "notes.txt"));
+
+    // Renaming onto an existing name is refused, both files survive.
+    session
+        .create_file(&format!("{base}/other.txt"))
+        .await
+        .expect("create");
+    assert!(matches!(
+        session
+            .rename(&format!("{base}/other.txt"), &format!("{base}/readme.txt"))
+            .await,
+        Err(Error::Path {
+            reason: PathProblem::AlreadyExists,
+            ..
+        })
+    ));
+    assert_eq!(
+        session.list_dir(&base).await.expect("list").entries.len(),
+        3
+    );
+
+    let mut session = session;
+    session.remove(&base).await.expect("remove the tree");
+    assert!(matches!(
+        session.list_dir(&base).await,
+        Err(Error::Path {
+            reason: PathProblem::NotFound,
+            ..
+        })
+    ));
+    session.disconnect().await;
+}
+
+#[tokio::test]
+async fn a_tree_is_measured_and_then_removed_whole() {
+    let (host, port) = server_or_skip!("a_tree_is_measured");
+    let events = Events::new();
+    let session = connect_ready(&host, port, password(), &events)
+        .await
+        .expect("connect");
+
+    let base = format!("{}/amberbeam-tree", testdata());
+    let _ = session.remove(&base).await;
+    session.create_dir(&base).await.expect("create");
+    session
+        .create_dir(&format!("{base}/inner"))
+        .await
+        .expect("create");
+    session
+        .create_file(&format!("{base}/one.txt"))
+        .await
+        .expect("create");
+    session
+        .create_file(&format!("{base}/inner/two.txt"))
+        .await
+        .expect("create");
+
+    let measured = session.measure(&base).await.expect("measure");
+    assert_eq!(measured.files, 2);
+    assert_eq!(measured.directories, 2, "the folder itself counts too");
+    assert!(!measured.is_at_cap());
+
+    // SFTP has no recursive delete; the tree has to be emptied from the
+    // inside out, and a directory that is not empty cannot be removed.
+    let mut session = session;
+    session.remove(&base).await.expect("remove");
+    assert!(matches!(
+        session.list_dir(&base).await,
+        Err(Error::Path {
+            reason: PathProblem::NotFound,
+            ..
+        })
+    ));
+    session.disconnect().await;
+}
+
+#[tokio::test]
+async fn permissions_are_set_through_a_tree() {
+    let (host, port) = server_or_skip!("permissions_are_set");
+    let events = Events::new();
+    let session = connect_ready(&host, port, password(), &events)
+        .await
+        .expect("connect");
+
+    let base = format!("{}/amberbeam-chmod", testdata());
+    let _ = session.remove(&base).await;
+    session.create_dir(&base).await.expect("create");
+    session
+        .create_dir(&format!("{base}/inner"))
+        .await
+        .expect("create");
+    session
+        .create_file(&format!("{base}/inner/file.txt"))
+        .await
+        .expect("create");
+
+    session
+        .set_permissions(&base, 0o750, true)
+        .await
+        .expect("set permissions");
+
+    let listing = session
+        .list_dir(&format!("{base}/inner"))
+        .await
+        .expect("list");
+    let file = listing
+        .entries
+        .iter()
+        .find(|e| e.name == "file.txt")
+        .expect("the file");
+    assert_eq!(
+        file.permissions.map(|p| p.to_rwx()),
+        Some("rwxr-x---".into())
+    );
+
+    // And not recursively, when not asked for.
+    session
+        .set_permissions(&format!("{base}/inner"), 0o700, false)
+        .await
+        .expect("set permissions");
+    let listing = session
+        .list_dir(&format!("{base}/inner"))
+        .await
+        .expect("list");
+    let file = listing
+        .entries
+        .iter()
+        .find(|e| e.name == "file.txt")
+        .expect("the file");
+    assert_eq!(
+        file.permissions.map(|p| p.to_rwx()),
+        Some("rwxr-x---".into()),
+        "a single change must not reach into the folder"
+    );
+
+    let mut session = session;
+    session.remove(&base).await.expect("clean up");
+    session.disconnect().await;
+}

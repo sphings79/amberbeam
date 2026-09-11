@@ -6,8 +6,10 @@
   import {
     isDirectory,
     pane,
+    renaming,
     setCursor,
     setSort,
+    stopRename,
     toggleSelection,
     visibleEntries,
     type Side,
@@ -18,9 +20,11 @@
   interface Props {
     side: Side;
     onenter: (entry: DirEntry) => void;
+    oncontext: (entry: DirEntry | null, x: number, y: number) => void;
+    onrename: (entry: DirEntry, to: string) => void;
   }
 
-  let { side, onenter }: Props = $props();
+  let { side, onenter, oncontext, onrename }: Props = $props();
 
   const ROW = 24;
 
@@ -86,6 +90,26 @@
       toggleSelection(side, entry.name);
     }
   }
+
+  function onRowContext(index: number, entry: DirEntry, event: MouseEvent): void {
+    event.preventDefault();
+    // A right click that lands outside the marked rows works on the row it hit,
+    // which is what every file manager does — and what stops a menu acting on
+    // something the user cannot see.
+    if (!view.selected.has(entry.name)) {
+      setCursor(side, index);
+    }
+    oncontext(entry, event.clientX, event.clientY);
+  }
+
+  function commitRename(entry: DirEntry, value: string): void {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== entry.name) {
+      onrename(entry, trimmed);
+    } else {
+      stopRename(side);
+    }
+  }
 </script>
 
 <div class="list">
@@ -107,7 +131,21 @@
     <span class="owner">{t("column.owner")}</span>
   </div>
 
-  <div class="scroller" bind:this={scroller} role="listbox" tabindex="-1" aria-label={view.path}>
+  <div
+    class="scroller"
+    bind:this={scroller}
+    role="listbox"
+    tabindex="-1"
+    aria-label={view.path}
+    oncontextmenu={(event) => {
+      // A right click on empty space still offers the commands that need no
+      // row — making a folder, for instance.
+      if (event.target === event.currentTarget) {
+        event.preventDefault();
+        oncontext(null, event.clientX, event.clientY);
+      }
+    }}
+  >
     {#if rows.length === 0}
       <p class="empty">{view.busy ? t("pane.loading") : t("pane.empty")}</p>
     {:else}
@@ -127,13 +165,38 @@
               tabindex="-1"
               onclick={(event) => onRowClick(item.index, entry, event)}
               ondblclick={() => onenter(entry)}
+              oncontextmenu={(event) => onRowContext(item.index, entry, event)}
               onkeydown={() => {}}
             >
               <span class="name" title={entry.linkTarget ?? entry.name}>
                 <span class="glyph" aria-hidden="true">
                   {isDirectory(entry) ? "▸" : entry.kind === "symlink" ? "↗" : "·"}
                 </span>
-                {entry.name}
+                {#if renaming(side) === entry.name}
+                  <!-- svelte-ignore a11y_autofocus -->
+                  <input
+                    class="rename"
+                    value={entry.name}
+                    autofocus
+                    autocomplete="off"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    onclick={(event) => event.stopPropagation()}
+                    ondblclick={(event) => event.stopPropagation()}
+                    onblur={(event) => commitRename(entry, event.currentTarget.value)}
+                    onkeydown={(event) => {
+                      event.stopPropagation();
+                      if (event.key === "Enter") {
+                        commitRename(entry, event.currentTarget.value);
+                      } else if (event.key === "Escape") {
+                        stopRename(side);
+                      }
+                    }}
+                  />
+                {:else}
+                  {entry.name}
+                {/if}
               </span>
               <span class="size">{isDirectory(entry) ? "—" : formatSize(entry.size)}</span>
               <span class="modified">{formatDate(entry.modified)}</span>
@@ -272,5 +335,21 @@
     padding: 18px;
     color: var(--text-faint);
     font-size: 0.84rem;
+  }
+
+  .rename {
+    font: inherit;
+    font-size: 0.82rem;
+    width: calc(100% - 16px);
+    padding: 1px 4px;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    background: var(--surface-1);
+    color: var(--text);
+  }
+
+  .rename:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-ring);
   }
 </style>

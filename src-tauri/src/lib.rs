@@ -13,6 +13,7 @@ use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
 use amberbeam_core::fs::Listing;
+use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::registry::{Connected, Sessions};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
 use amberbeam_core::{CoreInfo, Events};
@@ -162,6 +163,102 @@ async fn join_path(
         .await
 }
 
+/// Joins a directory and a name, refusing anything that is not a plain name.
+///
+/// The name comes from a text box. A name carrying a separator or `..` would
+/// land outside the directory the user is looking at — the same mistake as
+/// trusting a path a server sent, which section 12 names outright.
+async fn child_path(
+    state: &Arc<State>,
+    endpoint: &EndpointId,
+    directory: &str,
+    name: &str,
+) -> Result<String, Error> {
+    if !is_usable_name(name) {
+        return Err(Error::Path {
+            path: name.to_string(),
+            reason: amberbeam_core::error::PathProblem::Unknown,
+        });
+    }
+    state.sessions.join(endpoint, directory, name).await
+}
+
+#[tauri::command]
+async fn create_dir(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    directory: String,
+    name: String,
+) -> Result<(), Error> {
+    let endpoint = EndpointId::new(endpoint);
+    let path = child_path(&state, &endpoint, &directory, &name).await?;
+    state.sessions.create_dir(&endpoint, &path).await
+}
+
+#[tauri::command]
+async fn create_file(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    directory: String,
+    name: String,
+) -> Result<(), Error> {
+    let endpoint = EndpointId::new(endpoint);
+    let path = child_path(&state, &endpoint, &directory, &name).await?;
+    state.sessions.create_file(&endpoint, &path).await
+}
+
+#[tauri::command]
+async fn rename_entry(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    directory: String,
+    from: String,
+    to: String,
+) -> Result<(), Error> {
+    let endpoint = EndpointId::new(endpoint);
+    let source = child_path(&state, &endpoint, &directory, &from).await?;
+    let target = child_path(&state, &endpoint, &directory, &to).await?;
+    state.sessions.rename(&endpoint, &source, &target).await
+}
+
+#[tauri::command]
+async fn measure(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    path: String,
+) -> Result<Measurement, Error> {
+    state
+        .sessions
+        .measure(&EndpointId::new(endpoint), &path)
+        .await
+}
+
+#[tauri::command]
+async fn remove_entry(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    path: String,
+) -> Result<(), Error> {
+    state
+        .sessions
+        .remove(&EndpointId::new(endpoint), &path)
+        .await
+}
+
+#[tauri::command]
+async fn set_permissions(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    path: String,
+    mode: u32,
+    recursive: bool,
+) -> Result<(), Error> {
+    state
+        .sessions
+        .set_permissions(&EndpointId::new(endpoint), &path, mode, recursive)
+        .await
+}
+
 #[tauri::command]
 fn quick_connect_history(state: tauri::State<'_, Arc<State>>) -> Vec<QuickConnectEntry> {
     state.config.quick_connect()
@@ -270,6 +367,12 @@ pub fn run() {
             list_dir,
             parent_of,
             join_path,
+            create_dir,
+            create_file,
+            rename_entry,
+            measure,
+            remove_entry,
+            set_permissions,
             quick_connect_history,
             forget_quick_connect,
             save_as_site,

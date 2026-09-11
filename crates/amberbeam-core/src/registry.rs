@@ -15,6 +15,7 @@ use crate::error::{Error, Result};
 use crate::events::{Events, LogDirection};
 use crate::fs::Listing;
 use crate::local::LocalSession;
+use crate::ops::Measurement;
 use crate::session::Session;
 use crate::sftp::{ConnectParams, SftpSession};
 
@@ -122,6 +123,52 @@ impl Sessions {
         let session = self.find(endpoint).await?;
         let joined = session.lock().await.join(directory, name);
         Ok(joined)
+    }
+
+    pub async fn create_dir(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        let result = session.lock().await.create_dir(path).await;
+        result
+    }
+
+    pub async fn create_file(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        let result = session.lock().await.create_file(path).await;
+        result
+    }
+
+    pub async fn rename(&self, endpoint: &EndpointId, from: &str, to: &str) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        let result = session.lock().await.rename(from, to).await;
+        result
+    }
+
+    pub async fn measure(&self, endpoint: &EndpointId, path: &str) -> Result<Measurement> {
+        let session = self.find(endpoint).await?;
+        let result = session.lock().await.measure(path).await;
+        result
+    }
+
+    pub async fn remove(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        let result = session.lock().await.remove(path).await;
+        result
+    }
+
+    pub async fn set_permissions(
+        &self,
+        endpoint: &EndpointId,
+        path: &str,
+        mode: u32,
+        recursive: bool,
+    ) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        let result = session
+            .lock()
+            .await
+            .set_permissions(path, mode, recursive)
+            .await;
+        result
     }
 
     /// Closes a session. The local one stays: there is nothing to close, and a

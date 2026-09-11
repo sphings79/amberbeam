@@ -10,6 +10,7 @@ import type {
   CoreEvent,
   CoreInfo,
   Listing,
+  Measurement,
   QuickConnectEntry,
   Unsubscribe,
 } from "./types";
@@ -35,6 +36,18 @@ export const api: AmberBeamApi = {
     invoke<string | null>("parent_of", { endpoint, path }),
   joinPath: (endpoint: string, directory: string, name: string) =>
     invoke<string>("join_path", { endpoint, directory, name }),
+
+  createDir: (endpoint: string, directory: string, name: string) =>
+    invoke<void>("create_dir", { endpoint, directory, name }),
+  createFile: (endpoint: string, directory: string, name: string) =>
+    invoke<void>("create_file", { endpoint, directory, name }),
+  renameEntry: (endpoint: string, directory: string, from: string, to: string) =>
+    invoke<void>("rename_entry", { endpoint, directory, from, to }),
+  measure: (endpoint: string, path: string) => invoke<Measurement>("measure", { endpoint, path }),
+  removeEntry: (endpoint: string, path: string) =>
+    invoke<void>("remove_entry", { endpoint, path }),
+  setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
+    invoke<void>("set_permissions", { endpoint, path, mode, recursive }),
 
   quickConnectHistory: () => invoke<QuickConnectEntry[]>("quick_connect_history"),
   forgetQuickConnect: (id: string) => invoke<void>("forget_quick_connect", { id }),

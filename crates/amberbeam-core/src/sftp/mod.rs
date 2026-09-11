@@ -24,6 +24,7 @@ use crate::endpoint::EndpointId;
 use crate::error::{Error, PathProblem, Result};
 use crate::events::{ConnectionState, Events, LogDirection};
 use crate::fs::{join_remote, DirEntry, EntryKind, Listing, Permissions};
+use crate::ops::Measurement;
 
 pub use auth::AuthMethod;
 pub use hostkey::{fingerprint, HostKeyDecision};
@@ -325,6 +326,252 @@ impl SftpSession {
             path: path.to_string(),
             entries,
         })
+    }
+
+    pub async fn create_dir(&self, path: &str) -> Result<()> {
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("mkdir {path}"));
+        self.sftp
+            .create_dir(path)
+            .await
+            .map_err(|source| path_error(path, source))
+    }
+
+    /// Creates an empty file, and refuses to overwrite one that is there.
+    ///
+    /// `EXCLUDE` makes the server itself refuse an existing file. Asking first
+    /// and creating afterwards would leave a gap in which the file could
+    /// appear — and the whole point of this call is that nothing is lost.
+    pub async fn create_file(&self, path: &str) -> Result<()> {
+        use russh_sftp::protocol::OpenFlags;
+
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("create {path}"));
+        match self
+            .sftp
+            .open_with_flags(
+                path,
+                OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
+            )
+            .await
+        {
+            Ok(file) => {
+                let _ = file.close().await;
+                Ok(())
+            }
+            Err(source) => {
+                // Servers disagree on which status an existing file earns —
+                // "failure" is as common as "file already exists" — so an
+                // existing file is recognised rather than guessed from the code.
+                if self.sftp.try_exists(path).await.unwrap_or(false) {
+                    Err(Error::Path {
+                        path: path.to_string(),
+                        reason: PathProblem::AlreadyExists,
+                    })
+                } else {
+                    Err(path_error(path, source))
+                }
+            }
+        }
+    }
+
+    pub async fn rename(&self, from: &str, to: &str) -> Result<()> {
+        // Servers differ on whether rename replaces the target. Asking first
+        // means the answer is the same everywhere, and a typo in a new name
+        // never removes a file nobody mentioned.
+        if self.sftp.try_exists(to).await.unwrap_or(false) {
+            return Err(Error::Path {
+                path: to.to_string(),
+                reason: PathProblem::AlreadyExists,
+            });
+        }
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("rename {from} -> {to}"),
+        );
+        self.sftp
+            .rename(from, to)
+            .await
+            .map_err(|source| path_error(from, source))
+    }
+
+    /// Counts what a recursive delete would remove, up to the cap.
+    pub async fn measure(&self, path: &str) -> Result<Measurement> {
+        let mut measured = Measurement::default();
+        let meta = self
+            .sftp
+            .symlink_metadata(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+
+        if meta.is_symlink() {
+            measured.add_symlink();
+            return Ok(measured);
+        }
+        if !meta.is_dir() {
+            measured.add_file(meta.size);
+            return Ok(measured);
+        }
+
+        let mut pending = vec![path.to_string()];
+        while let Some(directory) = pending.pop() {
+            measured.add_directory();
+            if measured.reached_cap() {
+                measured.truncated = true;
+                return Ok(measured);
+            }
+            let Ok(entries) = self.sftp.read_dir(directory.clone()).await else {
+                continue;
+            };
+            for entry in entries {
+                let name = entry.file_name();
+                if name == "." || name == ".." {
+                    continue;
+                }
+                let child = join_remote(&directory, &name);
+                match kind_of(entry.file_type()) {
+                    // Counted as a link, never walked into: what it points at
+                    // is not part of what would be removed.
+                    EntryKind::Symlink => measured.add_symlink(),
+                    EntryKind::Directory => {
+                        pending.push(child);
+                        continue;
+                    }
+                    _ => measured.add_file(entry.metadata().size),
+                }
+                if measured.reached_cap() {
+                    measured.truncated = true;
+                    return Ok(measured);
+                }
+            }
+        }
+        Ok(measured)
+    }
+
+    /// Removes a file, a link, or a whole directory.
+    ///
+    /// SFTP has no recursive delete, so the tree is walked and emptied from the
+    /// inside out. Links are unlinked, never followed.
+    pub async fn remove(&self, path: &str) -> Result<()> {
+        let meta = self
+            .sftp
+            .symlink_metadata(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+
+        if meta.is_symlink() || !meta.is_dir() {
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("remove {path}"));
+            return self
+                .sftp
+                .remove_file(path)
+                .await
+                .map_err(|source| path_error(path, source));
+        }
+
+        // Depth first, deepest last in the list, so directories are emptied
+        // before they are removed.
+        let mut directories = Vec::new();
+        let mut pending = vec![path.to_string()];
+        while let Some(directory) = pending.pop() {
+            directories.push(directory.clone());
+            let entries = self
+                .sftp
+                .read_dir(directory.clone())
+                .await
+                .map_err(|source| path_error(&directory, source))?;
+            for entry in entries {
+                let name = entry.file_name();
+                if name == "." || name == ".." {
+                    continue;
+                }
+                let child = join_remote(&directory, &name);
+                if kind_of(entry.file_type()) == EntryKind::Directory {
+                    pending.push(child);
+                } else {
+                    self.sftp
+                        .remove_file(&child)
+                        .await
+                        .map_err(|source| path_error(&child, source))?;
+                }
+            }
+        }
+
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("rmdir {} director(ies)", directories.len()),
+        );
+        for directory in directories.into_iter().rev() {
+            self.sftp
+                .remove_dir(&directory)
+                .await
+                .map_err(|source| path_error(&directory, source))?;
+        }
+        Ok(())
+    }
+
+    /// Sets the nine permission bits, optionally through a whole tree.
+    ///
+    /// Links are skipped. SFTP version 3 has no way to set a link's own
+    /// attributes, so the only thing on offer is changing the target's — which
+    /// would reach outside what the user selected.
+    pub async fn set_permissions(&self, path: &str, mode: u32, recursive: bool) -> Result<()> {
+        let meta = self
+            .sftp
+            .symlink_metadata(path)
+            .await
+            .map_err(|source| path_error(path, source))?;
+        if meta.is_symlink() {
+            return Ok(());
+        }
+
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("setstat {path} {mode:o}"),
+        );
+        self.chmod(path, mode).await?;
+        if !recursive || !meta.is_dir() {
+            return Ok(());
+        }
+
+        let mut pending = vec![path.to_string()];
+        while let Some(directory) = pending.pop() {
+            let Ok(entries) = self.sftp.read_dir(directory.clone()).await else {
+                continue;
+            };
+            for entry in entries {
+                let name = entry.file_name();
+                if name == "." || name == ".." {
+                    continue;
+                }
+                let child = join_remote(&directory, &name);
+                match kind_of(entry.file_type()) {
+                    EntryKind::Symlink => continue,
+                    EntryKind::Directory => {
+                        let _ = self.chmod(&child, mode).await;
+                        pending.push(child);
+                    }
+                    _ => {
+                        let _ = self.chmod(&child, mode).await;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn chmod(&self, path: &str, mode: u32) -> Result<()> {
+        let attributes = russh_sftp::protocol::FileAttributes {
+            permissions: Some(mode & 0o777),
+            ..Default::default()
+        };
+        self.sftp
+            .set_metadata(path, attributes)
+            .await
+            .map_err(|source| path_error(path, source))
     }
 
     /// Closes the connection. Failing to say goodbye politely is not an error

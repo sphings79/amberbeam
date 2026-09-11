@@ -9,7 +9,9 @@
     openSession,
     pane,
     reload,
+    setHiddenVisible,
     setTreeVisible,
+    startRename,
     switchFocus,
     toggleSelection,
     visibleEntries,
@@ -75,6 +77,7 @@
             logPosition?: Position;
             queuePosition?: Position;
             showTree?: { left?: boolean; right?: boolean };
+            showHidden?: { left?: boolean; right?: boolean };
           }
         | null;
       if (saved?.logHeight) logHeight = saved.logHeight;
@@ -85,6 +88,10 @@
       if (saved?.showTree) {
         setTreeVisible("left", saved.showTree.left ?? true);
         setTreeVisible("right", saved.showTree.right ?? true);
+      }
+      if (saved?.showHidden) {
+        setHiddenVisible("left", saved.showHidden.left ?? true);
+        setHiddenVisible("right", saved.showHidden.right ?? true);
       }
       await openSession("left", local, null, null, saved?.leftPath ?? null);
       await openSession("right", local, null, null, null);
@@ -108,6 +115,7 @@
       logPosition,
       queuePosition,
       showTree: { left: pane("left").showTree, right: pane("right").showTree },
+      showHidden: { left: pane("left").showHidden, right: pane("right").showHidden },
       leftPath: pane("left").endpoint === LOCAL ? pane("left").path : undefined,
     };
     void api.setUiState(state).catch(() => undefined);
@@ -214,6 +222,15 @@
         event.preventDefault();
         await reload(side);
         break;
+      case "F2": {
+        // Renaming happens in the row itself; the pane picks it up from here.
+        const entry = rows[view.cursor];
+        if (entry) {
+          event.preventDefault();
+          startRename(side, entry.name);
+        }
+        break;
+      }
       default:
         break;
     }

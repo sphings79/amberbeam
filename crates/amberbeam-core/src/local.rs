@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{Error, PathProblem, Result};
 use crate::fs::{DirEntry, EntryKind, Listing, Permissions};
+use crate::ops::Measurement;
 
 /// A session on the machine the core runs on. Holds nothing: there is no
 /// connection to keep, and every call works from an absolute path.
@@ -70,6 +71,161 @@ impl LocalSession {
             .to_string_lossy()
             .into_owned()
     }
+
+    pub async fn create_dir(&self, path: &str) -> Result<()> {
+        tokio::fs::create_dir(path)
+            .await
+            .map_err(|source| at(path, source))
+    }
+
+    /// Creates an empty file, and refuses to overwrite one that is there.
+    pub async fn create_file(&self, path: &str) -> Result<()> {
+        tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .await
+            .map(|_| ())
+            .map_err(|source| at(path, source))
+    }
+
+    pub async fn rename(&self, from: &str, to: &str) -> Result<()> {
+        // Checked first: rename replaces the target without a word, and a
+        // typo in a new name would then delete a file nobody mentioned.
+        if tokio::fs::symlink_metadata(to).await.is_ok() {
+            return Err(Error::Path {
+                path: to.to_string(),
+                reason: PathProblem::AlreadyExists,
+            });
+        }
+        tokio::fs::rename(from, to)
+            .await
+            .map_err(|source| at(from, source))
+    }
+
+    /// Counts what a recursive delete would remove, up to the cap.
+    pub async fn measure(&self, path: &str) -> Result<Measurement> {
+        let mut measured = Measurement::default();
+        let meta = tokio::fs::symlink_metadata(path)
+            .await
+            .map_err(|source| at(path, source))?;
+
+        if meta.file_type().is_symlink() {
+            measured.add_symlink();
+            return Ok(measured);
+        }
+        if meta.is_file() {
+            measured.add_file(Some(meta.len()));
+            return Ok(measured);
+        }
+
+        let mut pending = vec![PathBuf::from(path)];
+        while let Some(directory) = pending.pop() {
+            measured.add_directory();
+            if measured.reached_cap() {
+                measured.truncated = true;
+                return Ok(measured);
+            }
+            let Ok(mut reader) = tokio::fs::read_dir(&directory).await else {
+                // A directory that cannot be read is still going to be part of
+                // the attempt; refusing to count it must not refuse the warning.
+                continue;
+            };
+            while let Ok(Some(entry)) = reader.next_entry().await {
+                // symlink_metadata, not metadata: a link must be counted as a
+                // link, not as whatever it points at.
+                let Ok(meta) = tokio::fs::symlink_metadata(entry.path()).await else {
+                    continue;
+                };
+                if meta.file_type().is_symlink() {
+                    measured.add_symlink();
+                } else if meta.is_dir() {
+                    pending.push(entry.path());
+                    continue;
+                } else {
+                    measured.add_file(Some(meta.len()));
+                }
+                if measured.reached_cap() {
+                    measured.truncated = true;
+                    return Ok(measured);
+                }
+            }
+        }
+        Ok(measured)
+    }
+
+    /// Removes a file, a link, or a whole directory.
+    ///
+    /// Links are removed as links. Following one would delete whatever it
+    /// points at, which may be nowhere near what the user selected.
+    pub async fn remove(&self, path: &str) -> Result<()> {
+        let meta = tokio::fs::symlink_metadata(path)
+            .await
+            .map_err(|source| at(path, source))?;
+        if meta.file_type().is_symlink() || !meta.is_dir() {
+            tokio::fs::remove_file(path)
+                .await
+                .map_err(|source| at(path, source))
+        } else {
+            tokio::fs::remove_dir_all(path)
+                .await
+                .map_err(|source| at(path, source))
+        }
+    }
+
+    /// Sets the nine permission bits, optionally through a whole tree.
+    ///
+    /// Links are skipped: there is no portable way to change a link's own bits,
+    /// and changing the target's instead would reach outside the selection.
+    pub async fn set_permissions(&self, path: &str, mode: u32, recursive: bool) -> Result<()> {
+        let meta = tokio::fs::symlink_metadata(path)
+            .await
+            .map_err(|source| at(path, source))?;
+        if meta.file_type().is_symlink() {
+            return Ok(());
+        }
+
+        set_mode(path, mode).await?;
+        if !recursive || !meta.is_dir() {
+            return Ok(());
+        }
+
+        let mut pending = vec![PathBuf::from(path)];
+        while let Some(directory) = pending.pop() {
+            let Ok(mut reader) = tokio::fs::read_dir(&directory).await else {
+                continue;
+            };
+            while let Ok(Some(entry)) = reader.next_entry().await {
+                let child = entry.path();
+                let Ok(meta) = tokio::fs::symlink_metadata(&child).await else {
+                    continue;
+                };
+                if meta.file_type().is_symlink() {
+                    continue;
+                }
+                let _ = set_mode(&child.to_string_lossy(), mode).await;
+                if meta.is_dir() {
+                    pending.push(child);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(unix)]
+async fn set_mode(path: &str, mode: u32) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    tokio::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+        .await
+        .map_err(|source| at(path, source))
+}
+
+#[cfg(not(unix))]
+async fn set_mode(_path: &str, _mode: u32) -> Result<()> {
+    // Windows has no mode bits. Pretending to set them would be a lie the
+    // window then displays back.
+    Ok(())
 }
 
 fn at(path: &str, source: std::io::Error) -> Error {
@@ -277,6 +433,176 @@ mod tests {
         let entry = &listing.entries[0];
         assert_eq!(entry.permissions.unwrap().to_rwx(), "rw-------");
         assert!(entry.owner.is_some());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_folder_and_a_file_can_be_made_and_renamed() {
+        let root = scratch("create");
+        let session = LocalSession::new();
+        let base = root.to_string_lossy().into_owned();
+
+        session
+            .create_dir(&session.join(&base, "images"))
+            .await
+            .unwrap();
+        session
+            .create_file(&session.join(&base, "notes.txt"))
+            .await
+            .unwrap();
+
+        let listing = session.list_dir(&base).await.unwrap();
+        assert_eq!(listing.entries.len(), 2);
+
+        session
+            .rename(
+                &session.join(&base, "notes.txt"),
+                &session.join(&base, "readme.txt"),
+            )
+            .await
+            .unwrap();
+        let listing = session.list_dir(&base).await.unwrap();
+        assert!(listing.entries.iter().any(|e| e.name == "readme.txt"));
+        assert!(!listing.entries.iter().any(|e| e.name == "notes.txt"));
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn creating_something_that_is_there_does_not_overwrite_it() {
+        let root = scratch("create-twice");
+        let session = LocalSession::new();
+        let path = session.join(&root.to_string_lossy(), "keep.txt");
+        std::fs::write(&path, b"important").unwrap();
+
+        let error = session.create_file(&path).await.expect_err("must refuse");
+        assert!(matches!(
+            error,
+            Error::Path {
+                reason: PathProblem::AlreadyExists,
+                ..
+            }
+        ));
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "important");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn renaming_onto_an_existing_name_is_refused() {
+        let root = scratch("rename-clash");
+        let session = LocalSession::new();
+        let base = root.to_string_lossy().into_owned();
+        std::fs::write(session.join(&base, "a.txt"), b"a").unwrap();
+        std::fs::write(session.join(&base, "b.txt"), b"b").unwrap();
+
+        let error = session
+            .rename(&session.join(&base, "a.txt"), &session.join(&base, "b.txt"))
+            .await
+            .expect_err("must refuse");
+        assert!(matches!(
+            error,
+            Error::Path {
+                reason: PathProblem::AlreadyExists,
+                ..
+            }
+        ));
+        // Both are still there, with their own contents.
+        assert_eq!(
+            std::fs::read_to_string(session.join(&base, "b.txt")).unwrap(),
+            "b"
+        );
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn deleting_a_link_leaves_what_it_points_at_alone() {
+        let root = scratch("delete-link");
+        let session = LocalSession::new();
+        let base = root.to_string_lossy().into_owned();
+        let treasure = root.join("treasure");
+        std::fs::create_dir(&treasure).unwrap();
+        std::fs::write(treasure.join("gold.txt"), b"gold").unwrap();
+        std::os::unix::fs::symlink(&treasure, root.join("shortcut")).unwrap();
+
+        session
+            .remove(&session.join(&base, "shortcut"))
+            .await
+            .unwrap();
+
+        assert!(treasure.exists(), "the link's target must survive");
+        assert!(treasure.join("gold.txt").exists());
+        assert!(!root.join("shortcut").exists());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_measurement_counts_the_tree_before_it_is_removed() {
+        let root = scratch("measure");
+        let session = LocalSession::new();
+        std::fs::create_dir_all(root.join("a/b")).unwrap();
+        std::fs::write(root.join("one.txt"), b"12345").unwrap();
+        std::fs::write(root.join("a/two.txt"), b"123").unwrap();
+        std::fs::write(root.join("a/b/three.txt"), b"1").unwrap();
+
+        let measured = session.measure(&root.to_string_lossy()).await.unwrap();
+        assert_eq!(measured.files, 3);
+        assert_eq!(measured.directories, 3, "the folder itself counts too");
+        assert_eq!(measured.bytes, 9);
+        assert!(!measured.is_at_cap());
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn a_measurement_does_not_walk_into_a_link() {
+        let root = scratch("measure-link");
+        let session = LocalSession::new();
+        let elsewhere = root.join("elsewhere");
+        std::fs::create_dir(&elsewhere).unwrap();
+        for index in 0..5 {
+            std::fs::write(elsewhere.join(format!("{index}.txt")), b"x").unwrap();
+        }
+        let here = root.join("here");
+        std::fs::create_dir(&here).unwrap();
+        std::os::unix::fs::symlink(&elsewhere, here.join("link")).unwrap();
+
+        let measured = session.measure(&here.to_string_lossy()).await.unwrap();
+        assert_eq!(measured.symlinks, 1);
+        assert_eq!(measured.files, 0, "the files behind the link are not ours");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn permissions_can_be_set_through_a_whole_tree_except_links() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = scratch("chmod");
+        let session = LocalSession::new();
+        std::fs::create_dir_all(root.join("inner")).unwrap();
+        std::fs::write(root.join("inner/file.txt"), b"x").unwrap();
+        let outside = root.join("outside.txt");
+        std::fs::write(&outside, b"x").unwrap();
+        std::fs::set_permissions(&outside, std::fs::Permissions::from_mode(0o600)).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("inner/link")).unwrap();
+
+        session
+            .set_permissions(&root.join("inner").to_string_lossy(), 0o750, true)
+            .await
+            .unwrap();
+
+        let mode = |p: &std::path::Path| std::fs::metadata(p).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&root.join("inner")), 0o750);
+        assert_eq!(mode(&root.join("inner/file.txt")), 0o750);
+        // The link was skipped, so what it points at kept its own bits.
+        assert_eq!(mode(&outside), 0o600);
 
         std::fs::remove_dir_all(&root).unwrap();
     }

@@ -129,6 +129,16 @@ export type ConnectionState =
   | { state: "disconnected" }
   | { state: "failed"; error: CoreError };
 
+/** What a recursive delete is about to remove. */
+export interface Measurement {
+  files: number;
+  directories: number;
+  symlinks: number;
+  bytes: number;
+  /** True when counting stopped early, so the window says "more than". */
+  truncated: boolean;
+}
+
 /** Stops a subscription. */
 export type Unsubscribe = () => void;
 
@@ -159,6 +169,19 @@ export interface AmberBeamApi {
   listDir(endpoint: string, path: string): Promise<Listing>;
   parentOf(endpoint: string, path: string): Promise<string | null>;
   joinPath(endpoint: string, directory: string, name: string): Promise<string>;
+
+  createDir(endpoint: string, directory: string, name: string): Promise<void>;
+  createFile(endpoint: string, directory: string, name: string): Promise<void>;
+  renameEntry(endpoint: string, directory: string, from: string, to: string): Promise<void>;
+  /** Counts a tree before it is deleted, so the warning can say how much. */
+  measure(endpoint: string, path: string): Promise<Measurement>;
+  removeEntry(endpoint: string, path: string): Promise<void>;
+  setPermissions(
+    endpoint: string,
+    path: string,
+    mode: number,
+    recursive: boolean,
+  ): Promise<void>;
 
   quickConnectHistory(): Promise<QuickConnectEntry[]>;
   forgetQuickConnect(id: string): Promise<void>;
