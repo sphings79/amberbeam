@@ -117,6 +117,17 @@ Später: Verzeichnisabgleich, Vergleich beider Seiten, entferntes Bearbeiten,
 zeitgesteuerte Aufträge, die Container-Fassung, S3 und WebDAV — und FXP, falls
 es sich seinen Platz je verdient.
 
+## Dokumentation
+
+Kurze Seiten über das, was nicht offensichtlich ist, auf Deutsch und Englisch:
+
+- [Erste Schritte](docs/getting-started.de.md) — verbinden, Dateien bewegen, die Warteschlange
+- [Die Tastatur](docs/keyboard.de.md) — die Belegungen und das F-Tasten-Problem auf dem Mac
+- [Server mitbringen](docs/importing.de.md) — aus fünf anderen Programmen
+- [Wo die Geheimnisse liegen](docs/security.de.md) — Passwörter, Host-Keys, Zertifikate
+
+**F1** im Programm zeigt die Belegung, wie sie gerade eingestellt ist.
+
 ## Die drei Nähte
 
 Drei Entscheidungen mussten vor der ersten Zeile Code stimmen, weil sie

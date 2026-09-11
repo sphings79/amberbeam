@@ -111,6 +111,17 @@ Later: directory synchronisation, comparing both sides, remote editing,
 scheduled jobs, the container build, S3 and WebDAV — and FXP if it ever earns
 its place.
 
+## Documentation
+
+Short pages on the things that are not obvious, in English and German:
+
+- [Getting started](docs/getting-started.md) — connecting, moving files, the queue
+- [The keyboard](docs/keyboard.md) — the layouts, and the Mac function key problem
+- [Bringing your servers with you](docs/importing.md) — from five other programs
+- [Where the secrets are](docs/security.md) — passwords, host keys, certificates
+
+Pressing **F1** in the program shows the keys as they are set right now.
+
 ## The three seams
 
 Three decisions had to be right before the first line of code, because adding
