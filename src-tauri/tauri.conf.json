@@ -26,24 +26,24 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "app",
-      "dmg"
-    ],
+    "targets": "all",
     "category": "Utility",
     "copyright": "Copyright (c) 2026 sphings79. AGPL-3.0-or-later.",
-    "shortDescription": "Dual-pane FTP and SFTP client for macOS",
-    "longDescription": "AmberBeam is a dual-pane file transfer client for macOS in the tradition of FlashFXP: server log on top, two file panes in the middle, transfer queue at the bottom, and the keyboard in charge.",
+    "shortDescription": "Dual-pane FTP and SFTP client",
+    "longDescription": "AmberBeam is a dual-pane file transfer client in the tradition of FlashFXP: server log on top, two file panes with folder trees in the middle, transfer queue at the bottom, and the keyboard in charge. Runs on macOS, Windows and Linux, and as a container with a web interface.",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
-      "icons/icon.icns"
+      "icons/icon.icns",
+      "icons/icon.ico"
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-"
-    }
+    },
+    "publisher": "sphings79",
+    "licenseFile": "../LICENSE"
   }
 }

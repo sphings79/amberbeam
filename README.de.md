@@ -2,15 +2,15 @@
 
 <img src="assets/icon.svg" width="96" height="96" alt="AmberBeam Logo">
 
-# AmberBeam — Zweifenster-Client für FTP und SFTP auf dem Mac
+# AmberBeam — Zweifenster-Client für FTP und SFTP auf macOS, Windows und Linux
 
-**Ein Dateiübertragungsprogramm für macOS in der Tradition von FlashFXP.**
-Server-Log oben, zwei Dateibereiche in der Mitte, Warteschlange unten — und die
-Tastatur führt. Gebaut für alle, die von Windows auf den Mac gewechselt sind und
-für ihren Zweifenster-Client nie Ersatz gefunden haben.
+**Ein Dateiübertragungsprogramm in der Tradition von FlashFXP.** Server-Log
+oben, zwei Dateibereiche mit Ordnerbaum in der Mitte, Warteschlange unten — und
+die Tastatur führt. Als Programm auf macOS, Windows und Linux, und als Container
+mit Weboberfläche für den eigenen Server.
 
 [![Lizenz: AGPL v3](https://img.shields.io/badge/Lizenz-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
-[![Plattform](https://img.shields.io/badge/Plattform-macOS%2013%2B%20%C2%B7%20Apple%20Silicon-2b3040?style=flat-square)](#selbst-bauen)
+[![Plattformen](https://img.shields.io/badge/Plattformen-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#selbst-bauen)
 [![Kern in Rust](https://img.shields.io/badge/Kern-Rust-b7410e?style=flat-square)](https://www.rust-lang.org/)
 [![Oberfläche in Svelte](https://img.shields.io/badge/Oberfl%C3%A4che-Svelte%205-ff3e00?style=flat-square)](https://svelte.dev/)
 [![CI](https://img.shields.io/github/actions/workflow/status/sphings79/amberbeam/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sphings79/amberbeam/actions/workflows/ci.yml)
@@ -27,30 +27,33 @@ für ihren Zweifenster-Client nie Ersatz gefunden haben.
 ## Stand
 
 > **Meilenstein M0: Das Gerüst steht, übertragen wird noch nichts.**
-> Die Werkzeugkette ist bewiesen — das Projekt baut sich auf Apple Silicon zu
-> einer signierten `.dmg` — und die drei Architekturnähte, die nachträglich
-> teuer wären, sind angelegt. SFTP kommt mit M1, Übertragungen mit M2. Die
-> [Meilensteine](#meilensteine) sagen, was fertig ist und was nicht; dieses
-> Dokument behauptet nichts anderes.
+> Die Werkzeugkette ist bewiesen — die CI baut Programm und Installationspaket
+> bei jedem Push auf macOS, Windows und Linux — und die drei Architekturnähte,
+> die nachträglich teuer wären, sind angelegt. SFTP kommt mit M1, Übertragungen
+> mit M2. Die [Meilensteine](#meilensteine) sagen, was fertig ist und was nicht;
+> dieses Dokument behauptet nichts anderes.
 
-## Warum noch ein FTP-Programm für den Mac?
+## Warum noch ein Übertragungsprogramm?
 
 Transmit und ForkLift sind gute Programme. Sie sind aber durch und durch
 Mac-Programme. Was Umsteigern von Windows fehlt, ist keine Funktionsliste,
 sondern eine Reihe von **Handgriffen**: die Funktionstasten, der Fokuswechsel
-per Taste, die Warteschlange unten, der rohe Server-Log oben. Für dieses
-Muskelgedächtnis gibt es auf dem Mac bisher keinen Platz.
+per Taste, der Ordnerbaum neben jeder Liste, die Warteschlange unten, der rohe
+Server-Log oben. Für dieses Muskelgedächtnis gibt es bisher keinen Platz.
 
-Genau diese Lücke besetzt AmberBeam. Wo Mac-Konvention und FlashFXP-Gewohnheit
-kollidieren, **gewinnt die Gewohnheit** — solange das Programm dadurch nicht
-gegen das Betriebssystem kämpft. Wo es das täte, wirst du beim ersten Start
-gefragt.
+Genau diese Lücke besetzt AmberBeam. Wo Plattform-Konvention und
+FlashFXP-Gewohnheit kollidieren, **gewinnt die Gewohnheit** — solange das
+Programm dadurch nicht gegen das Betriebssystem kämpft. Wo es das täte, wirst du
+beim ersten Start gefragt.
+
+Dieselbe Überlegung trägt es nach Linux, wo es ebenfalls nichts Vergleichbares
+gibt, und zurück nach Windows, wo das Vorbild seit Jahren stillsteht.
 
 ## Bilder
 
 <div align="center">
 
-<img src="assets/screenshots/layout.svg" width="880" alt="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
+<img src="assets/screenshots/layout.svg" width="880" alt="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
 
 <em><strong>Das geplante Fenster</strong>, dunkel und hell in der Mitte
 auseinandergerissen. Gezeichnet, nicht fotografiert: Die Bereiche listen noch
@@ -77,15 +80,17 @@ Fassung 1, wie festgelegt:
   Commander und FlashFXP — niemand tippt dreißig Server neu ein
 - **PuTTY-Schlüssel (`.ppk`)** werden gelesen und umgewandelt. Das kann kein
   Mac-Client, und jeder Windows-Umsteiger braucht es
-- **Funktionstasten wie in FlashFXP**, frei belegbar, mit Einrichtungsdialog
-  beim ersten Start für das F-Tasten-Problem von macOS
+- **Funktionstasten wie in FlashFXP**, frei belegbar. Auf macOS, wo F1 bis F12
+  standardmäßig dem System gehören, bietet ein Dialog beim ersten Start drei
+  Wege an
+- **Zugangsdaten im Speicher des Systems** — Schlüsselbund auf macOS,
+  Anmeldeinformationsverwaltung auf Windows, Secret Service auf Linux. Nie in
+  einer Konfigurationsdatei
 - **Deutsch und Englisch**, hell, dunkel und Systemvorgabe, fünf Akzentfarben
-- **Keine Cloud, keine Konten, keine Telemetrie.** Passwörter liegen im
-  Schlüsselbund, nie in einer Konfigurationsdatei
+- **Keine Cloud, keine Konten, keine Telemetrie**
 
 Später: Verzeichnisabgleich, Vergleich beider Seiten, entferntes Bearbeiten,
-zeitgesteuerte Aufträge, FXP, eine Container-Fassung mit Weboberfläche, S3 und
-WebDAV.
+zeitgesteuerte Aufträge, FXP, die Container-Fassung, S3 und WebDAV.
 
 ## Die drei Nähte
 
@@ -104,31 +109,40 @@ so lange, wie alle sie erinnern.
 
 ## Selbst bauen
 
-Nötig sind Apples Command Line Tools, Rust und Node ab 22:
+Nötig sind auf jeder Plattform [Rust](https://rustup.rs) und Node ab 22, dazu
+das, was dein System zum Bauen eines nativen Fensters braucht:
 
-```sh
-xcode-select --install
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-brew install node
-```
+| | Zusätzlich |
+|---|---|
+| **macOS** | `xcode-select --install` |
+| **Windows** | Microsoft C++ Build Tools und die WebView2-Laufzeit (bei Windows 11 dabei) |
+| **Linux** | `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev` |
 
-Danach:
+Danach überall gleich:
 
 ```sh
 git clone https://github.com/sphings79/amberbeam.git
 cd amberbeam
 npm install
 npm run tauri dev     # Entwicklungsfenster mit Neuladen
-npm run tauri build   # AmberBeam.app und .dmg in target/release/bundle
+npm run tauri build   # Programm und Installationspaket in target/release/bundle
 ```
+
+Heraus kommen `.app` und `.dmg` auf macOS, `.msi` und ein NSIS-Installer auf
+Windows, `.deb`, `.rpm` und ein AppImage auf Linux.
 
 Der erste `cargo build` lädt viel herunter und dauert mehrere Minuten. Das ist
 normal und kein hängender Vorgang.
 
-Die `.dmg` ist **ad-hoc signiert, nicht beglaubigt** — dahinter steht noch keine
-bezahlte Apple-Mitgliedschaft. Auf dem eigenen Mac genügt das; auf einem fremden
-meldet sich Gatekeeper, und das Programm muss einmal über das Kontextmenü
-geöffnet werden.
+> **Ehrlichkeitshalber:** Nur die macOS-Fassung läuft auf dem Rechner des
+> Autors. Windows und Linux baut die CI bei jedem Push — das beweist, dass sie
+> übersetzen und sich paketieren lassen, nicht dass sie sich richtig anfühlen.
+> Fehlermeldungen von diesen beiden sind willkommen und werden ernst genommen.
+
+Die macOS-`.dmg` ist **ad-hoc signiert, nicht beglaubigt**, der Windows-Installer
+ist unsigniert — dahinter stehen weder eine bezahlte Apple-Mitgliedschaft noch
+ein Code-Signing-Zertifikat. Auf dem eigenen Rechner genügt das; anderswo melden
+sich Gatekeeper und SmartScreen zu Wort.
 
 ### Prüfungen
 
@@ -138,9 +152,9 @@ cargo test --package amberbeam-core
 cargo clippy --package amberbeam-core --all-targets -- -D warnings
 ```
 
-Der Kern baut und testet auch unter Linux — mit Absicht, damit sich nichts
-Plattformgebundenes einschleicht und die Container-Fassung aus M7 möglich
-bleibt. Die CI erzwingt das bei jedem Push.
+Der Kern ist ein eigenes Crate, das nichts von Tauri weiß, und baut und testet
+daher auf jedem System — mit Absicht, denn die Container-Fassung aus M7 hängt
+daran. Die CI erzwingt das bei jedem Push.
 
 ### Bilder neu erzeugen
 
@@ -151,25 +165,28 @@ dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
 ```
 
+`render-png.py` nutzt QuickLook und `sips` und braucht daher einen Mac. Die SVGs
+selbst sind die Quelle und überall lesbar.
+
 ## Meilensteine
 
 | | Meilenstein | Stand |
 |---|---|---|
-| **M0** | Gerüst: ein Fenster, eine signierte `.dmg`, die drei Nähte, Lizenz und README | **fertig** |
+| **M0** | Gerüst: ein Fenster, Installationspakete auf drei Plattformen, die drei Nähte, Lizenz und README | **fertig** |
 | **M1** | SFTP: mit Passwort und Schlüssel verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel | als Nächstes |
 | **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt. Ab hier benutzbar | |
 | **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene | |
-| **M4** | Site Manager: Schlüsselbund, Import aus FileZilla, WinSCP, OpenSSH und FlashFXP, Export | |
+| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und FlashFXP, Export | |
 | **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | |
 | **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |
-| **M7** | Container-Fassung: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 | |
+| **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |
 
 ## Übersetzen
 
 Sprachen sind flache JSON-Dateien unter `src/lib/i18n/`. `en.json` kopieren,
 Werte übersetzen, Schlüssel behalten, Pull Request schicken — oder ab M5 die
-Datei in `~/Library/Application Support/AmberBeam/lang/` legen und neu starten.
-Kein Bauvorgang, keine Werkzeugkette.
+Datei in den Sprachordner des Programms legen und neu starten. Kein Bauvorgang,
+keine Werkzeugkette.
 
 `npm run check:lang` meldet, was fehlt oder zu viel ist.
 
@@ -177,7 +194,7 @@ Kein Bauvorgang, keine Werkzeugkette.
 
 **AGPL-3.0-or-later.** Die Affero-Klausel steht hier aus einem Grund: der
 Container-Fassung. Wer sie nimmt, verändert und als bezahlten Dienst ins Netz
-stellt, muss seine Änderungen offenlegen. Für die `.dmg` auf dem Schreibtisch
+stellt, muss seine Änderungen offenlegen. Für das Programm auf dem Schreibtisch
 ist der Unterschied null — ein Schreibtischprogramm bietet niemandem
 Netzinteraktion an.
 

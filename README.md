@@ -2,15 +2,15 @@
 
 <img src="assets/icon.svg" width="96" height="96" alt="AmberBeam logo">
 
-# AmberBeam — dual-pane FTP and SFTP client for macOS
+# AmberBeam — dual-pane FTP and SFTP client for macOS, Windows and Linux
 
-**A file transfer client for the Mac in the tradition of FlashFXP.** Server log
-on top, two file panes in the middle, transfer queue at the bottom — and the
-keyboard in charge. Built for everyone who came to macOS from Windows and never
-found a replacement for their dual-pane FTP client.
+**A file transfer client in the tradition of FlashFXP.** Server log on top, two
+file panes with folder trees in the middle, transfer queue at the bottom — and
+the keyboard in charge. Native app on macOS, Windows and Linux, and a container
+with a web interface for your own server.
 
 [![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%2013%2B%20%C2%B7%20Apple%20Silicon-2b3040?style=flat-square)](#build-it-yourself)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#build-it-yourself)
 [![Built with Rust](https://img.shields.io/badge/core-Rust-b7410e?style=flat-square)](https://www.rust-lang.org/)
 [![Built with Svelte](https://img.shields.io/badge/interface-Svelte%205-ff3e00?style=flat-square)](https://svelte.dev/)
 [![CI](https://img.shields.io/github/actions/workflow/status/sphings79/amberbeam/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sphings79/amberbeam/actions/workflows/ci.yml)
@@ -27,30 +27,33 @@ found a replacement for their dual-pane FTP client.
 ## Status
 
 > **Milestone M0: the scaffold stands, and nothing transfers yet.**
-> The toolchain is proven — the repository builds to a signed `.dmg` on Apple
-> Silicon — and the three architectural seams that would be expensive to add
-> later are in place. SFTP arrives with M1, transfers with M2. The
-> [roadmap](#roadmap) says what is done and what is not, and this README will
-> not claim otherwise.
+> The toolchain is proven — CI builds the app and its installer on macOS,
+> Windows and Linux on every push — and the three architectural seams that
+> would be expensive to add later are in place. SFTP arrives with M1, transfers
+> with M2. The [roadmap](#roadmap) says what is done and what is not, and this
+> README will not claim otherwise.
 
-## Why another FTP client for the Mac?
+## Why another file transfer client?
 
 Transmit and ForkLift are good programs. They are also, through and through,
 Mac programs. What people moving from Windows miss is not a feature list — it
 is a set of **movements**: the function keys, switching panes with a keystroke,
-the queue at the bottom, the raw server log at the top. That muscle memory has
-nowhere to go on macOS.
+the folder tree beside each list, the queue at the bottom, the raw server log at
+the top. That muscle memory has nowhere to go.
 
-AmberBeam is built for exactly that gap. Where Mac convention and FlashFXP habit
-collide, **habit wins** — as long as the program does not end up fighting the
-operating system. Where it would, you are asked on first run which way you want
-it.
+AmberBeam is built for exactly that gap. Where platform convention and FlashFXP
+habit collide, **habit wins** — as long as the program does not end up fighting
+the operating system. Where it would, you are asked on first run which way you
+want it.
+
+The same reasoning carries it to Linux, where nothing of the kind exists either,
+and back to Windows, where the original has been standing still for years.
 
 ## Screenshots
 
 <div align="center">
 
-<img src="assets/screenshots/layout.svg" width="880" alt="AmberBeam window layout: server log on top, local files on the left, the server on the right, transfer queue at the bottom, shown in dark and light theme side by side">
+<img src="assets/screenshots/layout.svg" width="880" alt="AmberBeam window layout: server log on top, local files with folder tree on the left, the server on the right, transfer queue at the bottom, shown in dark and light theme side by side">
 
 <em><strong>The planned window</strong>, dark and light torn apart down the
 middle. Drawn, not photographed: the panes do not list files yet — that is
@@ -76,14 +79,15 @@ Version 1, as specified:
   Commander and FlashFXP — because nobody retypes thirty servers
 - **PuTTY `.ppk` keys** read and converted, the one thing no Mac client does and
   every Windows switcher needs
-- **Function keys as in FlashFXP**, freely remappable, with a first-run dialog
-  for the macOS function key problem
+- **Function keys as in FlashFXP**, freely remappable. On macOS, where F1 to F12
+  belong to the system by default, a first-run dialog offers three ways out
+- **Credentials in the system's own store** — Keychain on macOS, Credential
+  Manager on Windows, Secret Service on Linux. Never in a configuration file
 - **German and English**, light, dark and system theme, five accent colours
-- **No cloud, no accounts, no telemetry.** Passwords live in the macOS keychain,
-  never in a configuration file
+- **No cloud, no accounts, no telemetry**
 
 Later: directory synchronisation, comparing both sides, remote editing,
-scheduled jobs, FXP, a container build with a web interface, S3 and WebDAV.
+scheduled jobs, FXP, the container build, S3 and WebDAV.
 
 ## The three seams
 
@@ -102,31 +106,40 @@ everybody remembers it.
 
 ## Build it yourself
 
-You need Xcode command line tools, Rust and Node 22 or newer:
+You need [Rust](https://rustup.rs) and Node 22 or newer on every platform, plus
+what your system needs to build a native window:
 
-```sh
-xcode-select --install
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-brew install node
-```
+| | Additionally |
+|---|---|
+| **macOS** | `xcode-select --install` |
+| **Windows** | Microsoft C++ Build Tools and the WebView2 runtime (Windows 11 ships it) |
+| **Linux** | `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev` |
 
-Then:
+Then, everywhere the same:
 
 ```sh
 git clone https://github.com/sphings79/amberbeam.git
 cd amberbeam
 npm install
 npm run tauri dev     # development window with hot reload
-npm run tauri build   # AmberBeam.app and a .dmg in target/release/bundle
+npm run tauri build   # app and installer in target/release/bundle
 ```
+
+What comes out: `.app` and `.dmg` on macOS, `.msi` and an NSIS installer on
+Windows, `.deb`, `.rpm` and an AppImage on Linux.
 
 The first `cargo build` downloads a lot and takes several minutes. That is
 normal, not a hung process.
 
-The `.dmg` is **ad-hoc signed, not notarised** — there is no paid Apple
-membership behind this yet. On your own Mac that is enough; on someone else's,
-Gatekeeper will complain and the app has to be opened from the context menu
-once.
+> **Honestly:** only the macOS build runs on the author's own machine. Windows
+> and Linux are built by CI on every push, which proves they compile and
+> package — not that they feel right. Bug reports from those two are welcome and
+> will be taken seriously.
+
+The macOS `.dmg` is **ad-hoc signed, not notarised**, and the Windows installer
+is unsigned — there is no paid Apple membership and no code signing certificate
+behind this yet. On your own machine that is enough; elsewhere Gatekeeper and
+SmartScreen will have their say.
 
 ### Checks
 
@@ -136,9 +149,9 @@ cargo test --package amberbeam-core
 cargo clippy --package amberbeam-core --all-targets -- -D warnings
 ```
 
-The core builds and tests on Linux as well — deliberately, so nothing
-platform-specific creeps into it and the container build of M7 stays possible.
-CI enforces that on every push.
+The core is a separate crate that knows nothing about Tauri, so it builds and
+tests on any system — deliberately, because the container build of M7 depends on
+that staying true. CI enforces it on every push.
 
 ### Regenerating the pictures
 
@@ -149,25 +162,28 @@ dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
 ```
 
+`render-png.py` uses QuickLook and `sips`, so it needs a Mac. The SVGs
+themselves are the source of truth and are readable anywhere.
+
 ## Roadmap
 
 | | Milestone | State |
 |---|---|---|
-| **M0** | Scaffold: a window, a signed `.dmg`, the three seams, licence and README | **done** |
+| **M0** | Scaffold: a window, installers on three platforms, the three seams, licence and README | **done** |
 | **M1** | SFTP: connect with password and key, list directories, tree and list, two panes, focus switching | next |
 | **M2** | Transfers: queue, concurrency, resuming, conflicts, progress. Usable from here on | |
 | **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback | |
-| **M4** | Site manager: keychain, import from FileZilla, WinSCP, OpenSSH and FlashFXP, export | |
+| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and FlashFXP, export | |
 | **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | |
 | **M6** | Polish: icon, signing and notarisation, help, first release | |
-| **M7** | Container build: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 | |
+| **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |
 
 ## Translating
 
 Languages are flat JSON files under `src/lib/i18n/`. Copy `en.json`, translate
 the values, keep the keys, and send a pull request — or, once M5 lands, drop the
-file into `~/Library/Application Support/AmberBeam/lang/` and restart. No build
-step, no toolchain.
+file into the application's language folder and restart. No build step, no
+toolchain.
 
 `npm run check:lang` tells you what is missing or surplus.
 
@@ -175,8 +191,8 @@ step, no toolchain.
 
 **AGPL-3.0-or-later.** The Affero clause is here for one reason: the container
 build. Anyone who takes it, changes it and offers it as a paid service over a
-network has to publish their changes. For the `.dmg` on your desk the difference
-is nil — a desktop program offers nobody network interaction.
+network has to publish their changes. For the app on your desk the difference is
+nil — a desktop program offers nobody network interaction.
 
 ---
 

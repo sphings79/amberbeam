@@ -356,7 +356,7 @@ def tick(y, label):
         f'<circle cx="82" cy="{y}" r="9" fill="none" stroke="{OK}" stroke-width="2.2"/>'
         f'<path d="M78 {y}l3 3 5.5-6" stroke="{OK}" stroke-width="2.4" fill="none" '
         'stroke-linecap="round" stroke-linejoin="round"/>'
-        + text(104, y + 6, label, "#c8cdda", 19)
+        + text(104, y + 6, label, "#c8cdda", 17.5)
     )
 
 
@@ -383,20 +383,35 @@ def mini_row(x, w, y, name, size, is_dir, selected=False):
 
 
 def social():
-    """The 1280x640 card GitHub shows wherever the repository is shared."""
+    """The 1280x640 card GitHub shows wherever the repository is shared.
+
+    The window is drawn large and flush with the right edge, and the text
+    column's soft ground runs in under its left border — enough for the two to
+    overlap, never enough to put a headline across a folder tree. A picture of
+    a file transfer client has to show both panes with their trees, or it
+    advertises a different program.
+    """
+    left_tree = [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True),
+                 (3, "website", True), (3, "archiv", False), (2, "Bilder", False)]
+    right_tree = [(0, "/", True), (1, "etc", False), (1, "var", True),
+                  (2, "log", False), (2, "www", True), (3, "html", True)]
     left_rows = [
         ("index.html", "4,2 KB", False, False),
         ("stil.css", "18 KB", False, True),
         ("skript.js", "7,1 KB", False, False),
+        ("impressum.html", "3,4 KB", False, False),
         ("favicon.ico", "15 KB", False, False),
+        ("liesmich.md", "1,9 KB", False, False),
         ("bilder", "—", True, False),
         ("schriften", "—", True, False),
     ]
     right_rows = [
         ("index.html", "3,9 KB", False, False),
         ("stil.css", "17 KB", False, False),
+        ("skript.js", "7,1 KB", False, False),
         (".htaccess", "612 B", False, False),
         ("robots.txt", "104 B", False, False),
+        ("bilder", "—", True, False),
         ("alt", "—", True, False),
         ("logs", "—", True, False),
     ]
@@ -405,8 +420,8 @@ def social():
     out.append(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SW} {SH}" width="{SW}" '
         f'height="{SH}" role="img" aria-label="AmberBeam — dual-pane FTP and SFTP client for '
-        'macOS">\n'
-        "  <title>AmberBeam — dual-pane FTP and SFTP client for macOS</title>\n\n"
+        'macOS, Windows, Linux and Docker">\n'
+        "  <title>AmberBeam — dual-pane FTP and SFTP client</title>\n\n"
         "  <defs>\n"
         '    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">\n'
         '      <stop offset="0" stop-color="#12141c"/>\n'
@@ -417,20 +432,126 @@ def social():
         '      <stop offset="1" stop-color="#c4720a"/>\n'
         "    </linearGradient>\n"
         '    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">\n'
-        f'      <stop offset="0" stop-color="{ACCENT}" stop-opacity="0.30"/>\n'
+        f'      <stop offset="0" stop-color="{ACCENT}" stop-opacity="0.26"/>\n'
         f'      <stop offset="1" stop-color="{ACCENT}" stop-opacity="0"/>\n'
         "    </radialGradient>\n"
+        # Runs out under the window's left border: the two overlap, the text
+        # keeps its ground, and no headline ends up across a file list.
+        '    <linearGradient id="scrim" x1="0" y1="0" x2="1" y2="0">\n'
+        '      <stop offset="0" stop-color="#0f1118" stop-opacity="1"/>\n'
+        '      <stop offset="0.50" stop-color="#0f1118" stop-opacity="1"/>\n'
+        '      <stop offset="0.69" stop-color="#0f1118" stop-opacity="0"/>\n'
+        "    </linearGradient>\n"
         '    <filter id="cardshadow" x="-30%" y="-30%" width="160%" height="160%">\n'
-        '      <feDropShadow dx="0" dy="18" stdDeviation="30" flood-color="#000" '
-        'flood-opacity="0.55"/>\n'
+        '      <feDropShadow dx="0" dy="22" stdDeviation="34" flood-color="#000" '
+        'flood-opacity="0.62"/>\n'
         "    </filter>\n"
         "  </defs>\n\n"
         f'  <g font-family="{FONT}">\n'
         + rect(0, 0, SW, SH, "url(#page)")
-        + '<ellipse cx="980" cy="150" rx="520" ry="380" fill="url(#glow)"/>\n'
+        + '<ellipse cx="1010" cy="150" rx="520" ry="380" fill="url(#glow)"/>\n'
     )
 
-    # brand and claim
+    # ---- the window, drawn first so the text column can lie over its edge
+    wx, wy, ww, wh = 570, 62, 710, 520
+    half = ww // 2
+    tree_w = 118
+    out.append(
+        f'<g filter="url(#cardshadow)"><rect x="{wx}" y="{wy}" width="{ww}" height="{wh}" '
+        f'rx="18" fill="{PANEL}" stroke="{BORDER}"/></g>'
+    )
+    out.append(
+        f'<path d="M{wx} {wy + 18}a18 18 0 0 1 18-18h{ww - 36}a18 18 0 0 1 18 18v26H{wx}z" '
+        f'fill="{PANEL_2}"/>'
+        f'<circle cx="{wx + 26}" cy="{wy + 22}" r="6" fill="#ff5f57"/>'
+        f'<circle cx="{wx + 46}" cy="{wy + 22}" r="6" fill="#febc2e"/>'
+        f'<circle cx="{wx + 66}" cy="{wy + 22}" r="6" fill="#28c840"/>'
+    )
+    out.append(text(wx + 94, wy + 27, "AmberBeam", MUTED, 13, "500"))
+    out.append(text(wx + 174, wy + 27, "beispiel.de · SFTP", FAINT, 13))
+    out.append(line(wx, wy + 44, wx + ww, wy + 44))
+
+    # server log
+    log_y = wy + 44
+    out.append(rect(wx, log_y, ww, 78, "#12151d"))
+    out.append(text(wx + 16, log_y + 17, "SERVER-LOG", FAINT, 9.5, "600"))
+    out.append(text(wx + ww - 16, log_y + 17, "F4  Raw-Befehle", FAINT, 9.5,
+                    family=MONO, anchor="end"))
+    for index, (stamp, arrow, message, colour) in enumerate((
+        ("17:02:11", "&#8594;", "MLSD /var/www/html", MUTED),
+        ("17:02:12", "&#8592;", "226 Directory send OK", OK),
+        ("17:02:19", "&#8594;", "STOR /var/www/html/stil.css", MUTED),
+    )):
+        ly = log_y + 38 + index * 18
+        out.append(text(wx + 16, ly, stamp, FAINT, 10.5, family=MONO))
+        out.append(text(wx + 76, ly, arrow, ACCENT, 10.5, family=MONO))
+        out.append(text(wx + 96, ly, message, colour, 10.5, family=MONO))
+    pane_y = log_y + 78
+    out.append(line(wx, pane_y, wx + ww, pane_y))
+
+    # two panes, each with its own folder tree
+    pane_h = 230
+    for index, (label, place, tree, rows) in enumerate(
+        (("LOKAL", "~/Projekte/website", left_tree, left_rows),
+         ("SERVER", "/var/www/html", right_tree, right_rows))
+    ):
+        px = wx + index * half
+        out.append(rect(px, pane_y, half, 22, PANEL_2))
+        out.append(text(px + 14, pane_y + 15, label, FAINT, 9.5, "600"))
+        out.append(text(px + half - 12, pane_y + 15, place, FAINT, 9.5,
+                        family=MONO, anchor="end"))
+        body_y = pane_y + 22
+        out.append(line(px, body_y, px + half, body_y))
+
+        out.append(rect(px, body_y, tree_w, pane_h - 22, PANEL_2))
+        out.append(line(px + tree_w, body_y, px + tree_w, pane_y + pane_h))
+        for depth, (level, name, open_) in enumerate(tree):
+            ty = body_y + 20 + depth * 22
+            out.append(text(px + 9 + level * 10, ty, "▾" if open_ else "▸", FAINT, 8))
+            out.append(text(px + 20 + level * 10, ty, name, ACCENT if open_ else FAINT, 10))
+
+        list_x = px + tree_w
+        list_w = half - tree_w
+        for row, (name, size, is_dir, selected) in enumerate(rows):
+            ry = body_y + row * 26
+            out.append(mini_row(list_x, list_w, ry, name, size, is_dir, selected))
+            out.append(line(list_x, ry + 26, list_x + list_w, ry + 26))
+    out.append(line(wx + half, pane_y, wx + half, pane_y + pane_h, BORDER_STRONG))
+    queue_y = pane_y + pane_h
+    out.append(line(wx, queue_y, wx + ww, queue_y))
+
+    # queue
+    out.append(rect(wx, queue_y, ww, 22, PANEL_2))
+    out.append(text(wx + 14, queue_y + 15, "WARTESCHLANGE", FAINT, 9.5, "600"))
+    out.append(text(wx + ww - 12, queue_y + 15, "F8  ein/aus     F9  starten", FAINT, 9.5,
+                    family=MONO, anchor="end"))
+    out.append(line(wx, queue_y + 22, wx + ww, queue_y + 22))
+    for index, (arrow, name, target, done, note, colour) in enumerate((
+        ("&#8593;", "stil.css", "/var/www/html/", 1.0, "fertig", OK),
+        ("&#8593;", "bilder/logo.svg", "/var/www/html/bilder/", 0.62, "62 %", ACCENT),
+        ("&#8595;", "logs/error.log", "~/Projekte/website/", 0.0, "wartet", FAINT),
+    )):
+        jy = queue_y + 34 + index * 30
+        out.append(text(wx + 14, jy + 12, arrow, colour, 12, "600", family=MONO))
+        out.append(text(wx + 34, jy + 12, name, MUTED, 11))
+        out.append(text(wx + 170, jy + 12, target, FAINT, 10, family=MONO))
+        out.append(rect(wx + 330, jy + 5, 250, 8, PANEL_3, 4))
+        if done > 0:
+            out.append(rect(wx + 330, jy + 5, int(250 * done), 8, colour, 4))
+        out.append(text(wx + ww - 12, jy + 12, note, colour, 10, family=MONO, anchor="end"))
+
+    # status strip
+    status_y = wy + wh - 30
+    out.append(rect(wx, status_y, ww, 30, PANEL_2))
+    out.append(line(wx, status_y, wx + ww, status_y))
+    out.append(text(wx + 14, status_y + 19, "F5 Aktualisieren  ·  F6 Fokus  ·  F12 Verbinden",
+                    FAINT, 10, family=MONO))
+    out.append(text(wx + ww - 12, status_y + 19, "SFTP  ·  8 gleichzeitig", OK, 10,
+                    family=MONO, anchor="end"))
+
+    # ---- the scrim, and the text column on top of it
+    out.append(rect(0, 0, 860, SH, "url(#scrim)"))
+
     out.append('<rect x="72" y="72" width="76" height="76" rx="24" fill="url(#brand)"/>')
     out.append(
         '<g fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" '
@@ -439,99 +560,21 @@ def social():
         '<path d="M97 92h11" opacity="0.42"/><path d="M91 128h17" opacity="0.42"/></g>'
     )
     out.append(text(168, 106, "AmberBeam", TEXT, 30, "700"))
-    out.append(text(168, 136, "Dual-pane FTP and SFTP client for macOS", "#8a91a3", 18))
-    out.append(text(72, 238, "Two panes,", "#ffffff", 52, "700"))
-    out.append(text(72, 298, "the keyboard in charge.", "#ffffff", 52, "700"))
-    out.append(text(72, 348, "A file transfer client in the tradition of FlashFXP —", MUTED, 21))
-    out.append(text(72, 378, "for everyone who came to the Mac from Windows.", MUTED, 21))
+    out.append(text(168, 136, "Dual-pane FTP and SFTP client", "#8a91a3", 18))
+    out.append(text(72, 236, "Two panes,", "#ffffff", 42, "700"))
+    out.append(text(72, 286, "the keyboard in charge.", "#ffffff", 42, "700"))
+    out.append(text(72, 334, "A file transfer client in the tradition of FlashFXP —", MUTED, 19))
+    out.append(text(72, 360, "on the Mac, on Windows, on Linux, on your server.", MUTED, 19))
 
-    out.append(tick(428, "SFTP, FTP and FTPS"))
-    out.append(tick(470, "Resume a transfer that broke in mid-file"))
-    out.append(tick(512, "Import sites from FileZilla, WinSCP and FlashFXP"))
+    out.append(tick(414, "SFTP, FTP and FTPS"))
+    out.append(tick(454, "Resume a transfer that broke in mid-file"))
+    out.append(tick(494, "Import sites from FileZilla, WinSCP and FlashFXP"))
 
-    out.append(pill(72, 556, 92, "macOS"))
-    out.append(pill(172, 556, 132, "Apple Silicon"))
-    out.append(pill(312, 556, 74, "Rust"))
-    out.append(pill(394, 556, 84, "Tauri", accented=True))
-    out.append(pill(486, 556, 112, "AGPL-3.0"))
-
-    # the window
-    wx, wy, ww, wh = 700, 96, 524, 448
-    out.append(
-        f'<g filter="url(#cardshadow)"><rect x="{wx}" y="{wy}" width="{ww}" height="{wh}" '
-        f'rx="18" fill="{PANEL}" stroke="{BORDER}"/></g>'
-    )
-    out.append(
-        f'<path d="M{wx} {wy + 18}a18 18 0 0 1 18-18h488a18 18 0 0 1 18 18v22H{wx}z" '
-        f'fill="{PANEL_2}"/>'
-        '<circle cx="724" cy="116" r="6" fill="#ff5f57"/>'
-        '<circle cx="744" cy="116" r="6" fill="#febc2e"/>'
-        '<circle cx="764" cy="116" r="6" fill="#28c840"/>'
-    )
-    out.append(text(790, 121, "AmberBeam — beispiel.de", FAINT, 13))
-    out.append(line(wx, 136, wx + ww, 136))
-
-    # server log
-    out.append(rect(wx, 136, ww, 62, "#12151d"))
-    out.append(text(wx + 14, 153, "SERVER-LOG", FAINT, 9, "600"))
-    out.append(text(wx + 14, 172, "&#8594;  MLSD /var/www/html", MUTED, 10.5, family=MONO))
-    out.append(text(wx + 14, 189, "&#8592;  226 Directory send OK", OK, 10.5, family=MONO))
-    out.append(line(wx, 198, wx + ww, 198))
-
-    # two panes, each with its own folder tree on the left — the half of
-    # FlashFXP nobody who used it would accept losing
-    left_tree = [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True),
-                 (3, "website", True), (2, "Bilder", False)]
-    right_tree = [(0, "/", True), (1, "var", True), (2, "www", True),
-                  (3, "html", True), (1, "srv", False)]
-    half = ww // 2
-    tree_w = 86
-    for index, (label, place, tree, rows) in enumerate(
-        (("LOKAL", "~/Projekte/website", left_tree, left_rows),
-         ("SERVER", "/var/www/html", right_tree, right_rows))
-    ):
-        px = wx + index * half
-        out.append(rect(px, 198, half, 22, PANEL_2))
-        out.append(text(px + 14, 213, label, FAINT, 9, "600"))
-        out.append(text(px + half - 12, 213, place, FAINT, 9, family=MONO, anchor="end"))
-        out.append(line(px, 220, px + half, 220))
-
-        out.append(rect(px, 220, tree_w, 178, PANEL_2))
-        out.append(line(px + tree_w, 220, px + tree_w, 398))
-        ty = 238
-        for depth, name, open_ in tree:
-            out.append(text(px + 8 + depth * 9, ty, "▾" if open_ else "▸", FAINT, 7))
-            out.append(text(px + 18 + depth * 9, ty, name, ACCENT if open_ else FAINT, 9.5))
-            ty += 20
-
-        list_x = px + tree_w
-        list_w = half - tree_w
-        ry = 220
-        for name, size, is_dir, selected in rows:
-            out.append(mini_row(list_x, list_w, ry, name, size, is_dir, selected))
-            out.append(line(list_x, ry + 26, list_x + list_w, ry + 26))
-            ry += 26
-    out.append(line(wx + half, 198, wx + half, 398, BORDER_STRONG))
-    out.append(line(wx, 398, wx + ww, 398))
-
-    # queue
-    out.append(rect(wx, 398, ww, 22, PANEL_2))
-    out.append(text(wx + 14, 413, "WARTESCHLANGE", FAINT, 9, "600"))
-    out.append(text(wx + ww - 12, 413, "F9  starten", FAINT, 9, family=MONO, anchor="end"))
-    out.append(line(wx, 420, wx + ww, 420))
-    for index, (name, done, colour, note) in enumerate(
-        (("stil.css", 1.0, OK, "fertig"),
-         ("bilder/logo.svg", 0.62, ACCENT, "62 %"),
-         ("logs/error.log", 0.0, FAINT, "wartet"))
-    ):
-        jy = 438 + index * 30
-        arrow = "&#8595;" if name.startswith("logs/") else "&#8593;"
-        out.append(text(wx + 14, jy + 11, arrow, colour, 11, "600", family=MONO))
-        out.append(text(wx + 34, jy + 11, name, MUTED, 11))
-        out.append(rect(wx + 170, jy + 4, 260, 7, PANEL_3, 3.5))
-        if done > 0:
-            out.append(rect(wx + 170, jy + 4, int(260 * done), 7, colour, 3.5))
-        out.append(text(wx + ww - 12, jy + 11, note, colour, 10, family=MONO, anchor="end"))
+    out.append(pill(72, 552, 88, "macOS"))
+    out.append(pill(168, 552, 100, "Windows"))
+    out.append(pill(276, 552, 76, "Linux"))
+    out.append(pill(360, 552, 88, "Docker", accented=True))
+    out.append(pill(456, 552, 108, "AGPL-3.0"))
 
     out.append("\n  </g>\n</svg>\n")
     return "".join(out)
