@@ -8,7 +8,7 @@
  * because it is dead weight nobody will ever see. Runs on every build.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -27,12 +27,54 @@ function load(name) {
 const reference = load(REFERENCE);
 const referenceKeys = new Set(Object.keys(reference));
 
+/**
+ * Every key the interface actually asks for.
+ *
+ * Comparing the catalogues against each other only proves they agree. It does
+ * not prove either of them answers what the code asks — a key that exists in
+ * neither comes out on screen as itself, which is how `action.delete` sat in a
+ * button reading "action.delete" until somebody looked at it.
+ *
+ * The boundary in front of `t(` matters: without it `split("/")` counts as a
+ * translation of "/".
+ */
+function keysUsedInSource() {
+  const sourceDir = join(here, "..", "src");
+  const used = new Map();
+
+  /** @param {string} directory */
+  function walk(directory) {
+    for (const name of readdirSync(directory)) {
+      const path = join(directory, name);
+      if (statSync(path).isDirectory()) {
+        walk(path);
+        continue;
+      }
+      if (!name.endsWith(".svelte") && !name.endsWith(".ts")) continue;
+      const text = readFileSync(path, "utf8");
+      for (const match of text.matchAll(/(?<![A-Za-z0-9_$.])t\(\s*"([^"]+)"/g)) {
+        used.set(match[1], path);
+      }
+    }
+  }
+
+  walk(sourceDir);
+  return used;
+}
+
 const others = readdirSync(catalogueDir)
   .filter((file) => file.endsWith(".json"))
   .map((file) => file.slice(0, -".json".length))
   .filter((name) => name !== REFERENCE);
 
 let failed = false;
+
+for (const [key, where] of keysUsedInSource()) {
+  if (!referenceKeys.has(key)) {
+    console.error(`${where} asks for "${key}", which no catalogue has.`);
+    failed = true;
+  }
+}
 
 if (referenceKeys.size === 0) {
   console.error(`${REFERENCE}.json holds no keys at all.`);

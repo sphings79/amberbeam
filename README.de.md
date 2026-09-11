@@ -26,12 +26,15 @@ für den eigenen Server.
 
 ## Stand
 
-> **Meilenstein M3: Es spricht SFTP, FTP und FTPS.**
+> **Meilenstein M4: Es hat eine Serverliste — und liest die anderer Programme.**
 > Zwei Bereiche mit Ordnerbaum, eine Warteschlange, die einen Neustart
 > übersteht, Übertragungen, die dort weitermachen, wo sie abgerissen sind, und
 > die Rückfragen, die vor dem Überschreiben nötig sind — über `AUTH TLS`, über
 > implizites FTPS auf Port 990 und über reines FTP, das rot gekennzeichnet
-> bleibt, solange es offen ist. Der Site Manager kommt mit M4. Die [Meilensteine](#meilensteine) sagen, was
+> bleibt, solange es offen ist. Server stehen in einem Ordnerbaum, Passwörter
+> im Zugangsdatenspeicher des Systems und sonst nirgends, und eine Liste lässt
+> sich aus FileZilla, WinSCP, Total Commander, OpenSSH oder einem älteren
+> Windows-Client übernehmen. Die [Meilensteine](#meilensteine) sagen, was
 > fertig ist und was nicht; dieses Dokument behauptet nichts anderes.
 >
 > Fertige Software ist das nicht. Es gibt noch keinen Site Manager, der
@@ -74,6 +77,12 @@ im Diff. Erfunden ist daran nichts — so arbeitet das Programm.</em>
 
 Fassung 1, wie festgelegt:
 
+- **Eine Serverliste** in Ordnern, eine lesbare JSON-Datei je Eintrag — und in
+  keiner davon ein Passwort: die liegen im Schlüsselbund, in der
+  Anmeldeinformationsverwaltung oder im Secret Service. Import aus
+  `sitemanager.xml`, `WinSCP.ini`, `wcx_ftp.ini`, `Sites.dat`, einem
+  `.ftp`-Export und `~/.ssh/config`; Export wahlweise offen oder unter einem
+  Kennwort verschlossen, nie etwas dazwischen
 - **SFTP, FTP und FTPS**, voreingestellt explizit über `AUTH TLS`, implizit auf
   Port 990 unterstützt, unverschlüsseltes FTP möglich, aber sichtbar markiert
 - **Zwei Bereiche mit je Ordnerbaum und Dateiliste.** Jede Seite kann lokal
@@ -218,8 +227,8 @@ selbst sind die Quelle und überall lesbar.
 | **M1** | SFTP: mit Passwort, Schlüssel oder Agent verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel, Dateioperationen | **fertig** |
 | **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt, Drag and Drop | **fertig** |
 | **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene, Zertifikate beim Namen genannt statt „Zertifikatsfehler" | **fertig** |
-| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | als Nächstes |
-| **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | |
+| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | **fertig** |
+| **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | als Nächstes |
 | **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |
 | **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |
 

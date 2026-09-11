@@ -24,7 +24,7 @@
   "log.empty": "Nothing yet. Connecting writes here.",
   "queue.title": "Queue",
   "queue.empty": "Nothing waiting. Drag files into a pane, or use the transfer button.",
-  "status.keys": "Tab / F6 switch side · Enter open · Backspace up · Space mark · F5 refresh",
+  "status.keys": "Tab / F6 switch side · Enter open · Backspace up · Space select · F5 refresh · ⌘S servers",
   "splitter.log": "Resize the server log",
   "splitter.panes": "Resize the panes",
   "splitter.queue": "Resize the queue",
@@ -294,5 +294,10 @@
   "export.done": "{count} servers written to {path}.",
   "sites.export": "Export…",
   "import.sealed": "This export is sealed. It needs the passphrase it was written with — there is no way round it and no copy of it anywhere.",
-  "import.unseal": "Open"
+  "import.unseal": "Open",
+  "sites.delete.title": "Delete {name}?",
+  "sites.delete.body": "The entry goes. Nothing on the server is touched.",
+  "sites.delete.with-password": "The entry goes, and with it the password held for it in this computer's credential store. Nothing on the server is touched.",
+  "sites.keys": "↑↓ move · Enter open · ⌫ delete · ⌘F search · ⌘N new · ⌘⇧N folder",
+  "action.delete": "Delete"
 }

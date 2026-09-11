@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<!--Test data. The password below is invented.-->
+<SITES VERSION="1.2">
+  <SITE NAME="Kunde Müller">
+    <GROUP>\Kunden\Müller\</GROUP>
+    <PROTOCOL>FTP</PROTOCOL>
+    <ADDRESS>ftp.example.org</ADDRESS>
+    <PORT>2121</PORT>
+    <USERNAME>dennis</USERNAME>
+    <PASSWORD>tannenbaum</PASSWORD>
+    <REMOTEPATH>/public_html/</REMOTEPATH>
+    <SSL>AUTH TLS</SSL>
+  </SITE>
+</SITES>

@@ -26,12 +26,14 @@ for your own server.
 
 ## Status
 
-> **Milestone M3: it speaks SFTP, FTP and FTPS.**
+> **Milestone M4: it has a server list, and reads other programs'.**
 > Two panes with folder trees, a queue that survives a restart, transfers that
 > pick up where they broke off, and the questions that have to be asked before
 > a file is overwritten — over `AUTH TLS`, over implicit FTPS on port 990, and
-> over plain FTP, which is marked in red for as long as it is open. The site
-> manager arrives with M4.
+> over plain FTP, which is marked in red for as long as it is open. Servers
+> live in a tree of folders, passwords live in the system's credential store
+> and nowhere else, and a list can be brought over from FileZilla, WinSCP,
+> Total Commander, OpenSSH or an older Windows client.
 > The [roadmap](#roadmap) says what is done and what is not, and this README
 > will not claim otherwise.
 >
@@ -73,6 +75,11 @@ this is what the program does.</em>
 
 Version 1, as specified:
 
+- **A server list** in folders, one readable JSON file per entry — and never a
+  password in any of them: those go to the Keychain, the Credential Manager or
+  the Secret Service. Imports from `sitemanager.xml`, `WinSCP.ini`,
+  `wcx_ftp.ini`, `Sites.dat`, an `.ftp` export and `~/.ssh/config`; exports
+  either plain or sealed under a passphrase, never something in between
 - **SFTP, FTP and FTPS**, explicit `AUTH TLS` by default, implicit on port 990
   supported, plain FTP possible but visibly marked
 - **Two panes, each with a folder tree and a file list.** Either side can be
@@ -213,8 +220,8 @@ themselves are the source of truth and are readable anywhere.
 | **M1** | SFTP: connect with password, key or agent, list directories, tree and list, two panes, focus switching, file operations | **done** |
 | **M2** | Transfers: queue, concurrency, resuming, conflicts, progress, drag and drop | **done** |
 | **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback, certificates named by what is wrong with them | **done** |
-| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | next |
-| **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | |
+| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | **done** |
+| **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | next |
 | **M6** | Polish: icon, signing and notarisation, help, first release | |
 | **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |
 

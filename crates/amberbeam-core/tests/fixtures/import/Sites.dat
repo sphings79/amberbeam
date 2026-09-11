@@ -1,0 +1,12 @@
+; Test data. Invented passwords, servers that do not exist.
+[Kunden\Müller]
+created=40668.9448318287
+IP=ftp.example.org
+port=2121
+user=dennis
+pass=42CF71EC6CAB588ED728D0
+path=/var/www
+[Unlesbar]
+IP=zwei.example.org
+user=jemand
+pass=00112233445566778899

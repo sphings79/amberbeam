@@ -64,6 +64,11 @@
   let importing = $state(false);
   let exporting = $state(false);
   let dragging = $state<string | null>(null);
+  /** The entry a delete is waiting to be confirmed for. */
+  let removing = $state<Site | null>(null);
+  /** The search field, so a key can put the cursor in it. */
+  let searchField = $state<HTMLInputElement | null>(null);
+  let nameField = $state<HTMLInputElement | null>(null);
   let dropFolder = $state<string | null>(null);
 
   $effect(() => {
@@ -123,6 +128,96 @@
     collapsed = next;
   }
 
+  /**
+   * The entries in the order they are drawn, which is the order the arrow keys
+   * walk. Derived from the same lists the tree uses, so the two can never
+   * disagree about what is where.
+   */
+  let walkable = $derived([
+    ...matching.filter((row) => row.folder === ""),
+    ...allFolders
+      .filter(visible)
+      .flatMap((folder) => matching.filter((row) => row.folder === folder)),
+  ]);
+
+  function step(by: number): void {
+    if (walkable.length === 0) return;
+    const at = walkable.findIndex((row) => row.id === selectedId);
+    const next = at < 0 ? (by > 0 ? 0 : walkable.length - 1) : at + by;
+    const landed = walkable[Math.min(walkable.length - 1, Math.max(0, next))];
+    if (landed) select(landed);
+  }
+
+  /**
+   * Keys for the whole window.
+   *
+   * Nothing here fires while a field has the cursor: somebody typing a password
+   * with a "d" in it must not delete a server. The one exception is Escape,
+   * which is how a person gets out of a field in the first place.
+   */
+  function onKey(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const typing = !!target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+
+    if (event.key === "Escape") {
+      if (naming) naming = null;
+      else if (asking) asking = null;
+      else if (removing) removing = null;
+      else if (importing || exporting) {
+        importing = false;
+        exporting = false;
+      } else if (typing) target?.blur();
+      return;
+    }
+
+    // A dialog is in front; the tree is not what the keys are for.
+    if (naming || asking || removing || importing || exporting || typing) return;
+
+    const meta = event.metaKey || event.ctrlKey;
+    if (meta && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      searchField?.focus();
+      searchField?.select();
+      return;
+    }
+    if (meta && event.key.toLowerCase() === "n") {
+      event.preventDefault();
+      if (event.shiftKey) addFolder();
+      else addSite();
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        step(1);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        step(-1);
+        break;
+      case "Enter": {
+        const chosen = rows.find((row) => row.id === selectedId);
+        if (chosen) {
+          event.preventDefault();
+          asking = chosen;
+        }
+        break;
+      }
+      case "Delete":
+      case "Backspace": {
+        const chosen = rows.find((row) => row.id === selectedId);
+        if (chosen) {
+          event.preventDefault();
+          removing = chosen;
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
   function kindOf(site: Site): Kind {
     return (
       KINDS.find(
@@ -176,6 +271,9 @@
     draft = blank(draftFolder);
     newPassword = "";
     newPassphrase = "";
+    // The cursor goes where the typing goes. A new entry whose first field has
+    // to be found with the mouse is a new entry that takes a mouse.
+    queueMicrotask(() => nameField?.focus());
   }
 
   function choose(kind: Kind): void {
@@ -227,6 +325,7 @@
   }
 
   async function remove(site: Site): Promise<void> {
+    removing = null;
     try {
       await api.deleteSite(site.id);
       if (selectedId === site.id) {
@@ -319,11 +418,14 @@
   let remote = $derived(draft ? draft.protocol !== "sftp" && draft.protocol !== "local" : false);
 </script>
 
+<svelte:window onkeydown={onKey} />
+
 <div class="manager">
   <aside>
     <div class="tools">
       <input
         class="search"
+        bind:this={searchField}
         bind:value={search}
         placeholder={t("sites.search")}
         autocomplete="off"
@@ -446,6 +548,8 @@
         <p class="empty">{t("sites.empty")}</p>
       {/if}
     </div>
+
+    <p class="keys mono">{t("sites.keys")}</p>
   </aside>
 
   <section class="detail">
@@ -460,6 +564,7 @@
           <label class="grow">
             <span>{t("sites.name")}</span>
             <input
+              bind:this={nameField}
               bind:value={draft.name}
               autocomplete="off"
               autocapitalize="off"
@@ -660,7 +765,7 @@
 
         <div class="actions">
           {#if draft.id}
-            <button type="button" class="danger" onclick={() => draft && void remove(draft)}>
+            <button type="button" class="danger" onclick={() => (removing = draft)}>
               {t("action.delete")}
             </button>
           {/if}
@@ -687,6 +792,24 @@
     {/if}
   </section>
 </div>
+
+{#if removing}
+  <div class="backdrop" role="presentation">
+    <div class="dialog" role="alertdialog" aria-modal="true">
+      <h2>{t("sites.delete.title", { name: removing.name })}</h2>
+      <p>
+        {removing.hasPassword ? t("sites.delete.with-password") : t("sites.delete.body")}
+      </p>
+      <div class="actions">
+        <span class="spacer"></span>
+        <button type="button" onclick={() => (removing = null)}>{t("action.cancel")}</button>
+        <button type="button" class="danger" onclick={() => removing && void remove(removing)}>
+          {t("action.delete")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if exporting}
   <ExportDialog
@@ -901,6 +1024,15 @@
     color: var(--text);
   }
 
+  .keys {
+    margin: 0;
+    padding: 6px 8px;
+    border-top: 1px solid var(--border);
+    font-size: 0.66rem;
+    color: var(--text-faint);
+    line-height: 1.5;
+  }
+
   .empty,
   .placeholder {
     color: var(--text-faint);
@@ -1095,6 +1227,12 @@
     border-radius: 1rem;
     box-shadow: var(--shadow-lg);
     padding: 20px 22px;
+  }
+
+  .dialog .danger {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+    color: var(--danger);
   }
 
   .dialog h2 {

@@ -371,9 +371,22 @@
    * first run dialog that explains this belongs to M5.
    */
   async function onKey(event: KeyboardEvent): Promise<void> {
+    // The site manager is the same bundle in another window and brings its own
+    // keys; this handler belongs to the panes.
+    if (isSiteManager) return;
+
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (quickFor || hostKey || certificate) return;
+
+    // The one key that is not an F-key: the server list. Every F-key is spoken
+    // for by the layout of section 04, and this is the combination people bring
+    // with them from the other side.
+    if (event.key.toLowerCase() === "s" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      await api.openSiteManager();
+      return;
+    }
 
     const side = focusedSide();
     const rows = visibleEntries(side);

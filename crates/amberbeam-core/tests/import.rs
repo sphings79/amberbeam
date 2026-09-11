@@ -76,3 +76,99 @@ fn whatever_is_found_can_also_be_read() {
         }
     }
 }
+
+/// Every reader against a file on disk.
+///
+/// The unit tests parse samples written as Rust strings, which are UTF-8 by
+/// definition. These are bytes: the export below is windows-1252 as that
+/// program really writes it, and reading it as UTF-8 would turn Müller into
+/// something else without anybody noticing. The servers are invented and the
+/// passwords with them.
+#[test]
+fn the_sample_files_read_the_way_they_should() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("import");
+
+    let read = |source: Source, name: &str| {
+        import::read(source, &dir.join(name))
+            .unwrap_or_else(|error| panic!("{name} could not be read: {error:?}"))
+    };
+
+    // OpenSSH: three hosts out of two blocks, and `Host *` is not one of them.
+    let ssh = read(Source::SshConfig, "ssh-config");
+    assert_eq!(ssh.entries.len(), 3);
+    assert_eq!(ssh.entries[0].host, "web.example.org");
+    assert_eq!(ssh.entries[0].port, 2222);
+    let db = ssh.entries.iter().find(|e| e.name == "datenbank").unwrap();
+    assert_eq!(db.user, "fallback", "what Host * left for it");
+
+    // WinSCP: the folder out of the session name, the password out of the hex.
+    let winscp = read(Source::WinScp, "WinSCP.ini");
+    let web = winscp.entries.iter().find(|e| e.name == "Web").unwrap();
+    assert_eq!(web.folder, "Kunden/Müller");
+    assert_eq!(web.password.as_deref(), Some("tannenbaum"));
+    assert_eq!(web.remote_path.as_deref(), Some("/var/www"));
+    let old = winscp
+        .entries
+        .iter()
+        .find(|e| e.name == "Alt und offen")
+        .unwrap();
+    assert_eq!(
+        old.encryption,
+        Some(amberbeam_core::ftp::Encryption::Explicit)
+    );
+
+    // Total Commander: address, port and directory out of one field.
+    let tc = read(Source::WcxFtp, "wcx_ftp.ini");
+    let mueller = tc
+        .entries
+        .iter()
+        .find(|e| e.name == "Kunde Müller")
+        .unwrap();
+    assert_eq!(mueller.host, "ftp.example.org");
+    assert_eq!(mueller.port, 2121);
+    assert_eq!(mueller.remote_path.as_deref(), Some("/var/www"));
+    assert_eq!(mueller.password.as_deref(), Some("tannenbaum"));
+    assert!(tc.entries.iter().all(|e| e.name != "default"));
+
+    // Sites.dat: one readable password, one that is not — said out loud.
+    let dat = read(Source::SitesDat, "Sites.dat");
+    let first = dat.entries.iter().find(|e| e.name == "Müller").unwrap();
+    assert_eq!(first.folder, "Kunden");
+    assert_eq!(first.password.as_deref(), Some("tannenbaum"));
+    assert!(dat
+        .warnings
+        .contains(&"import.warning.some-passwords".to_string()));
+    assert!(dat
+        .entries
+        .iter()
+        .any(|e| e.name == "Unlesbar" && !e.has_password));
+
+    // FileZilla: nested folders, Base64, and a directory name with a space in
+    // its own notation.
+    let fz = read(Source::FileZilla, "sitemanager.xml");
+    let webserver = fz.entries.iter().find(|e| e.name == "Webserver").unwrap();
+    assert_eq!(webserver.folder, "Kunden/Müller");
+    assert_eq!(webserver.password.as_deref(), Some("tannenbaum"));
+    assert_eq!(webserver.remote_path.as_deref(), Some("/var/www neue"));
+    assert!(fz
+        .entries
+        .iter()
+        .any(|e| e.name == "Offen" && e.folder.is_empty()));
+
+    // The export: windows-1252 on disk. This is the one the unit tests cannot
+    // reach, because a Rust string is UTF-8 whether one likes it or not.
+    let export = read(Source::SitesXml, "sites-export.ftp");
+    assert_eq!(export.entries.len(), 1);
+    assert_eq!(
+        export.entries[0].name, "Kunde Müller",
+        "read as UTF-8 the umlaut would be gone"
+    );
+    assert_eq!(export.entries[0].folder, "Kunden/Müller");
+    assert_eq!(export.entries[0].password.as_deref(), Some("tannenbaum"));
+    assert!(export
+        .warnings
+        .contains(&"import.warning.cleartext".to_string()));
+}

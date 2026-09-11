@@ -1,0 +1,13 @@
+# Test data. These hosts do not exist.
+Host web kunde-web
+    HostName web.example.org
+    User dennis
+    Port 2222
+    IdentityFile ~/.ssh/id_ed25519
+
+Host datenbank
+    HostName db.example.org
+
+Host *
+    User fallback
+    ServerAliveInterval 60
