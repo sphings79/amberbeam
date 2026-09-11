@@ -79,6 +79,11 @@ export interface ConnectRequest {
   password?: string;
   keyPath?: string;
   passphrase?: string;
+  /**
+   * Set when this connection comes from a site entry. The shell uses it to
+   * fetch the stored password, which is why none needs to be passed here.
+   */
+  siteId?: string;
   /** Set on a second attempt, after the user accepted the fingerprint. */
   acceptFingerprint?: string;
   /** Transfers at once for this connection; falls back to the settings. */
@@ -278,6 +283,46 @@ export interface Release {
   url: string;
 }
 
+/**
+ * A site entry, exactly as it sits on disk — with two things added that are
+ * not part of the file.
+ *
+ * `folder` is where it is filed, which on disk is simply the directory the file
+ * is in. `hasPassword` says whether the credential store holds one; the
+ * password itself never comes to the window, because the window has no use for
+ * the value, only for the connection it opens.
+ */
+export interface Site {
+  id: string;
+  name: string;
+  folder: string;
+  hasPassword: boolean;
+  protocol: Protocol;
+  host: string;
+  port: number;
+  user: string;
+  auth: AuthKind;
+  keyPath: string | null;
+  remotePath: string | null;
+  localPath: string | null;
+  concurrency: number;
+  retries: number | null;
+  temporaryName: boolean | null;
+  encryption: Encryption | null;
+  passive: boolean | null;
+  latin1: boolean | null;
+  keepAlive: number | null;
+  rememberPassword: boolean;
+  /** One of the interface's accent names, or null for no marking. */
+  colour: string | null;
+}
+
+/** Which secret of an entry is meant. */
+export type SecretKind = "password" | "passphrase";
+
+/** Which pane a site is to be opened in. */
+export type OpenSide = "left" | "right";
+
 /** Stops a subscription. */
 export type Unsubscribe = () => void;
 
@@ -365,6 +410,35 @@ export interface AmberBeamApi {
   setSettings(value: Settings): Promise<void>;
 
   /** Whatever the window wants back on the next start. */
+  // --- The site manager ---
+
+  /** Every entry, with the folder it sits in. Never a password. */
+  sites(): Promise<Site[]>;
+  siteFolders(): Promise<string[]>;
+  /**
+   * Writes an entry, moving or renaming its file when either changed, and
+   * answers with its identifier — which the core assigns when the entry is new,
+   * because that identifier is what the credential store files the password
+   * under and one place has to be in charge of it.
+   */
+  saveSite(folder: string, site: Site): Promise<string>;
+  /** Removes an entry, and with it whatever the credential store held for it. */
+  deleteSite(id: string): Promise<void>;
+  createSiteFolder(folder: string): Promise<void>;
+  renameSiteFolder(from: string, to: string): Promise<void>;
+  /** Only an empty one — a folder full of servers deserves its own question. */
+  deleteSiteFolder(folder: string): Promise<void>;
+  /** One way only: a secret goes in, and never comes back out here. */
+  setSiteSecret(id: string, kind: SecretKind, value: string): Promise<void>;
+  forgetSiteSecret(id: string, kind: SecretKind): Promise<void>;
+
+  /** Opens the site manager in a window of its own. */
+  openSiteManager(): Promise<void>;
+  /** Asks the main window to open this entry on that side. */
+  openSite(id: string, side: OpenSide): Promise<void>;
+  /** Heard by the main window when the site manager asks for a connection. */
+  onOpenSite(handler: (id: string, side: OpenSide) => void): Promise<Unsubscribe>;
+
   uiState(): Promise<unknown>;
   setUiState(value: unknown): Promise<void>;
 }

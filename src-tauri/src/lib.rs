@@ -19,21 +19,70 @@ use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::queue::{Queue, Totals};
 use amberbeam_core::registry::{Connected, Sessions};
 use amberbeam_core::runner::{EnqueueRequest, Runner};
+use amberbeam_core::secrets::{Secret, SecretStore, SystemStore};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
+use amberbeam_core::sites::Site;
 use amberbeam_core::transfer::ConflictPolicy;
 use amberbeam_core::{CoreInfo, Events};
 use serde::Deserialize;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 /// The name events arrive under in the webview. One channel for everything, so
 /// the frontend has a single place to listen — which is also how the WebSocket
 /// of M7 will look.
 const EVENT_CHANNEL: &str = "amberbeam://event";
 
+/// The label of the site manager window, and the channel the main window hears
+/// its "open this one" on.
+const SITES_WINDOW: &str = "sites";
+const OPEN_SITE_CHANNEL: &str = "amberbeam://open-site";
+
+/// What one window asks the other to do.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenSite {
+    id: String,
+    side: String,
+}
+
 struct State {
     sessions: Arc<Sessions>,
     config: Config,
     queue: Arc<Runner>,
+    /// Where passwords live. Behind the trait, so the container build of M7 can
+    /// put an encrypted file here instead without anything above noticing.
+    secrets: Box<dyn SecretStore>,
+}
+
+/// One row of the site list, as the window needs it.
+///
+/// The password itself is never here. Whether there is one is, because the
+/// window has to be able to say so — a field that looks empty when a password
+/// is stored invites somebody to type it again for nothing.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SiteRow {
+    folder: String,
+    #[serde(flatten)]
+    site: Site,
+    has_password: bool,
+}
+
+/// Which secret of an entry a command means.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum SecretKind {
+    Password,
+    Passphrase,
+}
+
+impl From<SecretKind> for Secret {
+    fn from(kind: SecretKind) -> Self {
+        match kind {
+            SecretKind::Password => Secret::Password,
+            SecretKind::Passphrase => Secret::Passphrase,
+        }
+    }
 }
 
 /// What the window sends to open a connection.
@@ -45,6 +94,9 @@ struct State {
 #[serde(rename_all = "camelCase")]
 struct ConnectRequest {
     endpoint: String,
+    /// Set when this connection comes from a site entry. It is how the stored
+    /// password is found — which is why the window never has to hold one.
+    site_id: Option<String>,
     /// Which protocol to speak. Absent means SFTP, which is what every request
     /// meant before there was a choice.
     #[serde(default = "sftp")]
@@ -151,6 +203,155 @@ impl ConnectRequest {
     }
 }
 
+/// Opens the site manager in a window of its own.
+///
+/// Its own window because somebody with thirty servers wants the list beside
+/// the panes, not instead of them. Same bundle, a different view — so there is
+/// one interface to maintain, not two.
+#[tauri::command]
+fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    if let Some(existing) = app.get_webview_window(SITES_WINDOW) {
+        // Already open: bring it forward rather than stack a second one.
+        let _ = existing.unminimize();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    WebviewWindowBuilder::new(
+        &app,
+        SITES_WINDOW,
+        WebviewUrl::App("index.html?view=sites".into()),
+    )
+    .title("AmberBeam")
+    .inner_size(980.0, 660.0)
+    .min_inner_size(700.0, 460.0)
+    .center()
+    .build()
+    .map_err(Error::other)?;
+    Ok(())
+}
+
+/// Asks the main window to open a site on one side.
+///
+/// The site manager does not connect by itself on purpose: the questions a
+/// connection can raise — an unknown host key, a certificate nobody vouches
+/// for, a password that was not stored — all have their dialogs in the main
+/// window, and asking them twice in two places is how two answers end up
+/// disagreeing.
+#[tauri::command]
+fn open_site(app: tauri::AppHandle, id: String, side: String) -> Result<(), Error> {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.unminimize();
+        let _ = main.set_focus();
+    }
+    app.emit(OPEN_SITE_CHANNEL, OpenSite { id, side })
+        .map_err(Error::other)
+}
+
+// --- The site manager ------------------------------------------------------
+//
+// The password is the one thing these commands never hand back. The window can
+// ask whether an entry has one, set one and forget one; reading it is for the
+// moment of connecting, and that happens down here where it does not have to
+// travel through a webview to be useful.
+
+#[tauri::command]
+fn sites(state: tauri::State<'_, Arc<State>>) -> Vec<SiteRow> {
+    let secrets = &state.secrets;
+    state
+        .config
+        .sites()
+        .load()
+        .into_iter()
+        .map(|filed| SiteRow {
+            has_password: secrets
+                .get(&filed.site.id, Secret::Password)
+                .unwrap_or_default()
+                .is_some(),
+            folder: filed.folder,
+            site: filed.site,
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn site_folders(state: tauri::State<'_, Arc<State>>) -> Vec<String> {
+    state.config.sites().folders()
+}
+
+#[tauri::command]
+fn save_site(
+    state: tauri::State<'_, Arc<State>>,
+    folder: String,
+    mut site: Site,
+) -> Result<String, Error> {
+    // A new entry gets its identifier here rather than in the window. It is
+    // what the credential store files the password under, and one place has to
+    // be in charge of it.
+    if site.id.is_empty() {
+        site.id = Site::new_id();
+    }
+
+    // An entry that no longer wants its password remembered loses it here
+    // rather than at some later tidy-up, so the window and the keychain never
+    // disagree about what is stored.
+    if !site.remember_password {
+        let _ = state.secrets.forget(&site.id, Secret::Password);
+        let _ = state.secrets.forget(&site.id, Secret::Passphrase);
+    }
+
+    state.config.sites().save(&folder, &site)?;
+    Ok(site.id)
+}
+
+#[tauri::command]
+fn delete_site(state: tauri::State<'_, Arc<State>>, id: String) -> Result<(), Error> {
+    state.config.sites().delete(&id)?;
+    // The password goes with the entry that explained what it was for.
+    let _ = state.secrets.forget_all(&id);
+    Ok(())
+}
+
+#[tauri::command]
+fn create_site_folder(state: tauri::State<'_, Arc<State>>, folder: String) -> Result<(), Error> {
+    state.config.sites().create_folder(&folder)
+}
+
+#[tauri::command]
+fn rename_site_folder(
+    state: tauri::State<'_, Arc<State>>,
+    from: String,
+    to: String,
+) -> Result<(), Error> {
+    state.config.sites().rename_folder(&from, &to)
+}
+
+#[tauri::command]
+fn delete_site_folder(state: tauri::State<'_, Arc<State>>, folder: String) -> Result<(), Error> {
+    state.config.sites().delete_folder(&folder)
+}
+
+#[tauri::command]
+fn set_site_secret(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    kind: SecretKind,
+    value: String,
+) -> Result<(), Error> {
+    state.secrets.set(&id, kind.into(), &value)
+}
+
+#[tauri::command]
+fn forget_site_secret(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    kind: SecretKind,
+) -> Result<(), Error> {
+    state.secrets.forget(&id, kind.into())
+}
+
 #[tauri::command]
 fn core_info() -> CoreInfo {
     CoreInfo::gather()
@@ -164,8 +365,20 @@ async fn local_session(state: tauri::State<'_, Arc<State>>) -> Result<Connected,
 #[tauri::command]
 async fn connect(
     state: tauri::State<'_, Arc<State>>,
-    request: ConnectRequest,
+    mut request: ConnectRequest,
 ) -> Result<Connected, Error> {
+    // A site entry's secrets are fetched here rather than in the window. A
+    // password that never reaches the webview cannot be read out of it, and the
+    // window has no use for the value anyway — only for the connection.
+    if let Some(site_id) = request.site_id.clone() {
+        if request.password.is_none() {
+            request.password = state.secrets.get(&site_id, Secret::Password)?;
+        }
+        if request.passphrase.is_none() {
+            request.passphrase = state.secrets.get(&site_id, Secret::Passphrase)?;
+        }
+    }
+
     let endpoint = EndpointId::new(request.endpoint.clone());
     let settings = state.config.settings();
     let remote_ftp = matches!(
@@ -607,6 +820,7 @@ pub fn run() {
         sessions: Arc::clone(&sessions),
         config,
         queue: Runner::new(sessions, events.clone(), queue_path),
+        secrets: Box::new(SystemStore::default()),
     });
 
     let started = Arc::clone(&state);
@@ -666,6 +880,17 @@ pub fn run() {
             quick_connect_history,
             forget_quick_connect,
             save_as_site,
+            open_site_manager,
+            open_site,
+            sites,
+            site_folders,
+            save_site,
+            delete_site,
+            create_site_folder,
+            rename_site_folder,
+            delete_site_folder,
+            set_site_secret,
+            forget_site_secret,
             remember_path,
             ui_state,
             set_ui_state,

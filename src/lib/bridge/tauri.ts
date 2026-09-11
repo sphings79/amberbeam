@@ -16,7 +16,10 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  OpenSide,
   Release,
+  SecretKind,
+  Site,
   Totals,
   Settings,
   Unsubscribe,
@@ -87,6 +90,26 @@ export const api: AmberBeamApi = {
 
   settings: () => invoke<Settings>("settings"),
   setSettings: (value: Settings) => invoke<void>("set_settings", { value }),
+
+  sites: () => invoke<Site[]>("sites"),
+  siteFolders: () => invoke<string[]>("site_folders"),
+  saveSite: (folder: string, site: Site) => invoke<string>("save_site", { folder, site }),
+  deleteSite: (id: string) => invoke<void>("delete_site", { id }),
+  createSiteFolder: (folder: string) => invoke<void>("create_site_folder", { folder }),
+  renameSiteFolder: (from: string, to: string) => invoke<void>("rename_site_folder", { from, to }),
+  deleteSiteFolder: (folder: string) => invoke<void>("delete_site_folder", { folder }),
+  setSiteSecret: (id: string, kind: SecretKind, value: string) =>
+    invoke<void>("set_site_secret", { id, kind, value }),
+  forgetSiteSecret: (id: string, kind: SecretKind) =>
+    invoke<void>("forget_site_secret", { id, kind }),
+
+  openSiteManager: () => invoke<void>("open_site_manager"),
+  openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),
+  async onOpenSite(handler): Promise<Unsubscribe> {
+    return await listen<{ id: string; side: OpenSide }>("amberbeam://open-site", (event) =>
+      handler(event.payload.id, event.payload.side),
+    );
+  },
 
   uiState: () => invoke<unknown>("ui_state"),
   setUiState: (value: unknown) => invoke<void>("set_ui_state", { value }),

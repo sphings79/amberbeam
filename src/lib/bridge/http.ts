@@ -23,7 +23,10 @@ import type {
   Measurement,
   Queue,
   QuickConnectEntry,
+  OpenSide,
   Release,
+  SecretKind,
+  Site,
   Totals,
   Settings,
   Unsubscribe,
@@ -146,6 +149,29 @@ export const api: AmberBeamApi = {
 
   settings: () => call<Settings>("settings"),
   setSettings: (value: Settings) => call<void>("set-settings", { value }),
+
+  sites: () => call<Site[]>("sites"),
+  siteFolders: () => call<string[]>("site-folders"),
+  saveSite: (folder: string, site: Site) => call<string>("save-site", { folder, site }),
+  deleteSite: (id: string) => call<void>("delete-site", { id }),
+  createSiteFolder: (folder: string) => call<void>("create-site-folder", { folder }),
+  renameSiteFolder: (from: string, to: string) => call<void>("rename-site-folder", { from, to }),
+  deleteSiteFolder: (folder: string) => call<void>("delete-site-folder", { folder }),
+  setSiteSecret: (id: string, kind: SecretKind, value: string) =>
+    call<void>("set-site-secret", { id, kind, value }),
+  forgetSiteSecret: (id: string, kind: SecretKind) =>
+    call<void>("forget-site-secret", { id, kind }),
+
+  async openSiteManager(): Promise<void> {
+    // A browser tab cannot open a native window, and the container build shows
+    // the site manager as a view of the same page instead.
+    window.location.search = "?view=sites";
+  },
+  openSite: (id: string, side: OpenSide) => call<void>("open-site", { id, side }),
+  async onOpenSite(): Promise<Unsubscribe> {
+    // One page, one view: nothing here has to ask another window to connect.
+    return () => undefined;
+  },
 
   uiState: () => call<unknown>("ui-state"),
   setUiState: (value: unknown) => call<void>("set-ui-state", { value }),

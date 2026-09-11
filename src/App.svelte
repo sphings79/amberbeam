@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { api, LOCAL, type ConnectRequest, type CoreEvent, type Unsubscribe } from "./lib/bridge";
+  import {
+    api,
+    LOCAL,
+    type ConnectRequest,
+    type CoreEvent,
+    type Site,
+    type Unsubscribe,
+  } from "./lib/bridge";
   import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
@@ -24,6 +31,7 @@
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
+  import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
   import { certificateQuestion, hostKeyQuestion } from "./lib/ui/errors";
@@ -34,6 +42,16 @@
   import ServerLog from "./lib/ui/ServerLog.svelte";
   import TransferQueue from "./lib/ui/TransferQueue.svelte";
   import Splitter from "./lib/ui/Splitter.svelte";
+
+  /**
+   * Which of the two views this window is.
+   *
+   * Both are the same bundle: the site manager opens in a window of its own,
+   * but building it as a second application would mean two interfaces to keep
+   * in step, and they would drift.
+   */
+  const isSiteManager =
+    typeof location !== "undefined" && new URLSearchParams(location.search).get("view") === "sites";
 
   /** Heights, split and where each region sits — all kept across restarts. */
   let logHeight = $state(120);
@@ -69,9 +87,17 @@
   let connecting = $state(false);
   let connectFailure = $state<unknown>(null);
   /** The request waiting on the user's answer about a server key. */
-  let pendingRequest = $state<{ request: ConnectRequest; historyId: string; side: Side } | null>(null);
+  let pendingRequest = $state<{
+    request: ConnectRequest;
+    historyId: string;
+    side: Side;
+    startPath?: string;
+  } | null>(null);
 
   let hostKey = $derived(hostKeyQuestion(connectFailure));
+  /** A site whose password was never stored, waiting for one. */
+  let askingFor = $state<{ request: ConnectRequest; site: Site; side: Side } | null>(null);
+  let askedPassword = $state("");
   let certificate = $derived(certificateQuestion(connectFailure));
 
   /**
@@ -145,7 +171,12 @@
     void api.setUiState(state).catch(() => undefined);
   });
 
-  async function attempt(request: ConnectRequest, historyId: string, side: Side): Promise<void> {
+  async function attempt(
+    request: ConnectRequest,
+    historyId: string,
+    side: Side,
+    startPath?: string,
+  ): Promise<void> {
     connecting = true;
     connectFailure = null;
     try {
@@ -155,7 +186,7 @@
         session,
         `${request.user}@${request.host}`,
         historyId,
-        null,
+        startPath ?? null,
         // From the session rather than from the request: an exception accepted
         // in an earlier run counts the same, and the mark has to say so.
         session.certificateAccepted,
@@ -164,7 +195,7 @@
       pendingRequest = null;
     } catch (failure) {
       connectFailure = failure;
-      pendingRequest = { request, historyId, side };
+      pendingRequest = { request, historyId, side, startPath };
     } finally {
       connecting = false;
     }
@@ -172,14 +203,60 @@
 
   async function acceptHostKey(fingerprint: string): Promise<void> {
     if (!pendingRequest) return;
-    const { request, historyId, side } = pendingRequest;
-    await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side);
+    const { request, historyId, side, startPath } = pendingRequest;
+    await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side, startPath);
   }
+
+  /**
+   * A site the manager window asked to open.
+   *
+   * The connection itself happens here rather than there, because every
+   * question it can raise has its dialog in this window. A password that was
+   * never stored is asked for the same way — one prompt, then the ordinary
+   * attempt, so an unknown host key or a certificate still lands where it
+   * always does.
+   */
+  async function openSite(id: string, side: Side): Promise<void> {
+    const site = (await api.sites()).find((row) => row.id === id);
+    if (!site) return;
+
+    const request: ConnectRequest = {
+      endpoint: side,
+      siteId: site.id,
+      protocol: site.protocol,
+      host: site.host,
+      port: site.port,
+      user: site.user,
+      auth: site.auth,
+      keyPath: site.keyPath ?? undefined,
+      concurrency: site.concurrency,
+      retries: site.retries ?? undefined,
+      temporaryName: site.temporaryName ?? undefined,
+      encryption: site.encryption ?? undefined,
+      passive: site.passive ?? undefined,
+      latin1: site.latin1 ?? undefined,
+      keepAlive: site.keepAlive ?? undefined,
+    };
+
+    // Nothing in the store and something needed: ask once, here, rather than
+    // let the attempt fail and explain itself afterwards.
+    if (site.auth !== "agent" && !site.hasPassword) {
+      askingFor = { request, site, side };
+      return;
+    }
+    await attempt(request, `${site.user}@${site.host}`, side, site.remotePath ?? undefined);
+  }
+
+  $effect(() => {
+    let stop: Unsubscribe | undefined;
+    void api.onOpenSite((id, side) => void openSite(id, side)).then((off) => (stop = off));
+    return () => stop?.();
+  });
 
   async function acceptCertificate(fingerprint: string): Promise<void> {
     if (!pendingRequest) return;
-    const { request, historyId, side } = pendingRequest;
-    await attempt({ ...request, acceptCertificate: fingerprint }, historyId, side);
+    const { request, historyId, side, startPath } = pendingRequest;
+    await attempt({ ...request, acceptCertificate: fingerprint }, historyId, side, startPath);
   }
 
   /** Everything a transfer needs to know about where it is going. */
@@ -380,6 +457,9 @@
 
 <svelte:window onkeydown={onKey} />
 
+{#if isSiteManager}
+  <SiteManager />
+{:else}
 <div class="window">
   {#each topRegions as region (region)}
     {#if region === "log"}
@@ -469,6 +549,9 @@
       </button>
       <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
         {t("settings.title")}
+      </button>
+      <button type="button" class="settings" onclick={() => void api.openSiteManager()}>
+        {t("sites.title")}
       </button>
       <button
         type="button"
@@ -565,6 +648,54 @@
   />
 {/if}
 
+{#if askingFor}
+  <div class="backdrop" role="presentation">
+    <div class="ask" role="dialog" aria-modal="true">
+      <h2>{t("sites.password.title", { name: askingFor.site.name })}</h2>
+      <p>{t("sites.password.body")}</p>
+      <input
+        type="password"
+        bind:value={askedPassword}
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <div class="ask-actions">
+        <button
+          type="button"
+          onclick={() => {
+            askingFor = null;
+            askedPassword = "";
+          }}
+        >
+          {t("action.cancel")}
+        </button>
+        <button
+          type="button"
+          class="primary"
+          onclick={() => {
+            const waiting = askingFor;
+            const secret = askedPassword;
+            askingFor = null;
+            askedPassword = "";
+            if (!waiting) return;
+            const field = waiting.site.auth === "key-file" ? "passphrase" : "password";
+            void attempt(
+              { ...waiting.request, [field]: secret },
+              `${waiting.site.user}@${waiting.site.host}`,
+              waiting.side,
+              waiting.site.remotePath ?? undefined,
+            );
+          }}
+        >
+          {t("quick.connect")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if certificate}
   <CertificateDialog
     question={certificate}
@@ -583,8 +714,73 @@
     oncancel={() => ((connectFailure = null), (pendingRequest = null))}
   />
 {/if}
+{/if}
 
 <style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgb(0 0 0 / 45%);
+    display: grid;
+    place-items: center;
+    z-index: 50;
+  }
+
+  .ask {
+    width: min(420px, 92vw);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    padding: 20px 22px;
+  }
+
+  .ask h2 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+  }
+
+  .ask p {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .ask input {
+    font: inherit;
+    font-size: 0.86rem;
+    padding: 6px 8px;
+    border-radius: 0.4rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-0);
+    color: var(--text);
+    width: 100%;
+  }
+
+  .ask-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .ask-actions button {
+    font: inherit;
+    font-size: 0.86rem;
+    padding: 6px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1);
+    color: var(--text);
+    cursor: default;
+  }
+
+  .ask-actions button.primary {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
   .window {
     display: flex;
     flex-direction: column;
