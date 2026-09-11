@@ -15,6 +15,7 @@ use crate::engine::{self, Progress, ResumeVerdict};
 use crate::error::{Error, PathProblem, Result};
 use crate::events::{Events, LogDirection};
 use crate::fs::Listing;
+use crate::ftp::tls::CertificateDecision;
 use crate::ftp::{Encryption, FtpParams, FtpSession};
 use crate::local::LocalSession;
 use crate::ops::Measurement;
@@ -74,6 +75,10 @@ pub struct Connected {
     pub protocol: Protocol,
     /// Directory the pane should open, canonical.
     pub home: String,
+    /// Whether this connection stands on a certificate somebody accepted by
+    /// hand rather than one an authority vouches for. The window marks the
+    /// pane for as long as that holds.
+    pub certificate_accepted: bool,
 }
 
 /// All open sessions.
@@ -129,6 +134,7 @@ impl Sessions {
             endpoint: endpoint.clone(),
             protocol: Protocol::Sftp,
             home,
+            certificate_accepted: false,
         })
     }
 
@@ -161,6 +167,7 @@ impl Sessions {
             endpoint: endpoint.clone(),
             protocol,
             home,
+            certificate_accepted: params.certificate != CertificateDecision::TrustedOnly,
         })
     }
 
@@ -174,6 +181,7 @@ impl Sessions {
             endpoint,
             protocol: Protocol::Local,
             home,
+            certificate_accepted: false,
         })
     }
 

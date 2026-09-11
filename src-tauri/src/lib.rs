@@ -13,7 +13,7 @@ use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
 use amberbeam_core::fs::Listing;
-use amberbeam_core::ftp::tls::CertificateDecision;
+use amberbeam_core::ftp::tls::{CertificateDecision, Exceptions};
 use amberbeam_core::ftp::{Encryption, FtpParams};
 use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::queue::{Queue, Totals};
@@ -116,8 +116,9 @@ impl ConnectRequest {
         }
     }
 
-    fn into_ftp_params(self, settings: &Settings) -> FtpParams {
+    fn into_ftp_params(self, settings: &Settings, stored: &Exceptions) -> FtpParams {
         let protocol = self.protocol;
+        let (host, port) = (self.host.clone(), self.port);
         FtpParams {
             host: self.host,
             port: self.port,
@@ -141,7 +142,10 @@ impl ConnectRequest {
             latin1: self.latin1.unwrap_or(false),
             certificate: match self.accept_certificate {
                 Some(fingerprint) => CertificateDecision::Trust { fingerprint },
-                None => CertificateDecision::TrustedOnly,
+                // Nothing accepted in this attempt, so whatever was accepted in
+                // an earlier one still counts — for that one certificate on
+                // that one host and port, and nothing else.
+                None => stored.decision_for(&host, port),
             },
         }
     }
@@ -180,12 +184,24 @@ async fn connect(
         temporary_name: request.temporary_name,
     };
 
+    let accepted_now = request.accept_certificate.clone();
+    let (host, port) = (request.host.clone(), request.port);
+
     let connected = match request.protocol {
         amberbeam_core::Protocol::Ftp | amberbeam_core::Protocol::Ftps => {
-            state
+            let exceptions = state.config.certificate_exceptions();
+            let session = state
                 .sessions
-                .connect_ftp(&endpoint, &request.into_ftp_params(&settings))
-                .await?
+                .connect_ftp(&endpoint, &request.into_ftp_params(&settings, &exceptions))
+                .await?;
+
+            // Written down only after it worked. A fingerprint accepted for a
+            // server that then refused the login is not an exception anybody
+            // wants kept.
+            if let Some(fingerprint) = accepted_now {
+                state.config.accept_certificate(&host, port, &fingerprint)?;
+            }
+            session
         }
         // Local needs no connecting, and asking for it here is a mistake worth
         // failing on rather than quietly turning into something else.

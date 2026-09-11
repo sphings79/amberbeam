@@ -52,6 +52,13 @@ export interface Connected {
   endpoint: string;
   protocol: Protocol;
   home: string;
+  /**
+   * Whether this connection stands on a certificate somebody accepted by hand
+   * rather than one an authority vouches for. True also when the exception was
+   * accepted in an earlier session — the mark belongs to the state, not to the
+   * moment it was made.
+   */
+  certificateAccepted: boolean;
 }
 
 export type AuthKind = "password" | "key-file" | "agent";

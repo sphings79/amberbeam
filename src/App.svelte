@@ -156,8 +156,9 @@
         `${request.user}@${request.host}`,
         historyId,
         null,
-        // Carried into the pane so the exception stays visible while it holds.
-        request.acceptCertificate !== undefined,
+        // From the session rather than from the request: an exception accepted
+        // in an earlier run counts the same, and the mark has to say so.
+        session.certificateAccepted,
       );
       quickFor = null;
       pendingRequest = null;

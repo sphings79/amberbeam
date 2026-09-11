@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::endpoint::Protocol;
 use crate::error::{Error, PathProblem, Result};
+use crate::ftp::tls::Exceptions;
 
 /// Where everything lives. Settable, because the container build of M7 has a
 /// mounted directory rather than a home, and tests need their own.
@@ -244,6 +245,33 @@ impl Config {
         write_json(&self.root.join("ui-state.json"), state)
     }
 
+    /// Certificates the user accepted by hand, in their own file.
+    ///
+    /// Kept beside the rest as plain text on purpose: an exception to
+    /// certificate checking is exactly the sort of thing that should be
+    /// readable, and removable, without this program's help. The same reasoning
+    /// as OpenSSH's `known_hosts`.
+    pub fn certificate_exceptions(&self) -> Exceptions {
+        read_json(&self.certificates_path()).unwrap_or_default()
+    }
+
+    /// Records one accepted certificate for one host and port.
+    pub fn accept_certificate(&self, host: &str, port: u16, fingerprint: &str) -> Result<()> {
+        let mut exceptions = self.certificate_exceptions();
+        exceptions.accept(host, port, fingerprint);
+        write_json(&self.certificates_path(), &exceptions)
+    }
+
+    pub fn forget_certificate(&self, host: &str, port: u16) -> Result<()> {
+        let mut exceptions = self.certificate_exceptions();
+        exceptions.forget(host, port);
+        write_json(&self.certificates_path(), &exceptions)
+    }
+
+    fn certificates_path(&self) -> PathBuf {
+        self.root.join("accepted-certificates.json")
+    }
+
     fn quick_connect_path(&self) -> PathBuf {
         self.root.join("quick-connect.json")
     }
@@ -301,6 +329,52 @@ fn safe_file_name(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_accepted_certificate_is_still_accepted_after_a_restart() {
+        // "Restart" here is a second Config over the same directory, which is
+        // exactly what the next start of the program is.
+        let root = std::env::temp_dir().join(format!(
+            "amberbeam-certs-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|since| since.as_nanos())
+                .unwrap_or_default()
+        ));
+        let config = super::Config::at(&root);
+        config
+            .accept_certificate("example.org", 21, "AA:BB:CC")
+            .expect("write the exception");
+
+        let later = super::Config::at(&root);
+        assert_eq!(
+            later
+                .certificate_exceptions()
+                .decision_for("example.org", 21),
+            crate::ftp::tls::CertificateDecision::Trust {
+                fingerprint: "AA:BB:CC".into()
+            }
+        );
+        // Still only that one server, and only that one port.
+        assert_eq!(
+            later
+                .certificate_exceptions()
+                .decision_for("example.org", 990),
+            crate::ftp::tls::CertificateDecision::TrustedOnly
+        );
+
+        later
+            .forget_certificate("example.org", 21)
+            .expect("remove the exception");
+        assert_eq!(
+            super::Config::at(&root)
+                .certificate_exceptions()
+                .decision_for("example.org", 21),
+            crate::ftp::tls::CertificateDecision::TrustedOnly
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     use super::*;
 
     fn scratch(name: &str) -> Config {
