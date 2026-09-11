@@ -2,6 +2,16 @@
 
 [English](getting-started.md)
 
+## Der erste Start auf dem Mac
+
+Diese Fassung ist ad-hoc signiert und **nicht beglaubigt** — hinter dem Projekt
+steht keine bezahlte Apple-Mitgliedschaft. Ein Doppelklick bringt beim ersten
+Mal eine Warnung und sonst nichts. Stattdessen: Rechtsklick auf das Programm,
+**Öffnen**, bestätigen. macOS merkt es sich, jeder weitere Start ist gewöhnlich.
+
+Diese Warnung tut übrigens ihre Arbeit. Sie heißt, dass niemand gegenüber Apple
+für dieses Programm bürgt — und das stimmt.
+
 ## Zwei Bereiche, und jeder kann überall sein
 
 Beide Seiten fangen auf diesem Rechner an. Verbindest du eine mit einem

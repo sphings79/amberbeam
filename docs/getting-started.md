@@ -2,6 +2,16 @@
 
 [Deutsch](getting-started.de.md)
 
+## The first launch on macOS
+
+This build is ad-hoc signed and **not notarised** — there is no paid Apple
+membership behind the project. Double-clicking it the first time gets you a
+warning and nothing else. Instead: right-click the app, choose **Open**, and
+confirm. macOS remembers, and every launch after that is ordinary.
+
+That warning is doing its job, by the way. It means nobody has vouched for
+this program to Apple, which is true.
+
 ## Two panes, either of which can be anywhere
 
 Both sides start on this computer. Connect one of them to a server and you
