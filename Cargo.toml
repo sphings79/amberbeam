@@ -32,6 +32,9 @@ keyring = { version = "4.2", features = [
     "zbus-secret-service-keyring-store",
     "v1",
 ] }
+# Two of the six site formats are XML. Writing an XML reader by hand would be
+# the wrong sort of thrift.
+quick-xml = "0.38"
 sha2 = "0.11"
 # The operating system's trust store, so a certificate authority the user
 # installed is trusted here as well. Chosen over a bundled list for that reason.

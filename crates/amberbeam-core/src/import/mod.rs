@@ -11,10 +11,13 @@
 //! system's credential store and never into a file of ours.
 
 pub mod commander;
+pub mod filezilla;
 pub mod ini;
 pub mod openssh;
 pub mod sites_dat;
+pub mod sites_xml;
 pub mod winscp;
+pub mod xml;
 
 use std::path::{Path, PathBuf};
 
@@ -291,10 +294,8 @@ pub fn read(source: Source, path: &Path) -> crate::error::Result<Found> {
         Source::WinScp => winscp::read(path),
         Source::WcxFtp => commander::read(path),
         Source::SitesDat => sites_dat::read(path),
-        // The two XML readers arrive with the next step.
-        Source::FileZilla | Source::SitesXml => Err(crate::error::Error::other(
-            "this format is not readable yet",
-        )),
+        Source::FileZilla => filezilla::read(path),
+        Source::SitesXml => sites_xml::read(path),
     }
 }
 

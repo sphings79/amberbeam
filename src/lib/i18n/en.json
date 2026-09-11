@@ -265,5 +265,6 @@
   "import.source.sites-dat": "Sites.dat of an older Windows client",
   "import.source.sites-xml": ".ftp site export of an older Windows client",
   "import.warning.master-password": "This file is protected by a master password. The servers can be read, the passwords cannot.",
-  "import.warning.some-passwords": "Some passwords could not be read. Those entries arrive without one rather than with a wrong one."
+  "import.warning.some-passwords": "Some passwords could not be read. Those entries arrive without one rather than with a wrong one.",
+  "import.warning.cleartext": "This file holds every password in plain text. AmberBeam moves them into the credential store; the file itself is worth deleting afterwards."
 }

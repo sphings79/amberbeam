@@ -265,5 +265,6 @@
   "import.source.sites-dat": "Sites.dat eines älteren Windows-Clients",
   "import.source.sites-xml": ".ftp-Export eines älteren Windows-Clients",
   "import.warning.master-password": "Diese Datei ist durch ein Hauptpasswort geschützt. Die Server lassen sich lesen, die Passwörter nicht.",
-  "import.warning.some-passwords": "Einige Passwörter ließen sich nicht lesen. Diese Einträge kommen ohne an statt mit einem falschen."
+  "import.warning.some-passwords": "Einige Passwörter ließen sich nicht lesen. Diese Einträge kommen ohne an statt mit einem falschen.",
+  "import.warning.cleartext": "Diese Datei enthält alle Passwörter im Klartext. AmberBeam übernimmt sie in den Zugangsdatenspeicher; die Datei selbst sollte danach gelöscht werden."
 }
