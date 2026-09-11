@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
   <title>AmberBeam — Fensterlayout</title>
-  <desc>Server-Log oben, lokale Dateien links, der Server rechts, die Warteschlange unten.</desc>
+  <desc>Server-Log unten, lokale Dateien links, der Server rechts, die Warteschlange in der Mitte.</desc>
 
   <defs>
     <linearGradient id="accent" x1="0" y1="0" x2="0" y2="1">

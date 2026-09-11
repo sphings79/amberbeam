@@ -1538,3 +1538,93 @@ async fn an_existing_file_stops_and_waits_for_an_answer() {
     let _ = std::fs::remove_file(&source);
     let _ = std::fs::remove_file(&queue_file);
 }
+
+#[tokio::test]
+async fn a_file_travels_from_one_server_to_another() {
+    // Two connections to the same machine stand in for two servers: what is
+    // being tested is that neither side is the local disk, and the code cannot
+    // tell whether the two connections lead to the same place.
+    let (host, port) = server_or_skip!("server_to_server");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let shared = shared_known_hosts();
+
+    let probe = connect_ready(&host, port, password(), &events).await.ok();
+    let Some(probe) = probe else {
+        panic!("could not reach the server");
+    };
+    probe.disconnect().await;
+
+    let first = EndpointId::new("server-a");
+    let second = EndpointId::new("server-b");
+    let params = params(&host, port, password(), &shared, HostKeyDecision::KnownOnly);
+    sessions.connect_sftp(&first, &params).await.expect("first");
+    sessions
+        .connect_sftp(&second, &params)
+        .await
+        .expect("second");
+    let sessions = std::sync::Arc::new(sessions);
+
+    // Put something on the first server, without involving the local disk in
+    // the transfer itself.
+    let source = format!("{}/amberbeam-from-a.bin", testdata());
+    let target = format!("{}/amberbeam-to-b.bin", testdata());
+    let session = sessions.find(&first).await.expect("session");
+    let _ = session.remove(&source).await;
+    let _ = session.remove(&target).await;
+    let local_scratch = scratch_file("seed.bin", &b"s".repeat(40_000));
+    sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: EndpointId::new(LOCAL),
+                source_path: local_scratch.clone(),
+                target_endpoint: first.clone(),
+                target_path: source.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                source_permissions: None,
+                use_temporary_name: true,
+            },
+            &Progress::new(None, 0),
+        )
+        .await
+        .expect("seed the first server");
+
+    // Now from one server to the other. The bytes come down to AmberBeam and
+    // go back up — this is not FXP, where the servers would talk directly.
+    let progress = Progress::new(None, 0);
+    let done = sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: first.clone(),
+                source_path: source.clone(),
+                target_endpoint: second.clone(),
+                target_path: target.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                source_permissions: None,
+                use_temporary_name: true,
+            },
+            &progress,
+        )
+        .await
+        .expect("server to server");
+
+    assert!(done.complete);
+    assert_eq!(done.moved, 40_000);
+
+    let (size, _) = sessions
+        .find(&second)
+        .await
+        .expect("session")
+        .stat(&target)
+        .await
+        .expect("stat");
+    assert_eq!(size, 40_000);
+
+    let _ = sessions.remove(&first, &source).await;
+    let _ = sessions.remove(&second, &target).await;
+    let _ = std::fs::remove_file(&local_scratch);
+}

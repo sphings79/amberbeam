@@ -26,12 +26,16 @@ für den eigenen Server.
 
 ## Stand
 
-> **Meilenstein M0: Das Gerüst steht, übertragen wird noch nichts.**
-> Die Werkzeugkette ist bewiesen — die CI baut Programm und Installationspaket
-> bei jedem Push auf macOS, Windows und Linux — und die drei Architekturnähte,
-> die nachträglich teuer wären, sind angelegt. SFTP kommt mit M1, Übertragungen
-> mit M2. Die [Meilensteine](#meilensteine) sagen, was fertig ist und was nicht;
-> dieses Dokument behauptet nichts anderes.
+> **Meilenstein M2: Es verbindet über SFTP, und es überträgt.**
+> Zwei Bereiche mit Ordnerbaum, eine Warteschlange, die einen Neustart
+> übersteht, Übertragungen, die dort weitermachen, wo sie abgerissen sind, und
+> die Rückfragen, die vor dem Überschreiben nötig sind. FTP und FTPS kommen mit
+> M3, der Site Manager mit M4. Die [Meilensteine](#meilensteine) sagen, was
+> fertig ist und was nicht; dieses Dokument behauptet nichts anderes.
+>
+> Fertige Software ist das nicht. Es gibt noch keinen Site Manager, der
+> Einrichtungsdialog für die F-Tasten fehlt, und signiert oder beglaubigt ist
+> nichts.
 
 ## Warum noch ein Übertragungsprogramm?
 
@@ -58,10 +62,10 @@ gelernt hat, seit Jahren stillstehen.
 
 <img src="assets/screenshots/layout.de.svg" width="880" alt="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
 
-<em><strong>Das geplante Fenster</strong>, dunkel und hell in der Mitte
-auseinandergerissen. Gezeichnet, nicht fotografiert: Die Bereiche listen noch
-keine Dateien — das ist M1. Alles darauf ist entschieden, nichts davon ist fürs
-Bild erfunden.</em>
+<em><strong>Das Fenster</strong>, dunkel und hell in der Mitte
+auseinandergerissen. Gezeichnet statt fotografiert: Eine Zeichnung bleibt in
+jeder Größe scharf, wiegt ein paar Kilobyte, und eine Änderung daran zeigt sich
+im Diff. Erfunden ist daran nichts — so arbeitet das Programm.</em>
 
 </div>
 
@@ -196,9 +200,9 @@ selbst sind die Quelle und überall lesbar.
 | | Meilenstein | Stand |
 |---|---|---|
 | **M0** | Gerüst: ein Fenster, Installationspakete auf drei Plattformen, die drei Nähte, Lizenz und README | **fertig** |
-| **M1** | SFTP: mit Passwort und Schlüssel verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel | als Nächstes |
-| **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt. Ab hier benutzbar | |
-| **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene | |
+| **M1** | SFTP: mit Passwort, Schlüssel oder Agent verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel, Dateioperationen | **fertig** |
+| **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt, Drag and Drop | **fertig** |
+| **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene | als Nächstes |
 | **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | |
 | **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | |
 | **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |

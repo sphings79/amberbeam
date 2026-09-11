@@ -26,12 +26,15 @@ for your own server.
 
 ## Status
 
-> **Milestone M0: the scaffold stands, and nothing transfers yet.**
-> The toolchain is proven — CI builds the app and its installer on macOS,
-> Windows and Linux on every push — and the three architectural seams that
-> would be expensive to add later are in place. SFTP arrives with M1, transfers
-> with M2. The [roadmap](#roadmap) says what is done and what is not, and this
-> README will not claim otherwise.
+> **Milestone M2: it connects over SFTP, and it transfers.**
+> Two panes with folder trees, a queue that survives a restart, transfers that
+> pick up where they broke off, and the questions that have to be asked before
+> a file is overwritten. FTP and FTPS arrive with M3, the site manager with M4.
+> The [roadmap](#roadmap) says what is done and what is not, and this README
+> will not claim otherwise.
+>
+> It is not finished software. There is no site manager yet, the function key
+> setup is still to come, and nothing has been signed or notarised.
 
 ## Why another file transfer client?
 
@@ -57,10 +60,10 @@ standing still for years.
 
 <img src="assets/screenshots/layout.svg" width="880" alt="AmberBeam window layout: server log on top, local files with folder tree on the left, the server on the right, transfer queue at the bottom, shown in dark and light theme side by side">
 
-<em><strong>The planned window</strong>, dark and light torn apart down the
-middle. Drawn, not photographed: the panes do not list files yet — that is
-milestone M1. Everything here is decided, nothing here is invented for the
-picture.</em>
+<em><strong>The window</strong>, dark and light torn apart down the middle.
+Drawn rather than photographed: a drawing stays sharp at any size, weighs a few
+kilobytes, and a change to it shows up in a diff. Nothing on it is invented —
+this is what the program does.</em>
 
 </div>
 
@@ -197,9 +200,9 @@ themselves are the source of truth and are readable anywhere.
 | | Milestone | State |
 |---|---|---|
 | **M0** | Scaffold: a window, installers on three platforms, the three seams, licence and README | **done** |
-| **M1** | SFTP: connect with password and key, list directories, tree and list, two panes, focus switching | next |
-| **M2** | Transfers: queue, concurrency, resuming, conflicts, progress. Usable from here on | |
-| **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback | |
+| **M1** | SFTP: connect with password, key or agent, list directories, tree and list, two panes, focus switching, file operations | **done** |
+| **M2** | Transfers: queue, concurrency, resuming, conflicts, progress, drag and drop | **done** |
+| **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback | next |
 | **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | |
 | **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | |
 | **M6** | Polish: icon, signing and notarisation, help, first release | |

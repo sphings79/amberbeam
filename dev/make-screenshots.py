@@ -42,8 +42,8 @@ STRINGS = {
         "title": "AmberBeam — Fensterlayout",
         "alt": "Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum "
                "links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander",
-        "desc": "Server-Log oben, lokale Dateien links, der Server rechts, die Warteschlange "
-                "unten.",
+        "desc": "Server-Log unten, lokale Dateien links, der Server rechts, die "
+                "Warteschlange in der Mitte.",
         "cols": ("Name", "Größe", "Geändert"),
         "log": "SERVER-LOG",
         "raw": "F4  Raw-Befehle",
