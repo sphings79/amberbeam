@@ -19,6 +19,7 @@
    */
   import { api } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import {
     label,
     SCHEMES,
@@ -84,7 +85,7 @@
 <svelte:window onkeydown={heard} />
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("setup.title")}>
+  <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("setup.title")}>
     <header>
       <h2>{t("setup.title")}</h2>
     </header>

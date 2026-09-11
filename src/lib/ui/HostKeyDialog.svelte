@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CoreError } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
 
   interface Props {
     question: Extract<CoreError, { kind: "host-key-unknown" | "host-key-changed" }>;
@@ -14,7 +15,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" class:changed role="alertdialog" aria-modal="true">
+  <div class="dialog" class:changed use:trap role="alertdialog" aria-modal="true">
     <h2>{changed ? t("hostkey.changed.title") : t("hostkey.unknown.title")}</h2>
 
     <p>

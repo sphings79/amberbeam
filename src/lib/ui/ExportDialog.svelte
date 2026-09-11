@@ -11,6 +11,7 @@
    */
   import { api } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { describe } from "./errors";
 
   interface Props {
@@ -48,7 +49,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("export.title")}>
+  <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("export.title")}>
     <h2>{t("export.title")}</h2>
 
     <div class="choices">

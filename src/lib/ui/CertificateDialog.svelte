@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CoreError } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
 
   interface Props {
     question: Extract<CoreError, { kind: "certificate-untrusted" }>;
@@ -22,7 +23,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" class:grave role="alertdialog" aria-modal="true">
+  <div class="dialog" class:grave use:trap role="alertdialog" aria-modal="true">
     <h2>{t("certificate.title")}</h2>
 
     <p>{t("certificate.body", { host: question.host })}</p>

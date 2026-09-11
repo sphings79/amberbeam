@@ -3,6 +3,7 @@
 
   import type { DirEntry } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
 
   interface Props {
     entries: DirEntry[];
@@ -49,7 +50,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("perm.title")}>
+  <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("perm.title")}>
     <h2>{t("perm.title")}</h2>
     <p class="subject">
       {entries.length === 1 ? entries[0]?.name : t("perm.many", { count: entries.length })}

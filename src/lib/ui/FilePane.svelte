@@ -2,6 +2,7 @@
   import { api, LOCAL, type DirEntry, type Measurement } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import {
+    clearRequest,
     enter,
     focusedSide,
     focusPane,
@@ -41,6 +42,16 @@
   let dropTarget = $state(false);
 
   let view = $derived(pane(side));
+
+  // A key was pressed for one of this pane's commands. Cleared first, so a
+  // command that opens a dialog does not run again the moment it closes.
+  $effect(() => {
+    const wanted = view.requested;
+    if (!wanted) return;
+    clearRequest(side);
+    const command = COMMANDS.find((candidate) => candidate.id === wanted);
+    if (command) void invoke(command);
+  });
   let active = $derived(focusedSide() === side);
   let remote = $derived(view.endpoint !== LOCAL);
   let rows = $derived(visibleEntries(side));

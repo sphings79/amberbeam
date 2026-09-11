@@ -16,6 +16,7 @@
     type Unsubscribe,
   } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { describe } from "./errors";
 
   interface Props {
@@ -182,7 +183,7 @@
   }}
   ondragleave={() => (dropping = false)}
 >
-  <div class="dialog" class:dropping role="dialog" aria-modal="true" aria-label={t("import.title")}>
+  <div class="dialog" class:dropping use:trap role="dialog" aria-modal="true" aria-label={t("import.title")}>
     <header>
       <h2>{t("import.title")}</h2>
       <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>

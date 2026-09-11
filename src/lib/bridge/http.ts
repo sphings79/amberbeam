@@ -201,6 +201,16 @@ export const api: AmberBeamApi = {
     // A browser has no system settings to open, and the container build runs
     // on somebody else's machine anyway.
   },
+  async toggleFullscreen(): Promise<boolean> {
+    // The browser's own, which needs a gesture and grants nothing on its own.
+    const element = document.documentElement;
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return false;
+    }
+    await element.requestFullscreen();
+    return true;
+  },
   writeTextFile: (path: string, text: string) => call<void>("write-text-file", { path, text }),
   readTextFile: (path: string) => call<string>("read-text-file", { path }),
 

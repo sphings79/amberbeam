@@ -561,6 +561,8 @@ export interface AmberBeamApi {
    * no program should be able to change how somebody's keyboard behaves.
    */
   openSystemKeyboard(pane: "function-keys" | "shortcuts"): Promise<void>;
+  /** Turns full screen on or off, and answers what it now is. */
+  toggleFullscreen(): Promise<boolean>;
   /** Writes a file the user picked. Used for key schemes. */
   writeTextFile(path: string, text: string): Promise<void>;
   readTextFile(path: string): Promise<string>;

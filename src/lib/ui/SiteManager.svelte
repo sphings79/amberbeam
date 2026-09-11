@@ -15,6 +15,7 @@
    */
   import { api, type OpenSide, type ProtocolInfo, type Protocol, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { ACCENTS } from "../theme/index.svelte";
   import { describe } from "./errors";
   import Icon from "./Icon.svelte";
@@ -795,7 +796,7 @@
 
 {#if removing}
   <div class="backdrop" role="presentation">
-    <div class="dialog" role="alertdialog" aria-modal="true">
+    <div class="dialog" use:trap role="alertdialog" aria-modal="true">
       <h2>{t("sites.delete.title", { name: removing.name })}</h2>
       <p>
         {removing.hasPassword ? t("sites.delete.with-password") : t("sites.delete.body")}
@@ -835,7 +836,7 @@
 
 {#if naming}
   <div class="backdrop" role="presentation">
-    <div class="dialog" role="dialog" aria-modal="true" aria-label={naming.title}>
+    <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={naming.title}>
     <form
       onsubmit={(event) => {
         event.preventDefault();
@@ -869,7 +870,7 @@
 
 {#if asking}
   <div class="backdrop" role="presentation">
-    <div class="dialog" role="dialog" aria-modal="true">
+    <div class="dialog" use:trap role="dialog" aria-modal="true">
       <h2>{t("sites.open.title", { name: asking.name })}</h2>
       <p>{t("sites.open.body")}</p>
       <div class="actions">

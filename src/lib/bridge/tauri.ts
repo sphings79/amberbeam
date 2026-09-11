@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 import type {
   AmberBeamApi,
@@ -137,6 +138,12 @@ export const api: AmberBeamApi = {
 
   openSystemKeyboard: (pane: "function-keys" | "shortcuts") =>
     invoke<void>("open_system_keyboard", { pane }),
+  async toggleFullscreen(): Promise<boolean> {
+    const window = getCurrentWindow();
+    const now = !(await window.isFullscreen());
+    await window.setFullscreen(now);
+    return now;
+  },
   writeTextFile: (path: string, text: string) => invoke<void>("write_text_file", { path, text }),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
 

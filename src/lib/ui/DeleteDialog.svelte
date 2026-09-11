@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DirEntry, Measurement } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { formatSize } from "./format";
 
   interface Props {
@@ -21,7 +22,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="alertdialog" aria-modal="true">
+  <div class="dialog" use:trap role="alertdialog" aria-modal="true">
     <h2>{t("delete.title")}</h2>
 
     {#if entries.length === 1}

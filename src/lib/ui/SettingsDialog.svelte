@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type Settings } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
 
   interface Props {
     onclose: () => void;
@@ -25,7 +26,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("settings.title")}>
+  <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("settings.title")}>
     <header>
       <h2>{t("settings.title")}</h2>
       <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>

@@ -7,6 +7,7 @@
     type QuickConnectEntry,
   } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { describe } from "./errors";
 
   interface Props {
@@ -163,7 +164,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("quick.title")}>
+  <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("quick.title")}>
     <header>
       <h2>{t("quick.title")}</h2>
       <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>

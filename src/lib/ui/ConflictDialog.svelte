@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ConflictPolicy, QueuedJob } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { trap } from "./trap";
   import { formatDate, formatSize } from "./format";
 
   interface Props {
@@ -25,7 +26,7 @@
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" role="alertdialog" aria-modal="true">
+  <div class="dialog" use:trap role="alertdialog" aria-modal="true">
     <h2>{t("conflict.title")}</h2>
     <p class="subject mono" title={job.targetPath}>{job.name}</p>
     <p class="explain">{t("conflict.body")}</p>

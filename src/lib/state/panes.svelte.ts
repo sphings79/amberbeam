@@ -7,6 +7,7 @@
  */
 
 import { api, LOCAL, type Connected, type DirEntry, type Listing, type Protocol } from "../bridge";
+import type { CommandId } from "../ui/commands";
 
 export type Side = "left" | "right";
 export type SortColumn = "name" | "size" | "modified";
@@ -43,6 +44,12 @@ export interface PaneState {
   showTree: boolean;
   /** Name of the row being renamed in place, or null. */
   renaming: string | null;
+  /**
+   * A command the keyboard asked this pane to run, which the pane clears when
+   * it has. The same path the toolbar and the menu take, rather than a second
+   * one beside it — two ways to delete a file is one too many.
+   */
+  requested: CommandId | null;
   busy: boolean;
   /** Set when the last attempt failed, so the pane can say so. */
   failure: unknown;
@@ -69,6 +76,7 @@ function emptyPane(): PaneState {
     showHidden: true,
     showTree: true,
     renaming: null,
+    requested: null,
     busy: false,
     failure: null,
     expanded: new Set<string>(),
@@ -130,6 +138,15 @@ export function isDirectory(entry: DirEntry): boolean {
     entry.kind === "directory" ||
     (entry.kind === "symlink" && entry.kindOfTarget === "directory")
   );
+}
+
+/** Asks a pane to run one of its own commands. */
+export function requestCommand(side: Side, id: CommandId): void {
+  panes[side].requested = id;
+}
+
+export function clearRequest(side: Side): void {
+  panes[side].requested = null;
 }
 
 /** Points a pane at an endpoint and reads its starting directory. */

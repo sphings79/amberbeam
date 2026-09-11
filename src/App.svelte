@@ -27,6 +27,7 @@
     pane,
     reload,
     setHiddenVisible,
+    requestCommand,
     setTreeVisible,
     startRename,
     switchFocus,
@@ -37,6 +38,9 @@
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
+  import { trap } from "./lib/ui/trap";
+  import KeyboardHelp from "./lib/ui/KeyboardHelp.svelte";
+  import KeyboardSettings from "./lib/ui/KeyboardSettings.svelte";
   import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
@@ -81,12 +85,12 @@
 
   let topRegions = $derived(
     (["log", "queue"] as const).filter((region) =>
-      region === "log" ? logPosition === "top" : queuePosition === "top",
+      region === "log" ? logPosition === "top" : queuePosition === "top" && !queueHidden,
     ),
   );
   let bottomRegions = $derived(
     (["queue", "log"] as const).filter((region) =>
-      region === "log" ? logPosition === "bottom" : queuePosition === "bottom",
+      region === "log" ? logPosition === "bottom" : queuePosition === "bottom" && !queueHidden,
     ),
   );
 
@@ -110,6 +114,10 @@
    */
   let stateRead = $state(false);
   let setupOpen = $state(false);
+  let helpOpen = $state(false);
+  let keysOpen = $state(false);
+  /** The queue folded away, which is what F8 does. */
+  let queueHidden = $state(false);
   /**
    * "Decide later" means later, not never: the dialog stays away for this run
    * and asks again at the next start. Marking it answered would make "later"
@@ -407,10 +415,11 @@
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (quickFor || hostKey || certificate) return;
-    // The keyboard dialog is asking about keys. Handing it Tab and F5 while it
-    // waits for them is not a detail — it is the one moment those keys mean
-    // something else entirely.
-    if (keyboardShown) return;
+    // A dialog about keys is open. Handing it Tab and F5 while it waits for
+    // them is not a detail — it is the one moment those keys mean something
+    // else entirely, and while somebody is assigning a key it must not also
+    // fire the action they are assigning it away from.
+    if (keyboardShown || keysOpen || helpOpen) return;
 
     const side = focusedSide();
     const rows = visibleEntries(side);
@@ -509,6 +518,27 @@
       case "connect-toggle":
         if (view.endpoint === LOCAL) quickFor = side;
         else await disconnect(side);
+        break;
+      case "help":
+        helpOpen = true;
+        break;
+      case "fullscreen":
+        await api.toggleFullscreen().catch(() => undefined);
+        break;
+      case "queue-toggle":
+        queueHidden = !queueHidden;
+        break;
+      case "queue-start":
+        await api.queuePause(false);
+        await refreshQueue();
+        break;
+      // Everything a pane already offers goes through the pane, not around it.
+      case "delete":
+      case "transfer":
+      case "new-file":
+      case "new-folder":
+      case "permissions":
+        requestCommand(side, action);
         break;
       default:
         break;
@@ -616,6 +646,9 @@
       <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
         {t("settings.title")}
       </button>
+      <button type="button" class="settings" onclick={() => (helpOpen = true)}>
+        {t("help.title")}
+      </button>
       <button type="button" class="settings" onclick={() => void api.openSiteManager()}>
         {t("sites.title")}
       </button>
@@ -714,6 +747,20 @@
   />
 {/if}
 
+{#if helpOpen}
+  <KeyboardHelp
+    onclose={() => (helpOpen = false)}
+    onsetup={() => {
+      helpOpen = false;
+      keysOpen = true;
+    }}
+  />
+{/if}
+
+{#if keysOpen}
+  <KeyboardSettings onclose={() => (keysOpen = false)} />
+{/if}
+
 {#if keyboardShown}
   <KeyboardSetup
     onclose={() => {
@@ -725,7 +772,7 @@
 
 {#if askingFor}
   <div class="backdrop" role="presentation">
-    <div class="ask" role="dialog" aria-modal="true">
+    <div class="ask" use:trap role="dialog" aria-modal="true">
       <h2>{t("sites.password.title", { name: askingFor.site.name })}</h2>
       <p>{t("sites.password.body")}</p>
       <input
