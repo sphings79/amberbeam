@@ -196,13 +196,31 @@ async fn key_file<H: Handler>(
     }
 }
 
+/// Offers whatever the running agent holds.
+///
+/// How one reaches the agent differs by system, which is the only thing that
+/// differs: a Unix socket named by `SSH_AUTH_SOCK`, or a named pipe on
+/// Windows. Both end up handing the same keys to the same call.
 async fn agent<H: Handler>(
     handle: &mut Handle<H>,
     user: &str,
     events: &Events,
     endpoint: &EndpointId,
 ) -> Result<()> {
+    #[cfg(unix)]
     let mut agent = AgentClient::connect_env().await.map_err(|_| Error::Agent)?;
+
+    #[cfg(windows)]
+    let mut agent = {
+        // OpenSSH for Windows listens on this pipe. Pageant, PuTTY's agent, is
+        // a different mechanism and belongs with the rest of the PuTTY support
+        // in M4.
+        const OPENSSH_PIPE: &str = r"\\.\pipe\openssh-ssh-agent";
+        AgentClient::connect_named_pipe(OPENSSH_PIPE)
+            .await
+            .map_err(|_| Error::Agent)?
+    };
+
     let identities = agent.request_identities().await.map_err(|_| Error::Agent)?;
     if identities.is_empty() {
         return Err(Error::Agent);
