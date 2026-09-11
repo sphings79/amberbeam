@@ -968,6 +968,67 @@ fn open_url(url: String) -> Result<(), Error> {
     command.arg(&url).spawn().map(|_| ()).map_err(Error::other)
 }
 
+/// Which pane of the system's settings a key scheme needs.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum SystemPane {
+    /// Where the function keys are turned into function keys.
+    FunctionKeys,
+    /// Where Mission Control and Spotlight give up F3, F4 and F11.
+    Shortcuts,
+}
+
+/// Opens the settings pane a key scheme needs, and nothing else.
+///
+/// A command of its own rather than widening [`open_url`]: that one accepts
+/// http and https for a reason, and a program able to open any scheme the
+/// system knows is a program that can be talked into opening a good deal more
+/// than a settings pane.
+///
+/// It only opens the pane. Turning the setting on is the person's own doing —
+/// no program should be able to change how somebody's keyboard behaves.
+#[tauri::command]
+fn open_system_keyboard(pane: SystemPane) -> Result<(), Error> {
+    #[cfg(target_os = "macos")]
+    {
+        let target = match pane {
+            SystemPane::FunctionKeys => {
+                "x-apple.systempreferences:com.apple.Keyboard-Settings.extension"
+            }
+            SystemPane::Shortcuts => {
+                "x-apple.systempreferences:com.apple.Keyboard-Settings.extension?Shortcuts"
+            }
+        };
+        std::process::Command::new("open")
+            .arg(target)
+            .spawn()
+            .map(|_| ())
+            .map_err(Error::other)
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Nowhere else does the operating system keep the function keys for
+        // itself, so there is no pane to open and nothing to apologise for.
+        let _ = pane;
+        Ok(())
+    }
+}
+
+/// Writes a text file the user picked, and reads one back.
+///
+/// Used by the key schemes, which are the window's own business — the core
+/// stores them as opaque state and has no opinion about their shape.
+#[tauri::command]
+fn write_text_file(path: PathBuf, text: String) -> Result<(), Error> {
+    std::fs::write(&path, text).map_err(Error::from)
+}
+
+#[tauri::command]
+fn read_text_file(path: PathBuf) -> Result<String, Error> {
+    std::fs::read_to_string(&path).map_err(Error::from)
+}
+
 #[tauri::command]
 fn settings(state: tauri::State<'_, Arc<State>>) -> Settings {
     state.config.settings()
@@ -1092,6 +1153,9 @@ pub fn run() {
             settings,
             set_settings,
             open_url,
+            open_system_keyboard,
+            write_text_file,
+            read_text_file,
             newer_release,
             update_source,
             enqueue,

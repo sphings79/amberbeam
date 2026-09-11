@@ -10,6 +10,7 @@
   import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
   import {
     actionOf,
+    hasAnswered,
     restore as restoreKeys,
     saved as savedKeys,
   } from "./lib/keys/index.svelte";
@@ -36,6 +37,7 @@
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
+  import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
@@ -100,6 +102,24 @@
   } | null>(null);
 
   let hostKey = $derived(hostKeyQuestion(connectFailure));
+  /**
+   * The keyboard dialog, on the first start and never again unless asked for.
+   *
+   * Held back until the saved state has been read, or it would flash up for
+   * everybody on every start before the answer arrives.
+   */
+  let stateRead = $state(false);
+  let setupOpen = $state(false);
+  /**
+   * "Decide later" means later, not never: the dialog stays away for this run
+   * and asks again at the next start. Marking it answered would make "later"
+   * a word that never arrives.
+   */
+  let setupPutOff = $state(false);
+  let keyboardShown = $derived(
+    !isSiteManager && stateRead && (setupOpen || (!hasAnswered() && !setupPutOff)),
+  );
+
   /** A site whose password was never stored, waiting for one. */
   let askingFor = $state<{ request: ConnectRequest; site: Site; side: Side } | null>(null);
   let askedPassword = $state("");
@@ -141,6 +161,7 @@
         setTreeVisible("right", saved.showTree.right ?? true);
       }
       restoreKeys(saved?.keys);
+      stateRead = true;
       if (saved?.showHidden) {
         setHiddenVisible("left", saved.showHidden.left ?? true);
         setHiddenVisible("right", saved.showHidden.right ?? true);
@@ -386,6 +407,10 @@
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (quickFor || hostKey || certificate) return;
+    // The keyboard dialog is asking about keys. Handing it Tab and F5 while it
+    // waits for them is not a detail — it is the one moment those keys mean
+    // something else entirely.
+    if (keyboardShown) return;
 
     const side = focusedSide();
     const rows = visibleEntries(side);
@@ -685,6 +710,15 @@
       const id = asking[0]?.id;
       if (id) await api.queueDecide(id, "skip", true);
       await refreshQueue();
+    }}
+  />
+{/if}
+
+{#if keyboardShown}
+  <KeyboardSetup
+    onclose={() => {
+      setupOpen = false;
+      setupPutOff = true;
     }}
   />
 {/if}

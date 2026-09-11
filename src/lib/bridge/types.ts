@@ -552,6 +552,19 @@ export interface AmberBeamApi {
     into: string,
   ): Promise<number>;
 
+  // --- The keyboard ---
+
+  /**
+   * Opens the system settings pane a key scheme needs.
+   *
+   * It only opens the pane. Turning the setting on is the person's own doing:
+   * no program should be able to change how somebody's keyboard behaves.
+   */
+  openSystemKeyboard(pane: "function-keys" | "shortcuts"): Promise<void>;
+  /** Writes a file the user picked. Used for key schemes. */
+  writeTextFile(path: string, text: string): Promise<void>;
+  readTextFile(path: string): Promise<string>;
+
   /** Opens the site manager in a window of its own. */
   openSiteManager(): Promise<void>;
   /** Asks the main window to open this entry on that side. */

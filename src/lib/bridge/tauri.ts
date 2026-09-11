@@ -135,6 +135,11 @@ export const api: AmberBeamApi = {
     into: string,
   ) => invoke<number>("import_apply", { source, path, chosen, expected, takePasswords, into }),
 
+  openSystemKeyboard: (pane: "function-keys" | "shortcuts") =>
+    invoke<void>("open_system_keyboard", { pane }),
+  writeTextFile: (path: string, text: string) => invoke<void>("write_text_file", { path, text }),
+  readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+
   openSiteManager: () => invoke<void>("open_site_manager"),
   openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),
   async onOpenSite(handler): Promise<Unsubscribe> {
