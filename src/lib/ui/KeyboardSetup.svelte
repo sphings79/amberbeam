@@ -74,11 +74,21 @@
     return SHOWN.map((action) => label(bindings[action]?.[0] ?? "")).join(" · ");
   }
 
-  /** What each scheme costs, in the order somebody would weigh them. */
-  const COST: Record<SchemeName, { settings: number }> = {
-    classic: { settings: 2 },
-    mixed: { settings: 1 },
-    mac: { settings: 0 },
+  /**
+   * What each scheme really costs.
+   *
+   * Only one thing is ever *required*, and only for the Windows layout: the
+   * three keys the system keeps for itself have to be given up, or F3, F4 and
+   * F11 never arrive however they are pressed.
+   *
+   * Turning the function keys on is not required at all. Without it they still
+   * work — hold fn. The setting saves holding fn, which is a convenience and
+   * not a hurdle, and presenting it as one overstates what this costs.
+   */
+  const COST: Record<SchemeName, { required: number; fnWorks: boolean }> = {
+    classic: { required: 1, fnWorks: true },
+    mixed: { required: 0, fnWorks: true },
+    mac: { required: 0, fnWorks: false },
   };
 </script>
 
@@ -147,12 +157,13 @@
           <!-- The last two lines sit at the bottom of every card, whatever the
                description above them runs to. Three cards whose facts start at
                three different heights read as three different kinds of thing. -->
+          <!-- Two lines of the same shape in all three cards: what the system
+               needs, and how the function keys are reached. -->
           <span class="cost">
-            {COST[name].settings === 0
-              ? t("setup.cost.none")
-              : COST[name].settings === 1
-                ? t("setup.cost.settings.one")
-                : t("setup.cost.settings", { count: COST[name].settings })}
+            {COST[name].required === 1 ? t("setup.cost.settings.one") : t("setup.cost.none")}<br />
+            <span class="fn">
+              {COST[name].fnWorks ? t("setup.cost.fn") : t("setup.cost.no-f-keys")}
+            </span>
           </span>
           <!-- This scheme's own keys, not a fixed example. Three cards showing
                the same three keys would say nothing about the choice. -->
@@ -320,6 +331,11 @@
   .scheme .cost {
     font-size: 0.76rem;
     color: var(--text-faint);
+    line-height: 1.5;
+  }
+
+  .scheme .fn {
+    color: var(--text-muted);
   }
 
   .scheme .sample {
