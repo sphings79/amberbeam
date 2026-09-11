@@ -22,6 +22,11 @@ jobs:
       - run: cargo fmt --package amberbeam-core --check
       - run: cargo clippy --package amberbeam-core --all-targets -- -D warnings
       - run: cargo test --package amberbeam-core
+      # The importers against whatever real files the machine happens to have.
+      # Skips itself where there are none, which on a build runner is usually
+      # the case — the value is on a developer's machine, where the files are
+      # real and the samples in the unit tests are not.
+      - run: cargo test --package amberbeam-core --test import
       # The protocol code is only worth as much as the server it was tried
       # against. This is the same script and the same image used on the
       # developer's machine.
