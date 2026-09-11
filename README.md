@@ -70,8 +70,12 @@ Version 1, as specified:
   supported, plain FTP possible but visibly marked
 - **Two panes, each with a folder tree and a file list.** Either side can be
   local *or* a server — two servers side by side are explicitly allowed
-- **Transfer queue** that survives a restart, with per-server concurrency
-  (SFTP 8, FTP 4 by default, adjustable up to 64)
+- **Transfer queue** that survives a restart, moving **several files at the same
+  time** — how many is set per server (SFTP 8, FTP 4 by default, up to 64),
+  because a shared hoster that allows four logins will refuse the fifth
+- **No FXP.** A transfer between two servers runs through AmberBeam, not
+  directly between the two. The architecture leaves that door open; version 1
+  does not walk through it
 - **Resuming a single file that broke in mid-transfer** — not just the queue.
   Size and timestamp of the source are compared first, and if they changed you
   are asked instead of silently handed a file stitched from two versions
@@ -87,7 +91,8 @@ Version 1, as specified:
 - **No cloud, no accounts, no telemetry**
 
 Later: directory synchronisation, comparing both sides, remote editing,
-scheduled jobs, FXP, the container build, S3 and WebDAV.
+scheduled jobs, the container build, S3 and WebDAV — and FXP if it ever earns
+its place.
 
 ## The three seams
 

@@ -440,9 +440,9 @@ def social():
         # reads as depth rather than as two pictures on top of each other.
         '    <linearGradient id="scrim" x1="0" y1="0" x2="1" y2="0">\n'
         '      <stop offset="0" stop-color="#0f1118" stop-opacity="1"/>\n'
-        '      <stop offset="0.40" stop-color="#0f1118" stop-opacity="1"/>\n'
-        '      <stop offset="0.52" stop-color="#0f1118" stop-opacity="0.45"/>\n'
-        '      <stop offset="0.66" stop-color="#0f1118" stop-opacity="0"/>\n'
+        '      <stop offset="0.44" stop-color="#0f1118" stop-opacity="1"/>\n'
+        '      <stop offset="0.56" stop-color="#0f1118" stop-opacity="0.55"/>\n'
+        '      <stop offset="0.65" stop-color="#0f1118" stop-opacity="0"/>\n'
         "    </linearGradient>\n"
         '    <filter id="cardshadow" x="-30%" y="-30%" width="160%" height="160%">\n'
         '      <feDropShadow dx="0" dy="22" stdDeviation="34" flood-color="#000" '
@@ -455,7 +455,7 @@ def social():
     )
 
     # ---- the window, drawn first so the text column can lie over its edge
-    wx, wy, ww, wh = 380, 48, 900, 552
+    wx, wy, ww, wh = 430, 48, 850, 552
     half = ww // 2
     tree_w = 155
     out.append(
@@ -563,15 +563,15 @@ def social():
     )
     out.append(text(168, 106, "AmberBeam", TEXT, 30, "700"))
     out.append(text(168, 136, "Dual-pane FTP and SFTP", "#8a91a3", 18))
-    out.append(text(72, 224, "Two panes.", "#ffffff", 44, "700"))
-    out.append(text(72, 274, "The keyboard", "#ffffff", 44, "700"))
-    out.append(text(72, 324, "in charge.", "#ffffff", 44, "700"))
-    out.append(text(72, 372, "In the tradition of FlashFXP —", MUTED, 19))
-    out.append(text(72, 398, "for everyone who misses it.", MUTED, 19))
+    out.append(text(72, 228, "Two panes.", "#ffffff", 44, "700"))
+    out.append(text(72, 278, "The keyboard in charge.", "#ffffff", 44, "700"))
+    out.append(text(72, 326, "Local and remote side by side,", MUTED, 19))
+    out.append(text(72, 352, "with the folder tree where it belongs.", MUTED, 19))
 
-    out.append(tick(446, "SFTP, FTP and FTPS"))
-    out.append(tick(484, "Resume a broken transfer mid-file"))
-    out.append(tick(522, "Import sites from FileZilla and WinSCP"))
+    out.append(tick(404, "SFTP, FTP and FTPS"))
+    out.append(tick(442, "Several files at once, set per server"))
+    out.append(tick(480, "Resume a broken transfer mid-file"))
+    out.append(tick(518, "Import sites from FileZilla and WinSCP"))
 
     out.append(pill(72, 562, 80, "macOS", size=15))
     out.append(pill(160, 562, 92, "Windows", size=15))

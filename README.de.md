@@ -70,8 +70,13 @@ Fassung 1, wie festgelegt:
   Port 990 unterstützt, unverschlüsseltes FTP möglich, aber sichtbar markiert
 - **Zwei Bereiche mit je Ordnerbaum und Dateiliste.** Jede Seite kann lokal
   *oder* Server sein — zwei Server nebeneinander sind ausdrücklich erlaubt
-- **Warteschlange, die Programmneustarts übersteht**, mit Parallelität pro
-  Server (SFTP 8, FTP 4 voreingestellt, bis 64 einstellbar)
+- **Warteschlange, die Programmneustarts übersteht** und **mehrere Dateien
+  gleichzeitig** überträgt — wie viele, wird pro Server eingestellt (SFTP 8,
+  FTP 4 voreingestellt, bis 64), denn ein Webhoster, der vier Anmeldungen
+  erlaubt, weist die fünfte ab
+- **Kein FXP.** Eine Übertragung zwischen zwei Servern läuft über AmberBeam und
+  nicht direkt zwischen beiden. Die Architektur lässt die Tür offen, Fassung 1
+  geht nicht hindurch
 - **Fortsetzen einer einzelnen Datei, die mittendrin abgerissen ist** — nicht
   nur der Warteschlange. Größe und Zeitstempel der Quelle werden vorher
   verglichen; bei Abweichung wird gefragt, statt stillschweigend eine Datei aus
@@ -90,7 +95,8 @@ Fassung 1, wie festgelegt:
 - **Keine Cloud, keine Konten, keine Telemetrie**
 
 Später: Verzeichnisabgleich, Vergleich beider Seiten, entferntes Bearbeiten,
-zeitgesteuerte Aufträge, FXP, die Container-Fassung, S3 und WebDAV.
+zeitgesteuerte Aufträge, die Container-Fassung, S3 und WebDAV — und FXP, falls
+es sich seinen Platz je verdient.
 
 ## Die drei Nähte
 
