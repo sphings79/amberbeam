@@ -1,0 +1,150 @@
+name: Release
+
+# A tag is the trigger, and nothing else is. A release that could be started by
+# hand from any branch is a release nobody can later point at a commit.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  # Before anything is built: does the tag agree with the version in the files?
+  # A release called v0.2.0 carrying a program that calls itself 0.1.0 is worse
+  # than no release — the update notice compares the two, and would go on
+  # telling everybody about an update they already have.
+  agree:
+    name: Tag and version agree
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compare
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          crate=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          echo "tag $tag, tauri.conf.json $declared, Cargo.toml $crate"
+          test "$tag" = "$declared" || { echo "::error::tauri.conf.json says $declared"; exit 1; }
+          test "$tag" = "$crate" || { echo "::error::Cargo.toml says $crate"; exit 1; }
+      - name: The changelog mentions this version
+        run: |
+          grep -q "## ${GITHUB_REF_NAME#v}" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no entry for ${GITHUB_REF_NAME#v}"; exit 1; }
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: agree
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            name: macOS
+            artefact: target/release/bundle/dmg/*.dmg
+          - os: windows-latest
+            name: Windows
+            artefact: |
+              target/release/bundle/msi/*.msi
+              target/release/bundle/nsis/*.exe
+          - os: ubuntu-22.04
+            name: Linux
+            artefact: |
+              target/release/bundle/deb/*.deb
+              target/release/bundle/appimage/*.AppImage
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+          key: release-${{ matrix.os }}
+      - name: System libraries for the webview
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev
+      - run: npm ci
+
+      # Signing and notarisation happen only when the secrets are there. They
+      # are not today — there is no paid Apple membership behind this — and the
+      # build says so rather than failing, so the day one appears the only
+      # change is four secrets in the repository settings.
+      - name: Build, signed and notarised where possible
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ] && [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "::notice::No Apple signing identity in the secrets — building ad-hoc signed and not notarised. Gatekeeper will warn on first launch; the release notes say how to get past it."
+          fi
+          npm run tauri build
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: amberbeam-${{ matrix.name }}
+          path: ${{ matrix.artefact }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v6
+        with:
+          path: installers
+      - name: What was built
+        run: find installers -type f | sort
+
+      # The notes are cut out of the changelog rather than kept beside it.
+      # Two places to write the same thing is two places to write it
+      # differently, and the one nobody reads is always the one that is right.
+      - name: The notes for this version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v want="## $version" '
+            $0 ~ "^## " { inside = ($0 == want || index($0, want " ") == 1); next }
+            inside { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "::error::CHANGELOG.md has nothing under $version"; exit 1; }
+          cat >> notes.md <<'NOTE'
+
+          ---
+
+          **macOS:** this build is ad-hoc signed and **not notarised** — there is
+          no paid Apple membership behind this project. On first launch,
+          right-click the app and choose *Open*, then confirm. After that it
+          starts normally.
+
+          **Windows and Linux:** built by CI on every release. macOS is the only
+          one tested by hand so far; reports from the other two are welcome.
+
+          Full notes: [CHANGELOG.md](https://github.com/sphings79/amberbeam/blob/main/CHANGELOG.md) ·
+          [auf Deutsch](https://github.com/sphings79/amberbeam/blob/main/CHANGELOG.de.md)
+          NOTE
+          sed -i 's/^          //' notes.md
+          echo "--- notes ---"; cat notes.md
+
+      # Pre-release until 1.0, and that is a promise about the state of the
+      # program rather than a technicality. The update notice in the program
+      # reads pre-releases on purpose, so this does not silence it.
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: installers/**/*
+          prerelease: true
+          draft: false
+          body_path: notes.md
+          fail_on_unmatched_files: true

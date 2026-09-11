@@ -112,6 +112,8 @@ scheduled jobs, the container build, S3 and WebDAV — and FXP if it ever earns
 its place.
 
 ## Documentation
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+
 
 Short pages on the things that are not obvious, in English and German:
 

@@ -22,6 +22,8 @@ const root = join(here, "..");
 const pages = [
   join(root, "README.md"),
   join(root, "README.de.md"),
+  join(root, "CHANGELOG.md"),
+  join(root, "CHANGELOG.de.md"),
   ...readdirSync(join(root, "docs"))
     .filter((name) => name.endsWith(".md"))
     .map((name) => join(root, "docs", name)),

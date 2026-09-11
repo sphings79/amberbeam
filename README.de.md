@@ -118,6 +118,8 @@ zeitgesteuerte Aufträge, die Container-Fassung, S3 und WebDAV — und FXP, fall
 es sich seinen Platz je verdient.
 
 ## Dokumentation
+Was sich je Veröffentlichung geändert hat: [CHANGELOG.de.md](CHANGELOG.de.md).
+
 
 Kurze Seiten über das, was nicht offensichtlich ist, auf Deutsch und Englisch:
 
