@@ -19,6 +19,7 @@ use crate::endpoint::Protocol;
 use crate::error::{Error, PathProblem, Result};
 use crate::ftp::tls::Exceptions;
 use crate::ftp::Encryption;
+use crate::sites::{Site, Sites};
 
 /// Where everything lives. Settable, because the container build of M7 has a
 /// mounted directory rather than a home, and tests need their own.
@@ -157,8 +158,10 @@ impl Config {
         &self.root
     }
 
-    pub fn sites_dir(&self) -> PathBuf {
-        self.root.join("sites")
+    /// The server list. Its own module, because folders, moving and renaming
+    /// are a good deal more than "a directory of files".
+    pub fn sites(&self) -> Sites {
+        Sites::at(self.root.join("sites"))
     }
 
     /// The quick connect history, most recently used first.
@@ -213,6 +216,7 @@ impl Config {
             })?;
 
         let site = Site {
+            id: Site::new_id(),
             name: format!("{}@{}", entry.user, entry.host),
             protocol: entry.protocol,
             host: entry.host.clone(),
@@ -225,18 +229,21 @@ impl Config {
             concurrency: entry
                 .concurrency
                 .unwrap_or_else(|| entry.protocol.default_concurrency()),
+            retries: entry.retries,
+            temporary_name: entry.temporary_name,
             encryption: entry.encryption,
             passive: entry.passive,
             latin1: entry.latin1,
             keep_alive: entry.keep_alive,
+            // A password the history never held cannot be carried over, so the
+            // new entry starts without one rather than claiming to have it.
+            remember_password: false,
             colour: None,
         };
 
-        std::fs::create_dir_all(self.sites_dir()).map_err(Error::from)?;
-        let path = self
-            .sites_dir()
-            .join(format!("{}.json", safe_file_name(&site.name)));
-        write_json(&path, &site)?;
+        // At the top level: a history entry has no folder, and guessing one
+        // would put servers where nobody filed them.
+        let path = self.sites().save("", &site)?;
 
         self.remember_quick_connect(QuickConnectEntry {
             saved_as_site: true,
@@ -297,38 +304,6 @@ impl Config {
     }
 }
 
-/// A site entry as it lands on disk. One file per server, readable, versionable.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Site {
-    pub name: String,
-    pub protocol: Protocol,
-    pub host: String,
-    pub port: u16,
-    pub user: String,
-    pub auth: AuthKind,
-    pub key_path: Option<String>,
-    /// Directory the server side opens in.
-    pub remote_path: Option<String>,
-    /// Directory the local side opens in.
-    pub local_path: Option<String>,
-    pub concurrency: u8,
-    /// FTP only: how the connection is encrypted.
-    #[serde(default)]
-    pub encryption: Option<Encryption>,
-    /// FTP only.
-    #[serde(default)]
-    pub passive: Option<bool>,
-    /// FTP only: the server does not speak UTF-8.
-    #[serde(default)]
-    pub latin1: Option<bool>,
-    /// FTP only: seconds between keep-alive commands on an idle connection.
-    #[serde(default)]
-    pub keep_alive: Option<u32>,
-    /// Colour marking in the site list.
-    pub colour: Option<String>,
-}
-
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     let text = std::fs::read_to_string(path).ok()?;
     // A file somebody edited by hand into nonsense must not stop the program
@@ -347,16 +322,6 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let temporary = path.with_extension("json.tmp");
     std::fs::write(&temporary, text).map_err(Error::from)?;
     std::fs::rename(&temporary, path).map_err(Error::from)
-}
-
-/// Keeps a name usable as a file name without inventing a different one.
-fn safe_file_name(name: &str) -> String {
-    name.chars()
-        .map(|c| match c {
-            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
-            other => other,
-        })
-        .collect()
 }
 
 #[cfg(test)]
@@ -495,47 +460,17 @@ mod tests {
         let path = config.save_as_site(&one.id).expect("write site");
         assert!(path.exists());
 
-        let site: Site = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(site.host, "example.org");
-        assert_eq!(site.remote_path.as_deref(), Some("/var/www"));
-        assert_eq!(site.concurrency, 8, "SFTP starts at eight at a time");
-
-        // A site file may hold exactly these and nothing else. Named one by
-        // one rather than filtered by a word, because a field called "passive"
-        // is fine and one called "passphrase" is not, and no rule about
-        // substrings tells those apart. Adding a field to `Site` fails this
-        // test until somebody has looked at it and decided it carries no
-        // secret — which is the point.
-        const ALLOWED: [&str; 15] = [
-            "name",
-            "protocol",
-            "host",
-            "port",
-            "user",
-            "auth",
-            "keyPath",
-            "remotePath",
-            "localPath",
-            "concurrency",
-            "encryption",
-            "passive",
-            "latin1",
-            "keepAlive",
-            "colour",
-        ];
-        let raw: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-        for field in raw.as_object().expect("an object").keys() {
-            assert!(
-                ALLOWED.contains(&field.as_str()),
-                "a site file grew a field nobody has vetted: {field}"
-            );
-        }
+        let filed = config.sites().load();
+        assert_eq!(filed.len(), 1);
+        assert_eq!(filed[0].folder, "", "a history entry has no folder");
+        assert_eq!(filed[0].site.host, "example.org");
+        assert_eq!(filed[0].site.remote_path.as_deref(), Some("/var/www"));
         assert_eq!(
-            raw.as_object().expect("an object").len(),
-            ALLOWED.len(),
-            "the allowed list and the file have drifted apart"
+            filed[0].site.concurrency, 8,
+            "SFTP starts at eight at a time"
         );
+        // What a site file may and may not hold is guarded where the type
+        // lives, in `sites`.
 
         // And the history knows it has been taken over.
         assert!(config.quick_connect()[0].saved_as_site);
@@ -613,19 +548,11 @@ mod tests {
             ..entry("dennis", "example.org")
         };
         config.remember_quick_connect(one.clone()).unwrap();
-        let path = config.save_as_site(&one.id).unwrap();
-        let site: Site = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        config.save_as_site(&one.id).unwrap();
         assert_eq!(
-            site.concurrency, 2,
+            config.sites().load()[0].site.concurrency,
+            2,
             "the login's own value, not the protocol's"
-        );
-    }
-
-    #[test]
-    fn a_name_with_a_separator_cannot_escape_the_sites_directory() {
-        assert_eq!(
-            safe_file_name("dennis@example.org/../evil"),
-            "dennis@example.org-..-evil"
         );
     }
 }

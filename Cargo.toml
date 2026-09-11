@@ -22,6 +22,16 @@ dirs = "7"
 # binary carries one implementation rather than two.
 # Already in the tree through russh; declared directly so the fingerprint code
 # does not depend on somebody else's dependency staying where it is.
+# The credential store of whichever system this runs on. Chosen over writing
+# three platform back ends by hand because the Linux one would still be missing.
+keyring = { version = "4.2", features = [
+    "apple-native-keyring-store",
+    "windows-native-keyring-store",
+    # zbus rather than dbus: the latter wants libdbus, a C library, and this
+    # project carries none. See the note on russh in the concept paper.
+    "zbus-secret-service-keyring-store",
+    "v1",
+] }
 sha2 = "0.11"
 # The operating system's trust store, so a certificate authority the user
 # installed is trusted here as well. Chosen over a bundled list for that reason.
