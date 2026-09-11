@@ -1,16 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="AmberBeam logo">
   <title>AmberBeam</title>
+  <desc>Two strands of light crossing in opposite directions: the two panes, and transfers both ways.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#f7a824"/>
       <stop offset="1" stop-color="#c4720a"/>
     </linearGradient>
+    <!-- A glow, kept gentle. At 32 pixels a strong one turns the whole icon
+         into a smear, and the small sizes are the ones that have to work. -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3.5" result="blurred"/>
+      <feMerge>
+        <feMergeNode in="blurred"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
+
   <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#bg)"/>
-  <g fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M62 128h106"/>
-    <path d="M150 100l34 28-34 28"/>
-    <path d="M90 92h32" opacity="0.42"/>
-    <path d="M74 164h48" opacity="0.42"/>
+
+  <!-- Both directions at once. A single arrow would say "upload", and this is
+       a program whose whole point is that either side can be anywhere. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <g stroke="#fff6e0" stroke-width="15">
+      <path d="M52 98h126"/>
+      <path d="M150 70l30 28"/>
+    </g>
+    <g stroke="#ffe3ac" stroke-width="15">
+      <path d="M204 158H78"/>
+      <path d="M106 186l-30-28"/>
+    </g>
   </g>
 </svg>

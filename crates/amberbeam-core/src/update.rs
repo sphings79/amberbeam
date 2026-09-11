@@ -4,7 +4,7 @@
 //! clear that AmberBeam sends nothing about its user anywhere; an update check
 //! is the one request it makes on its own, so what it does has to be plain:
 //!
-//! * It asks GitHub for the newest release of this repository. Nothing else.
+//! * It asks GitHub for this repository's releases. Nothing else.
 //! * It sends no version, no identifier, no count of anything. The request
 //!   reveals an address and a moment in time, which is what any request does.
 //! * It can be switched off, and then nothing is asked at all.
@@ -61,28 +61,60 @@ pub fn is_newer(current: &str, latest: &str) -> bool {
 
 /// The address the check asks. Public so the shell doing the asking cannot
 /// invent a different one.
-pub const LATEST_RELEASE: &str = "https://api.github.com/repos/sphings79/amberbeam/releases/latest";
+///
+/// The list rather than `/releases/latest`, and that is not a detail. GitHub's
+/// "latest" leaves out pre-releases, and every release of AmberBeam is one
+/// until 1.0 — so asking for "latest" would mean the whole notice quietly does
+/// nothing for the entire life of the 0.x series. A feature that exists and
+/// does nothing is worse than one that was never offered.
+pub const LATEST_RELEASE: &str =
+    "https://api.github.com/repos/sphings79/amberbeam/releases?per_page=20";
 
-/// Picks the release out of what GitHub answered.
+/// Picks the newest release out of what GitHub answered.
+///
+/// Drafts are skipped: they are not published and their tag may not exist yet.
+/// Pre-releases are not, for the reason above.
+///
+/// The newest is decided by comparing versions rather than by trusting the
+/// order of the list. GitHub sorts by when a release was created, and a fix
+/// published for an older line afterwards would otherwise look like the newest
+/// thing there is.
 pub fn read_answer(json: &str) -> Option<Release> {
     let value: serde_json::Value = serde_json::from_str(json).ok()?;
-    // A draft or a pre-release is not something to point people at.
-    if value.get("draft") == Some(&serde_json::Value::Bool(true))
-        || value.get("prerelease") == Some(&serde_json::Value::Bool(true))
-    {
-        return None;
-    }
-    let tag = value.get("tag_name")?.as_str()?.to_string();
-    let url = value
-        .get("html_url")
-        .and_then(|url| url.as_str())
-        .unwrap_or("https://github.com/sphings79/amberbeam/releases")
-        .to_string();
+
+    // One release or a list of them: the shell should not have to care which
+    // address answered, and a single object is what `/releases/latest` gives.
+    let entries: Vec<&serde_json::Value> = match value.as_array() {
+        Some(list) => list.iter().collect(),
+        None => vec![&value],
+    };
+
+    entries
+        .into_iter()
+        .filter(|entry| entry.get("draft") != Some(&serde_json::Value::Bool(true)))
+        .filter_map(release_of)
+        .max_by_key(|release| parse(&release.version))
+}
+
+fn release_of(entry: &serde_json::Value) -> Option<Release> {
+    let tag = entry.get("tag_name")?.as_str()?.to_string();
     let version = tag
         .trim_start_matches('v')
         .trim_start_matches('V')
         .to_string();
-    Some(Release { tag, version, url })
+    // A tag this program cannot compare is a tag it must not offer: it would
+    // send somebody looking for an update that may be older than what they run.
+    parse(&version)?;
+
+    Some(Release {
+        tag,
+        url: entry
+            .get("html_url")
+            .and_then(|url| url.as_str())
+            .unwrap_or("https://github.com/sphings79/amberbeam/releases")
+            .to_string(),
+        version,
+    })
 }
 
 #[cfg(test)]
@@ -143,11 +175,59 @@ mod tests {
     }
 
     #[test]
-    fn drafts_and_pre_releases_are_not_read() {
+    fn a_draft_is_not_read_but_a_pre_release_is() {
+        // A draft is not published and its tag may not exist yet.
         let draft = r#"{"tag_name": "v0.3.0", "draft": true, "prerelease": false}"#;
         assert!(read_answer(draft).is_none());
+
+        // A pre-release is. Every release of AmberBeam is one until 1.0, and a
+        // check that skipped them would do nothing at all for the whole of the
+        // 0.x series — a feature that exists and does nothing is worse than one
+        // that was never offered.
         let early = r#"{"tag_name": "v0.3.0", "draft": false, "prerelease": true}"#;
-        assert!(read_answer(early).is_none());
+        assert_eq!(read_answer(early).map(|r| r.version), Some("0.3.0".into()));
+    }
+
+    #[test]
+    fn the_newest_is_the_highest_version_and_not_the_first_in_the_list() {
+        // GitHub sorts by when a release was created. A fix published for an
+        // older line afterwards sits at the top of that list and is not the
+        // newest thing there is.
+        let list = r#"[
+            {"tag_name": "v0.1.4", "draft": false, "prerelease": true},
+            {"tag_name": "v0.3.0", "draft": false, "prerelease": true},
+            {"tag_name": "v0.2.9", "draft": false, "prerelease": false}
+        ]"#;
+        assert_eq!(read_answer(list).map(|r| r.version), Some("0.3.0".into()));
+    }
+
+    #[test]
+    fn a_draft_in_a_list_is_passed_over_rather_than_ending_the_search() {
+        let list = r#"[
+            {"tag_name": "v9.9.9", "draft": true, "prerelease": false},
+            {"tag_name": "v0.2.0", "draft": false, "prerelease": true}
+        ]"#;
+        assert_eq!(read_answer(list).map(|r| r.version), Some("0.2.0".into()));
+    }
+
+    #[test]
+    fn a_tag_that_cannot_be_compared_is_not_offered() {
+        // Offering it would send somebody looking for an update that might be
+        // older than what they are running.
+        let list = r#"[{"tag_name": "nightly", "draft": false, "prerelease": true}]"#;
+        assert!(read_answer(list).is_none());
+        let mixed = r#"[
+            {"tag_name": "nightly", "draft": false, "prerelease": true},
+            {"tag_name": "v0.1.0", "draft": false, "prerelease": true}
+        ]"#;
+        assert_eq!(read_answer(mixed).map(|r| r.version), Some("0.1.0".into()));
+    }
+
+    #[test]
+    fn an_empty_list_is_no_release_rather_than_a_failure() {
+        // A repository with no releases yet is the ordinary state of one on its
+        // first day, and it must not look like something went wrong.
+        assert!(read_answer("[]").is_none());
     }
 
     #[test]
