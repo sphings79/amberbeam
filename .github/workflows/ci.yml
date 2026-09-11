@@ -72,6 +72,10 @@ jobs:
         run: npm run check:lang
       - name: No access to Tauri outside the bridge
         run: npm run check:seams
+      # Two actions on one key is not a compile error; it is a key that does
+      # one of two things depending on the order they happen to be listed in.
+      - name: Keyboard table without collisions
+        run: npm run check:keys
       - run: npm run check
       # Both bridge implementations have to compile, or the second one is
       # dead weight that nobody notices rotting.

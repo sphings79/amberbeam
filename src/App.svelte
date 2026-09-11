@@ -8,6 +8,11 @@
     type Unsubscribe,
   } from "./lib/bridge";
   import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
+  import {
+    actionOf,
+    restore as restoreKeys,
+    saved as savedKeys,
+  } from "./lib/keys/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
   import { availableUpdate, checkForUpdate, dismissUpdate } from "./lib/state/update.svelte";
@@ -123,6 +128,7 @@
             queuePosition?: Position;
             showTree?: { left?: boolean; right?: boolean };
             showHidden?: { left?: boolean; right?: boolean };
+            keys?: unknown;
           }
         | null;
       if (saved?.logHeight) logHeight = saved.logHeight;
@@ -134,6 +140,7 @@
         setTreeVisible("left", saved.showTree.left ?? true);
         setTreeVisible("right", saved.showTree.right ?? true);
       }
+      restoreKeys(saved?.keys);
       if (saved?.showHidden) {
         setHiddenVisible("left", saved.showHidden.left ?? true);
         setHiddenVisible("right", saved.showHidden.right ?? true);
@@ -167,6 +174,7 @@
       showTree: { left: pane("left").showTree, right: pane("right").showTree },
       showHidden: { left: pane("left").showHidden, right: pane("right").showHidden },
       leftPath: pane("left").endpoint === LOCAL ? pane("left").path : undefined,
+      keys: savedKeys(),
     };
     void api.setUiState(state).catch(() => undefined);
   });
@@ -379,61 +387,55 @@
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
     if (quickFor || hostKey || certificate) return;
 
-    // The one key that is not an F-key: the server list. Every F-key is spoken
-    // for by the layout of section 04, and this is the combination people bring
-    // with them from the other side.
-    if (event.key.toLowerCase() === "s" && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      await api.openSiteManager();
-      return;
-    }
-
     const side = focusedSide();
     const rows = visibleEntries(side);
     const view = pane(side);
 
-    switch (event.key) {
-      case "Tab":
-      case "F6":
-        event.preventDefault();
-        switchFocus();
-        break;
+    // Moving about a list is not a matter of taste and is not in the table:
+    // arrows move, Enter opens, Backspace goes up. Those are what a list is,
+    // and a scheme that rebound them would be a scheme nobody could use.
+    //
+    // Bare keys only. The Mac scheme puts delete on ⌘⌫ and starting the queue
+    // on ⌘↵, and a block that caught those regardless of the modifier would
+    // quietly go up a directory instead.
+    const bare = !event.metaKey && !event.ctrlKey && !event.altKey;
+    switch (bare ? event.key : "") {
       case "ArrowDown":
         event.preventDefault();
         moveCursor(side, 1, rows.length);
-        break;
+        return;
       case "ArrowUp":
         event.preventDefault();
         moveCursor(side, -1, rows.length);
-        break;
+        return;
       case "PageDown":
         event.preventDefault();
         moveCursor(side, 15, rows.length);
-        break;
+        return;
       case "PageUp":
         event.preventDefault();
         moveCursor(side, -15, rows.length);
-        break;
+        return;
       case "Home":
         event.preventDefault();
         moveCursor(side, -rows.length, rows.length);
-        break;
+        return;
       case "End":
         event.preventDefault();
         moveCursor(side, rows.length, rows.length);
-        break;
+        return;
       case "Enter": {
         const entry = rows[view.cursor];
         if (entry) {
           event.preventDefault();
           await enter(side, entry);
         }
-        break;
+        return;
       }
       case "Backspace":
         event.preventDefault();
         await goUp(side);
-        break;
+        return;
       case " ":
       case "Insert": {
         const entry = rows[view.cursor];
@@ -442,21 +444,47 @@
           toggleSelection(side, entry.name);
           moveCursor(side, 1, rows.length);
         }
-        break;
+        return;
       }
-      case "F5":
-        event.preventDefault();
+      default:
+        break;
+    }
+
+    // Everything else is a matter of taste, and comes from the table the user
+    // can change.
+    const action = actionOf(event);
+    if (!action) return;
+    event.preventDefault();
+
+    switch (action) {
+      case "switch-focus":
+        switchFocus();
+        break;
+      case "refresh":
         await reload(side);
         break;
-      case "F2": {
+      case "rename": {
         // Renaming happens in the row itself; the pane picks it up from here.
         const entry = rows[view.cursor];
-        if (entry) {
-          event.preventDefault();
-          startRename(side, entry.name);
-        }
+        if (entry) startRename(side, entry.name);
         break;
       }
+      case "sites":
+        await api.openSiteManager();
+        break;
+      case "settings":
+        transferSettingsOpen = true;
+        break;
+      case "toggle-hidden":
+        setHiddenVisible(side, !view.showHidden);
+        break;
+      case "toggle-tree":
+        setTreeVisible(side, !view.showTree);
+        break;
+      case "connect-toggle":
+        if (view.endpoint === LOCAL) quickFor = side;
+        else await disconnect(side);
+        break;
       default:
         break;
     }

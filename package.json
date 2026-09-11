@@ -1,7 +1,7 @@
 {
   "name": "amberbeam",
   "version": "0.1.0",
-  "description": "Dual-pane FTP, FTPS and SFTP client for macOS, Windows and Linux — keyboard-driven, with a persistent transfer queue and mid-file resume.",
+  "description": "Dual-pane FTP, FTPS and SFTP client for macOS, Windows and Linux \u2014 keyboard-driven, with a persistent transfer queue and mid-file resume.",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
@@ -15,8 +15,9 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:lang": "node scripts/check-lang.mjs",
     "check:seams": "node scripts/check-seams.mjs",
-    "verify": "npm run check:lang && npm run check:seams && npm run check",
-    "tauri": "tauri"
+    "verify": "npm run check:lang && npm run check:seams && npm run check:keys && npm run check",
+    "tauri": "tauri",
+    "check:keys": "node scripts/check-keys.mjs"
   },
   "dependencies": {
     "@tanstack/virtual-core": "^3.17.10",
