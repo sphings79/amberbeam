@@ -471,3 +471,46 @@ async fn a_transfer_cut_in_half_finishes_correctly() {
     let _ = std::fs::remove_file(&source);
     let _ = std::fs::remove_file(&target);
 }
+
+/// Names that survive the round trip through a listing.
+///
+/// Umlauts, an ampersand, a space and a leading dot. Each of them has broken a
+/// file client at some point: the space by being treated as a separator in
+/// `LIST` output, the dot by being filtered out on the way, the umlaut by being
+/// read as Latin-1 when it was UTF-8.
+///
+/// Skipped where the fixture is absent, so this can be run against somebody's
+/// own server without a directory being planted on it.
+#[tokio::test]
+async fn awkward_names_come_through_unharmed() {
+    let (host, port) = server_or_skip!("awkward_names");
+    let events = Events::new();
+    let session = FtpSession::connect(
+        &params(&host, port, Encryption::None),
+        &EndpointId::new("ftp"),
+        &events,
+    )
+    .await
+    .expect("connect");
+
+    let home = session.home().await.expect("pwd");
+    let fixture = format!("{}/testdata", home.trim_end_matches('/'));
+    let Ok(listing) = session.list_dir(&fixture).await else {
+        eprintln!("skipping awkward_names: no {fixture} on this server");
+        return;
+    };
+
+    let names: Vec<&str> = listing.entries.iter().map(|e| e.name.as_str()).collect();
+    for expected in [
+        "index.html",
+        "Größe & Maß.txt",
+        "with space.txt",
+        ".hidden",
+        "images",
+    ] {
+        assert!(
+            names.contains(&expected),
+            "{expected} is missing from {names:?}"
+        );
+    }
+}

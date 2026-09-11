@@ -26,11 +26,12 @@ für den eigenen Server.
 
 ## Stand
 
-> **Meilenstein M2: Es verbindet über SFTP, und es überträgt.**
+> **Meilenstein M3: Es spricht SFTP, FTP und FTPS.**
 > Zwei Bereiche mit Ordnerbaum, eine Warteschlange, die einen Neustart
 > übersteht, Übertragungen, die dort weitermachen, wo sie abgerissen sind, und
-> die Rückfragen, die vor dem Überschreiben nötig sind. FTP und FTPS kommen mit
-> M3, der Site Manager mit M4. Die [Meilensteine](#meilensteine) sagen, was
+> die Rückfragen, die vor dem Überschreiben nötig sind — über `AUTH TLS`, über
+> implizites FTPS auf Port 990 und über reines FTP, das rot gekennzeichnet
+> bleibt, solange es offen ist. Der Site Manager kommt mit M4. Die [Meilensteine](#meilensteine) sagen, was
 > fertig ist und was nicht; dieses Dokument behauptet nichts anderes.
 >
 > Fertige Software ist das nicht. Es gibt noch keinen Site Manager, der
@@ -173,6 +174,20 @@ sich Gatekeeper und SmartScreen zu Wort.
 npm run verify                    # Sprachdateien, Nähte, Typen
 cargo test --package amberbeam-core
 cargo clippy --package amberbeam-core --all-targets -- -D warnings
+
+# Gegen einen echten SFTP-Server, eine Anmeldung nach der anderen
+dev/test-sftp-server.sh start
+AMBERBEAM_TEST_SFTP=127.0.0.1:2222 \
+  cargo test --package amberbeam-core --test sftp -- --test-threads=1
+dev/test-sftp-server.sh stop
+
+# Und gegen einen echten FTP-Server, der sein Zertifikat selbst signiert —
+# genau der Fall, für den es den Zertifikatsdialog gibt
+dev/test-ftp-server.sh start
+AMBERBEAM_TEST_FTP=127.0.0.1:2121 \
+  AMBERBEAM_TEST_FTP_USER=amberbeam AMBERBEAM_TEST_FTP_PASSWORD=tannenbaum \
+  cargo test --package amberbeam-core --test ftp -- --test-threads=1
+dev/test-ftp-server.sh stop
 ```
 
 Der Kern ist ein eigenes Crate, das nichts von Tauri weiß, und baut und testet
@@ -202,8 +217,8 @@ selbst sind die Quelle und überall lesbar.
 | **M0** | Gerüst: ein Fenster, Installationspakete auf drei Plattformen, die drei Nähte, Lizenz und README | **fertig** |
 | **M1** | SFTP: mit Passwort, Schlüssel oder Agent verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel, Dateioperationen | **fertig** |
 | **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt, Drag and Drop | **fertig** |
-| **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene | als Nächstes |
-| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | |
+| **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene, Zertifikate beim Namen genannt statt „Zertifikatsfehler" | **fertig** |
+| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | als Nächstes |
 | **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | |
 | **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |
 | **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |

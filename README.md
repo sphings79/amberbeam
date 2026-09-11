@@ -26,10 +26,12 @@ for your own server.
 
 ## Status
 
-> **Milestone M2: it connects over SFTP, and it transfers.**
+> **Milestone M3: it speaks SFTP, FTP and FTPS.**
 > Two panes with folder trees, a queue that survives a restart, transfers that
 > pick up where they broke off, and the questions that have to be asked before
-> a file is overwritten. FTP and FTPS arrive with M3, the site manager with M4.
+> a file is overwritten — over `AUTH TLS`, over implicit FTPS on port 990, and
+> over plain FTP, which is marked in red for as long as it is open. The site
+> manager arrives with M4.
 > The [roadmap](#roadmap) says what is done and what is not, and this README
 > will not claim otherwise.
 >
@@ -173,6 +175,14 @@ dev/test-sftp-server.sh start
 AMBERBEAM_TEST_SFTP=127.0.0.1:2222 \
   cargo test --package amberbeam-core --test sftp -- --test-threads=1
 dev/test-sftp-server.sh stop
+
+# And a real FTP server, which signs its own certificate — the case the
+# certificate dialog exists for
+dev/test-ftp-server.sh start
+AMBERBEAM_TEST_FTP=127.0.0.1:2121 \
+  AMBERBEAM_TEST_FTP_USER=amberbeam AMBERBEAM_TEST_FTP_PASSWORD=tannenbaum \
+  cargo test --package amberbeam-core --test ftp -- --test-threads=1
+dev/test-ftp-server.sh stop
 ```
 
 The core is a separate crate that knows nothing about Tauri, so it builds and
@@ -202,8 +212,8 @@ themselves are the source of truth and are readable anywhere.
 | **M0** | Scaffold: a window, installers on three platforms, the three seams, licence and README | **done** |
 | **M1** | SFTP: connect with password, key or agent, list directories, tree and list, two panes, focus switching, file operations | **done** |
 | **M2** | Transfers: queue, concurrency, resuming, conflicts, progress, drag and drop | **done** |
-| **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback | next |
-| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | |
+| **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback, certificates named by what is wrong with them | **done** |
+| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | next |
 | **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | |
 | **M6** | Polish: icon, signing and notarisation, help, first release | |
 | **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |

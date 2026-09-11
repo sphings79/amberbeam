@@ -36,6 +36,22 @@ jobs:
       - name: Stop the SFTP server
         if: always()
         run: dev/test-sftp-server.sh stop
+      # The same again for FTP, against a server that signs its own
+      # certificate — which is the case the certificate dialog exists for, and
+      # not one that can be arranged with a hosted server.
+      - name: Start an FTP server
+        run: dev/test-ftp-server.sh start
+      - name: Test against a real FTP server
+        # One at a time: every simultaneous FTP transfer is a separate login,
+        # and a burst of them is what a server's limit is there to stop.
+        run: cargo test --package amberbeam-core --test ftp -- --test-threads=1
+        env:
+          AMBERBEAM_TEST_FTP: 127.0.0.1:2121
+          AMBERBEAM_TEST_FTP_USER: amberbeam
+          AMBERBEAM_TEST_FTP_PASSWORD: tannenbaum
+      - name: Stop the FTP server
+        if: always()
+        run: dev/test-ftp-server.sh stop
 
   frontend:
     name: Frontend and seams
