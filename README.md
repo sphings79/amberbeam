@@ -4,10 +4,10 @@
 
 # AmberBeam — dual-pane FTP and SFTP client for macOS, Windows and Linux
 
-**A file transfer client in the tradition of FlashFXP.** Server log on top, two
-file panes with folder trees in the middle, transfer queue at the bottom — and
-the keyboard in charge. Native app on macOS, Windows and Linux, and a container
-with a web interface for your own server.
+**A keyboard-driven, two-pane file transfer client.** Server log on top, two
+file panes with folder trees in the middle, transfer queue at the bottom.
+Native app on macOS, Windows and Linux, and a container with a web interface
+for your own server.
 
 [![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%20(Apple%20Silicon)%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#build-it-yourself)
@@ -36,18 +36,20 @@ with a web interface for your own server.
 ## Why another file transfer client?
 
 Transmit and ForkLift are good programs. They are also, through and through,
-Mac programs. What people moving from Windows miss is not a feature list — it
-is a set of **movements**: the function keys, switching panes with a keystroke,
-the folder tree beside each list, the queue at the bottom, the raw server log at
-the top. That muscle memory has nowhere to go.
+Mac programs. What people moving from Windows miss is not a feature list — it is
+a set of **movements**: the function keys, switching panes with a keystroke, the
+folder tree beside each list, the queue at the bottom, the raw server log at the
+top. Anyone who spent years in a two-pane client on Windows knows those in their
+hands, and on the Mac that muscle memory has nowhere to go.
 
-AmberBeam is built for exactly that gap. Where platform convention and FlashFXP
+AmberBeam is built for exactly that gap. Where platform convention and that old
 habit collide, **habit wins** — as long as the program does not end up fighting
 the operating system. Where it would, you are asked on first run which way you
 want it.
 
 The same reasoning carries it to Linux, where nothing of the kind exists either,
-and back to Windows, where the original has been standing still for years.
+and back to Windows, where the two-pane clients people learned on have been
+standing still for years.
 
 ## Screenshots
 
@@ -79,12 +81,15 @@ Version 1, as specified:
 - **Resuming a single file that broke in mid-transfer** — not just the queue.
   Size and timestamp of the source are compared first, and if they changed you
   are asked instead of silently handed a file stitched from two versions
-- **Site manager with import** from FileZilla, WinSCP, `~/.ssh/config`, Total
-  Commander and FlashFXP — because nobody retypes thirty servers
+- **Site manager with import** from FileZilla, WinSCP, `~/.ssh/config` and
+  Total Commander, plus the site files of the older Windows clients — because
+  nobody retypes thirty servers
 - **PuTTY `.ppk` keys** read and converted, the one thing no Mac client does and
   every Windows switcher needs
-- **Function keys as in FlashFXP**, freely remappable. On macOS, where F1 to F12
-  belong to the system by default, a first-run dialog offers three ways out
+- **The function key layout from the Windows two-pane clients** — F5 refresh,
+  F6 switch focus, F8 queue, F9 start — freely remappable. On macOS, where F1 to
+  F12 belong to the system by default, a first-run dialog offers three ways
+  out
 - **Credentials in the system's own store** — Keychain on macOS, Credential
   Manager on Windows, Secret Service on Linux. Never in a configuration file
 - **German and English**, light, dark and system theme, five accent colours
@@ -185,7 +190,7 @@ themselves are the source of truth and are readable anywhere.
 | **M1** | SFTP: connect with password and key, list directories, tree and list, two panes, focus switching | next |
 | **M2** | Transfers: queue, concurrency, resuming, conflicts, progress. Usable from here on | |
 | **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback | |
-| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and FlashFXP, export | |
+| **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | |
 | **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | |
 | **M6** | Polish: icon, signing and notarisation, help, first release | |
 | **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |
@@ -211,7 +216,7 @@ nil — a desktop program offers nobody network interaction.
 <div align="center">
 
 **If you want to see this finished, a star helps.** It is how the next person
-who misses FlashFXP finds it.
+looking for a proper two-pane client finds it.
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-sphings-f0b429?style=flat-square&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sphings)
 

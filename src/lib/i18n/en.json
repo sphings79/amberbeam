@@ -1,6 +1,6 @@
 {
   "app.name": "AmberBeam",
-  "app.tagline": "Dual-pane FTP and SFTP client for macOS, Windows and Linux — built for people who miss FlashFXP.",
+  "app.tagline": "Dual-pane FTP and SFTP client for macOS, Windows and Linux — local and remote side by side, with the keyboard in charge.",
   "status.badge": "Milestone M0 · Scaffold",
   "status.explain": "This window transfers nothing yet. It exists to prove the toolchain and to show that the three seams are in place before any work is built on top of them.",
   "seams.title": "The three seams",

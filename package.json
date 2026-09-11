@@ -1,7 +1,7 @@
 {
   "name": "amberbeam",
   "version": "0.1.0",
-  "description": "Dual-pane FTP and SFTP client for macOS, built for people coming from Windows who miss FlashFXP.",
+  "description": "Dual-pane FTP, FTPS and SFTP client for macOS, Windows and Linux \u2014 keyboard-driven, with a persistent transfer queue and mid-file resume.",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",

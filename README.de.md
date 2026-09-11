@@ -4,10 +4,10 @@
 
 # AmberBeam — Zweifenster-Client für FTP und SFTP auf macOS, Windows und Linux
 
-**Ein Dateiübertragungsprogramm in der Tradition von FlashFXP.** Server-Log
-oben, zwei Dateibereiche mit Ordnerbaum in der Mitte, Warteschlange unten — und
-die Tastatur führt. Als Programm auf macOS, Windows und Linux, und als Container
-mit Weboberfläche für den eigenen Server.
+**Ein tastaturgeführtes Übertragungsprogramm mit zwei Dateibereichen.**
+Server-Log oben, zwei Bereiche mit Ordnerbaum in der Mitte, Warteschlange unten.
+Als Programm auf macOS, Windows und Linux, und als Container mit Weboberfläche
+für den eigenen Server.
 
 [![Lizenz: AGPL v3](https://img.shields.io/badge/Lizenz-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
 [![Plattformen](https://img.shields.io/badge/Plattformen-macOS%20(Apple%20Silicon)%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#selbst-bauen)
@@ -39,15 +39,18 @@ Transmit und ForkLift sind gute Programme. Sie sind aber durch und durch
 Mac-Programme. Was Umsteigern von Windows fehlt, ist keine Funktionsliste,
 sondern eine Reihe von **Handgriffen**: die Funktionstasten, der Fokuswechsel
 per Taste, der Ordnerbaum neben jeder Liste, die Warteschlange unten, der rohe
-Server-Log oben. Für dieses Muskelgedächtnis gibt es bisher keinen Platz.
+Server-Log oben. Wer jahrelang mit einem Zweifenster-Client unter Windows
+gearbeitet hat, hat das in den Händen — und auf dem Mac gibt es dafür keinen
+Platz.
 
-Genau diese Lücke besetzt AmberBeam. Wo Plattform-Konvention und
-FlashFXP-Gewohnheit kollidieren, **gewinnt die Gewohnheit** — solange das
-Programm dadurch nicht gegen das Betriebssystem kämpft. Wo es das täte, wirst du
-beim ersten Start gefragt.
+Genau diese Lücke besetzt AmberBeam. Wo Plattform-Konvention und alte Gewohnheit
+kollidieren, **gewinnt die Gewohnheit** — solange das Programm dadurch nicht
+gegen das Betriebssystem kämpft. Wo es das täte, wirst du beim ersten Start
+gefragt.
 
 Dieselbe Überlegung trägt es nach Linux, wo es ebenfalls nichts Vergleichbares
-gibt, und zurück nach Windows, wo das Vorbild seit Jahren stillsteht.
+gibt, und zurück nach Windows, wo die Zweifenster-Clients, an denen man es
+gelernt hat, seit Jahren stillstehen.
 
 ## Bilder
 
@@ -81,13 +84,15 @@ Fassung 1, wie festgelegt:
   nur der Warteschlange. Größe und Zeitstempel der Quelle werden vorher
   verglichen; bei Abweichung wird gefragt, statt stillschweigend eine Datei aus
   zwei Fassungen zusammenzusetzen
-- **Site Manager mit Import** aus FileZilla, WinSCP, `~/.ssh/config`, Total
-  Commander und FlashFXP — niemand tippt dreißig Server neu ein
+- **Site Manager mit Import** aus FileZilla, WinSCP, `~/.ssh/config` und Total
+  Commander, dazu die Serverdateien der älteren Windows-Programme — niemand
+  tippt dreißig Server neu ein
 - **PuTTY-Schlüssel (`.ppk`)** werden gelesen und umgewandelt. Das kann kein
   Mac-Client, und jeder Windows-Umsteiger braucht es
-- **Funktionstasten wie in FlashFXP**, frei belegbar. Auf macOS, wo F1 bis F12
-  standardmäßig dem System gehören, bietet ein Dialog beim ersten Start drei
-  Wege an
+- **Die Tastenbelegung der Windows-Zweifenster-Clients** — F5 aktualisieren,
+  F6 Fokus wechseln, F8 Warteschlange, F9 starten — frei belegbar. Auf macOS, wo
+  F1 bis F12 standardmäßig dem System gehören, bietet ein Dialog beim ersten
+  Start drei Wege an
 - **Zugangsdaten im Speicher des Systems** — Schlüsselbund auf macOS,
   Anmeldeinformationsverwaltung auf Windows, Secret Service auf Linux. Nie in
   einer Konfigurationsdatei
@@ -190,7 +195,7 @@ selbst sind die Quelle und überall lesbar.
 | **M1** | SFTP: mit Passwort und Schlüssel verbinden, Verzeichnisse auflisten, Baum und Liste, zwei Bereiche, Fokuswechsel | als Nächstes |
 | **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt. Ab hier benutzbar | |
 | **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene | |
-| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und FlashFXP, Export | |
+| **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | |
 | **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | |
 | **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |
 | **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |
@@ -217,7 +222,7 @@ Netzinteraktion an.
 <div align="center">
 
 **Wenn du das fertig sehen willst, hilft ein Stern.** So findet es der Nächste,
-dem FlashFXP fehlt.
+der einen richtigen Zweifenster-Client sucht.
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-sphings-f0b429?style=flat-square&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/sphings)
 

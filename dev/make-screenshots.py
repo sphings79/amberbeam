@@ -401,7 +401,6 @@ def social():
         ("skript.js", "7,1 KB", False, False),
         ("impressum.html", "3,4 KB", False, False),
         ("favicon.ico", "15 KB", False, False),
-        ("liesmich.md", "1,9 KB", False, False),
         ("bilder", "—", True, False),
         ("schriften", "—", True, False),
     ]
@@ -413,7 +412,6 @@ def social():
         ("robots.txt", "104 B", False, False),
         ("bilder", "—", True, False),
         ("alt", "—", True, False),
-        ("logs", "—", True, False),
     ]
 
     out = []
@@ -492,7 +490,7 @@ def social():
     out.append(line(wx, pane_y, wx + ww, pane_y))
 
     # two panes, each with its own folder tree
-    pane_h = 250
+    pane_h = 222
     for index, (label, place, tree, rows) in enumerate(
         (("LOKAL", "~/Projekte/website", left_tree, left_rows),
          ("SERVER", "/var/www/html", right_tree, right_rows))
@@ -525,21 +523,23 @@ def social():
     # queue
     out.append(rect(wx, queue_y, ww, 22, PANEL_2))
     out.append(text(wx + 14, queue_y + 15, "WARTESCHLANGE", FAINT, 9.5, "600"))
-    out.append(text(wx + ww - 12, queue_y + 15, "F8  ein/aus     F9  starten", FAINT, 9.5,
-                    family=MONO, anchor="end"))
+    out.append(text(wx + ww - 12, queue_y + 15, "3 von 8 gleichzeitig     F9  starten",
+                    ACCENT, 9.5, family=MONO, anchor="end"))
     out.append(line(wx, queue_y + 22, wx + ww, queue_y + 22))
     for index, (arrow, name, target, done, note, colour) in enumerate((
         ("&#8593;", "stil.css", "/var/www/html/", 1.0, "fertig", OK),
-        ("&#8593;", "bilder/logo.svg", "/var/www/html/bilder/", 0.62, "62 %", ACCENT),
+        ("&#8593;", "bilder/logo.svg", "/var/www/html/bilder/", 0.62, "1,8 MB/s", ACCENT),
+        ("&#8593;", "bilder/hero.jpg", "/var/www/html/bilder/", 0.41, "2,1 MB/s", ACCENT),
+        ("&#8593;", "skript.js", "/var/www/html/", 0.78, "1,4 MB/s", ACCENT),
         ("&#8595;", "logs/error.log", "~/Projekte/website/", 0.0, "wartet", FAINT),
     )):
-        jy = queue_y + 34 + index * 30
-        out.append(text(wx + 14, jy + 12, arrow, colour, 12, "600", family=MONO))
-        out.append(text(wx + 34, jy + 12, name, MUTED, 11))
-        out.append(text(wx + 190, jy + 12, target, FAINT, 10.5, family=MONO))
-        out.append(rect(wx + 420, jy + 5, 330, 8, PANEL_3, 4))
+        jy = queue_y + 30 + index * 28
+        out.append(text(wx + 160, jy + 12, arrow, colour, 12, "600", family=MONO))
+        out.append(text(wx + 180, jy + 12, name, MUTED, 11))
+        out.append(text(wx + 330, jy + 12, target, FAINT, 10.5, family=MONO))
+        out.append(rect(wx + 520, jy + 5, 230, 8, PANEL_3, 4))
         if done > 0:
-            out.append(rect(wx + 420, jy + 5, int(330 * done), 8, colour, 4))
+            out.append(rect(wx + 520, jy + 5, int(230 * done), 8, colour, 4))
         out.append(text(wx + ww - 12, jy + 12, note, colour, 10, family=MONO, anchor="end"))
 
     # status strip
