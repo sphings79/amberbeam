@@ -35,6 +35,37 @@ pub enum AuthKind {
     Agent,
 }
 
+/// The settings that apply when a connection says nothing of its own.
+///
+/// Per connection beats global, and the site manager of M4 will carry its own
+/// values too — this is the floor everything falls back to, not the only place
+/// a number can live.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Settings {
+    /// Transfers at once. `None` means the protocol decides: eight for SFTP,
+    /// four for FTP — see `Protocol::default_concurrency` for why.
+    pub concurrency: Option<u8>,
+    /// Attempts before a broken job is paused rather than retried again.
+    pub retries: u8,
+    /// Carry the source's modification time across.
+    pub keep_modified: bool,
+    /// Carry the source's permission bits across. Off by default: bits that
+    /// made sense on one machine often make a mess on another.
+    pub keep_permissions: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            concurrency: None,
+            retries: 5,
+            keep_modified: true,
+            keep_permissions: false,
+        }
+    }
+}
+
 /// One server reached through quick connect.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +86,14 @@ pub struct QuickConnectEntry {
     pub last_used: i64,
     /// Whether this login has already been written to the site manager.
     pub saved_as_site: bool,
+    /// Transfers at once for this login. `None` falls back to the settings,
+    /// and then to the protocol.
+    #[serde(default)]
+    pub concurrency: Option<u8>,
+    /// Attempts for this login before a job is paused. `None` uses the
+    /// settings.
+    #[serde(default)]
+    pub retries: Option<u8>,
 }
 
 impl QuickConnectEntry {
@@ -149,7 +188,9 @@ impl Config {
             key_path: entry.key_path.clone(),
             remote_path: entry.last_path.clone(),
             local_path: None,
-            concurrency: entry.protocol.default_concurrency(),
+            concurrency: entry
+                .concurrency
+                .unwrap_or_else(|| entry.protocol.default_concurrency()),
             colour: None,
         };
 
@@ -164,6 +205,14 @@ impl Config {
             ..entry
         })?;
         Ok(path)
+    }
+
+    pub fn settings(&self) -> Settings {
+        read_json(&self.root.join("settings.json")).unwrap_or_default()
+    }
+
+    pub fn set_settings(&self, settings: &Settings) -> Result<()> {
+        write_json(&self.root.join("settings.json"), settings)
     }
 
     /// Whatever the window wants to find again on the next start. The core does
@@ -255,6 +304,8 @@ mod tests {
             last_path: Some("/var/www".into()),
             last_used: 1_700_000_000,
             saved_as_site: false,
+            concurrency: None,
+            retries: None,
         }
     }
 
@@ -365,6 +416,53 @@ mod tests {
         let state = serde_json::json!({ "split": 0.5, "theme": "dark" });
         config.set_ui_state(&state).unwrap();
         assert_eq!(config.ui_state(), Some(state));
+    }
+
+    #[test]
+    fn settings_start_at_the_values_the_paper_decided() {
+        let settings = Settings::default();
+        assert_eq!(
+            settings.concurrency, None,
+            "the protocol decides by default"
+        );
+        assert_eq!(settings.retries, 5);
+        assert!(
+            settings.keep_modified,
+            "a timestamp is cheap and usually wanted"
+        );
+        assert!(
+            !settings.keep_permissions,
+            "bits from one machine often make a mess on another"
+        );
+    }
+
+    #[test]
+    fn settings_survive_a_restart() {
+        let config = scratch("settings");
+        let settings = Settings {
+            concurrency: Some(3),
+            keep_permissions: true,
+            ..Default::default()
+        };
+        config.set_settings(&settings).unwrap();
+        assert_eq!(config.settings(), settings);
+    }
+
+    #[test]
+    fn a_login_may_carry_its_own_numbers() {
+        let config = scratch("per-login");
+        let one = QuickConnectEntry {
+            concurrency: Some(2),
+            retries: Some(9),
+            ..entry("dennis", "example.org")
+        };
+        config.remember_quick_connect(one.clone()).unwrap();
+        let path = config.save_as_site(&one.id).unwrap();
+        let site: Site = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            site.concurrency, 2,
+            "the login's own value, not the protocol's"
+        );
     }
 
     #[test]

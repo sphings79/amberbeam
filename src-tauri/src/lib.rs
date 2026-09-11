@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry};
+use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
@@ -48,10 +48,15 @@ struct ConnectRequest {
     passphrase: Option<String>,
     /// The fingerprint the user was shown and accepted, on a second attempt.
     accept_fingerprint: Option<String>,
+    /// Transfers at once for this connection. Falls back to the settings, and
+    /// then to what the protocol advises.
+    concurrency: Option<u8>,
+    /// Attempts before a broken job is paused. Falls back to the settings.
+    retries: Option<u8>,
 }
 
 impl ConnectRequest {
-    fn into_params(self) -> ConnectParams {
+    fn into_params(self, settings: &Settings) -> ConnectParams {
         let method = match self.auth {
             AuthKind::Password => AuthMethod::Password {
                 password: self.password.unwrap_or_default(),
@@ -72,6 +77,11 @@ impl ConnectRequest {
                 None => HostKeyDecision::KnownOnly,
             },
             known_hosts: None,
+            concurrency: self
+                .concurrency
+                .or(settings.concurrency)
+                .unwrap_or_else(|| amberbeam_core::Protocol::Sftp.default_concurrency()),
+            retries: self.retries.unwrap_or(settings.retries),
         }
     }
 }
@@ -92,6 +102,7 @@ async fn connect(
     request: ConnectRequest,
 ) -> Result<Connected, Error> {
     let endpoint = EndpointId::new(request.endpoint.clone());
+    let settings = state.config.settings();
     let history = QuickConnectEntry {
         id: QuickConnectEntry::id_for(&request.user, &request.host, request.port),
         protocol: amberbeam_core::Protocol::Sftp,
@@ -103,11 +114,13 @@ async fn connect(
         last_path: None,
         last_used: now(),
         saved_as_site: false,
+        concurrency: request.concurrency,
+        retries: request.retries,
     };
 
     let connected = state
         .sessions
-        .connect_sftp(&endpoint, &request.into_params())
+        .connect_sftp(&endpoint, &request.into_params(&settings))
         .await?;
 
     // Only a connection that worked is worth remembering. A typo in the host
@@ -299,6 +312,16 @@ fn remember_path(
 }
 
 #[tauri::command]
+fn settings(state: tauri::State<'_, Arc<State>>) -> Settings {
+    state.config.settings()
+}
+
+#[tauri::command]
+fn set_settings(state: tauri::State<'_, Arc<State>>, value: Settings) -> Result<(), Error> {
+    state.config.set_settings(&value)
+}
+
+#[tauri::command]
 fn ui_state(state: tauri::State<'_, Arc<State>>) -> Option<serde_json::Value> {
     state.config.ui_state()
 }
@@ -379,6 +402,8 @@ pub fn run() {
             remember_path,
             ui_state,
             set_ui_state,
+            settings,
+            set_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

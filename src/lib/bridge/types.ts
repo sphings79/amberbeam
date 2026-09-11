@@ -69,6 +69,9 @@ export interface ConnectRequest {
   passphrase?: string;
   /** Set on a second attempt, after the user accepted the fingerprint. */
   acceptFingerprint?: string;
+  /** Transfers at once for this connection; falls back to the settings. */
+  concurrency?: number;
+  retries?: number;
 }
 
 export interface QuickConnectEntry {
@@ -80,6 +83,8 @@ export interface QuickConnectEntry {
   auth: AuthKind;
   keyPath: string | null;
   lastPath: string | null;
+  concurrency: number | null;
+  retries: number | null;
   lastUsed: number;
   savedAsSite: boolean;
 }
@@ -129,6 +134,15 @@ export type ConnectionState =
   | { state: "connected"; banner: string | null }
   | { state: "disconnected" }
   | { state: "failed"; error: CoreError };
+
+/** What applies when a connection says nothing of its own. */
+export interface Settings {
+  /** Transfers at once. null lets the protocol decide: SFTP 8, FTP 4. */
+  concurrency: number | null;
+  retries: number;
+  keepModified: boolean;
+  keepPermissions: boolean;
+}
 
 /** What a recursive delete is about to remove. */
 export interface Measurement {
@@ -189,6 +203,9 @@ export interface AmberBeamApi {
   /** Writes a site entry and returns where it landed. */
   saveAsSite(id: string): Promise<string>;
   rememberPath(id: string, path: string): Promise<void>;
+
+  settings(): Promise<Settings>;
+  setSettings(value: Settings): Promise<void>;
 
   /** Whatever the window wants back on the next start. */
   uiState(): Promise<unknown>;

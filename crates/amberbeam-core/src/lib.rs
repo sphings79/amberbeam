@@ -28,7 +28,7 @@ pub mod stream;
 pub mod system;
 pub mod transfer;
 
-pub use config::{AuthKind, Config, QuickConnectEntry, Site};
+pub use config::{AuthKind, Config, QuickConnectEntry, Settings, Site};
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};
 pub use error::{Error, PathProblem, Result};
 pub use events::{ConnectionState, Event, Events, LogDirection};

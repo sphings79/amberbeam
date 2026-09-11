@@ -20,6 +20,7 @@ import type {
   Listing,
   Measurement,
   QuickConnectEntry,
+  Settings,
   Unsubscribe,
 } from "./types";
 
@@ -107,6 +108,9 @@ export const api: AmberBeamApi = {
   forgetQuickConnect: (id: string) => call<void>("forget-quick-connect", { id }),
   saveAsSite: (id: string) => call<string>("save-as-site", { id }),
   rememberPath: (id: string, path: string) => call<void>("remember-path", { id, path }),
+
+  settings: () => call<Settings>("settings"),
+  setSettings: (value: Settings) => call<void>("set-settings", { value }),
 
   uiState: () => call<unknown>("ui-state"),
   setUiState: (value: unknown) => call<void>("set-ui-state", { value }),
