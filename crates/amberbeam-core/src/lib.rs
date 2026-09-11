@@ -14,9 +14,17 @@
 //!    the user interface translates; see the `i18n` module of the frontend.
 
 pub mod endpoint;
+pub mod error;
+pub mod events;
+pub mod fs;
+pub mod local;
+pub mod sftp;
 pub mod system;
 pub mod transfer;
 
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};
+pub use error::{Error, PathProblem, Result};
+pub use events::{ConnectionState, Event, Events, LogDirection};
+pub use fs::{DirEntry, EntryKind, Listing, Permissions};
 pub use system::CoreInfo;
 pub use transfer::{ConflictPolicy, JobState, ResumeMarker, TransferJob, TransferSide};

@@ -22,6 +22,18 @@ jobs:
       - run: cargo fmt --package amberbeam-core --check
       - run: cargo clippy --package amberbeam-core --all-targets -- -D warnings
       - run: cargo test --package amberbeam-core
+      # The protocol code is only worth as much as the server it was tried
+      # against. This is the same script and the same image used on the
+      # developer's machine.
+      - name: Start an SFTP server
+        run: dev/test-sftp-server.sh start
+      - name: Test against a real SFTP server
+        run: cargo test --package amberbeam-core --test sftp
+        env:
+          AMBERBEAM_TEST_SFTP: 127.0.0.1:2222
+      - name: Stop the SFTP server
+        if: always()
+        run: dev/test-sftp-server.sh stop
 
   frontend:
     name: Frontend and seams
