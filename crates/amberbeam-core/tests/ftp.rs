@@ -514,3 +514,34 @@ async fn awkward_names_come_through_unharmed() {
         );
     }
 }
+
+/// Implicit FTPS pointed at a port that speaks plain FTP.
+///
+/// The honest limit of this test: no test server offers implicit FTPS —
+/// pure-ftpd does not support it, and it is a deprecated mode nobody sets up on
+/// purpose any more. So what is checked here is not that it works but that it
+/// fails the right way. A client that expects TLS from the first byte and gets
+/// `220 Welcome` instead must say so and let go, not sit waiting for a
+/// handshake that will never come. A hang is the worst of the failures
+/// available here, because nothing on screen would ever change.
+#[tokio::test]
+async fn implicit_ftps_on_a_plain_port_gives_up_instead_of_hanging() {
+    let (host, port) = server_or_skip!("implicit_ftps_on_a_plain_port");
+    let events = Events::new();
+
+    let outcome = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        FtpSession::connect(
+            &params(&host, port, Encryption::Implicit),
+            &EndpointId::new("ftps"),
+            &events,
+        ),
+    )
+    .await;
+
+    match outcome {
+        Ok(Ok(_)) => panic!("a plain FTP port answered an implicit TLS handshake"),
+        Ok(Err(error)) => eprintln!("gave up, as it should: {error:?}"),
+        Err(_) => panic!("implicit FTPS hung instead of reporting a failure"),
+    }
+}

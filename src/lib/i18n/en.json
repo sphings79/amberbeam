@@ -228,5 +228,6 @@
   "protocol.ftp": "FTP",
   "protocol.ftp.warning": "Plain FTP sends the password and every file in the clear. Use it only where nothing else is possible.",
   "quick.passive": "Passive mode",
-  "quick.latin1": "Server does not speak UTF-8"
+  "quick.latin1": "Server does not speak UTF-8",
+  "quick.temporary-name.ftp": "Not used over FTP: renaming at the end needs a right many accounts lack, and a transfer that finishes and then fails to rename leaves nothing usable behind."
 }

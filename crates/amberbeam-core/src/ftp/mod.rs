@@ -1005,6 +1005,15 @@ fn tls_failure(error: FtpError, verdict: &tls::Verdict, params: &FtpParams) -> E
     // the clear.
     let detail = if verdict.handshaked() {
         format!("the server refused to encrypt the data channel: {error}")
+    } else if params.encryption == Encryption::Implicit {
+        // Nothing was negotiated and nothing refused: the client expected TLS
+        // from the first byte and got something else. Almost always the port —
+        // implicit FTPS listens on 990, and 21 answers with a plaintext
+        // greeting that cannot be mistaken for a handshake.
+        format!(
+            "port {} did not answer with TLS; implicit FTPS usually listens on 990: {error}",
+            params.port
+        )
     } else {
         format!("the server refused to start TLS: {error}")
     };

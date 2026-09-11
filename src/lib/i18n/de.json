@@ -228,5 +228,6 @@
   "protocol.ftp": "FTP",
   "protocol.ftp.warning": "Reines FTP überträgt Passwort und jede Datei im Klartext. Nur benutzen, wo nichts anderes geht.",
   "quick.passive": "Passiver Modus",
-  "quick.latin1": "Server spricht kein UTF-8"
+  "quick.latin1": "Server spricht kein UTF-8",
+  "quick.temporary-name.ftp": "Über FTP nicht in Gebrauch: Das Umbenennen am Ende braucht ein Recht, das viele Konten nicht haben, und eine Übertragung, die fertig wird und dann nicht umbenennen kann, hinterlässt nichts Brauchbares."
 }

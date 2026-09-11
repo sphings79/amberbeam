@@ -282,6 +282,9 @@
             {/if}
             <div class="tri">
               <span>{t("settings.temporary-name")}</span>
+              {#if remote}
+                <p class="hint">{t("quick.temporary-name.ftp")}</p>
+              {/if}
               <div class="choices">
                 {#each [null, true, false] as choice (String(choice))}
                   <button
