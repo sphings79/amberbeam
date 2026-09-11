@@ -10,7 +10,7 @@ die Tastatur führt. Als Programm auf macOS, Windows und Linux, und als Containe
 mit Weboberfläche für den eigenen Server.
 
 [![Lizenz: AGPL v3](https://img.shields.io/badge/Lizenz-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
-[![Plattformen](https://img.shields.io/badge/Plattformen-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#selbst-bauen)
+[![Plattformen](https://img.shields.io/badge/Plattformen-macOS%20(Apple%20Silicon)%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#selbst-bauen)
 [![Kern in Rust](https://img.shields.io/badge/Kern-Rust-b7410e?style=flat-square)](https://www.rust-lang.org/)
 [![Oberfläche in Svelte](https://img.shields.io/badge/Oberfl%C3%A4che-Svelte%205-ff3e00?style=flat-square)](https://svelte.dev/)
 [![CI](https://img.shields.io/github/actions/workflow/status/sphings79/amberbeam/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sphings79/amberbeam/actions/workflows/ci.yml)
@@ -114,7 +114,7 @@ das, was dein System zum Bauen eines nativen Fensters braucht:
 
 | | Zusätzlich |
 |---|---|
-| **macOS** | `xcode-select --install` |
+| **macOS 13+, Apple Silicon** | `xcode-select --install` |
 | **Windows** | Microsoft C++ Build Tools und die WebView2-Laufzeit (bei Windows 11 dabei) |
 | **Linux** | `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev` |
 
@@ -130,6 +130,14 @@ npm run tauri build   # Programm und Installationspaket in target/release/bundle
 
 Heraus kommen `.app` und `.dmg` auf macOS, `.msi` und ein NSIS-Installer auf
 Windows, `.deb`, `.rpm` und ein AppImage auf Linux.
+
+> **Auf dem Mac heißt das Apple Silicon, und nur Apple Silicon.** Keine
+> Intel-Fassung, kein Universalpaket: macOS 26 Tahoe ist die letzte Fassung, die
+> Intel überhaupt noch trägt, und wer sich heute einen Mac kauft, um von Windows
+> wegzukommen, kauft MacBook Air oder Mac mini — beide seit Generationen
+> ausschließlich Apple Silicon. Rust und Tauri sind architekturunabhängig, eine
+> Intel-Fassung wäre eine Zeile in der Baueinstellung. Die Tür bleibt offen, wir
+> gehen nur nicht hindurch.
 
 Der erste `cargo build` lädt viel herunter und dauert mehrere Minuten. Das ist
 normal und kein hängender Vorgang.

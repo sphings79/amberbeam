@@ -360,13 +360,13 @@ def tick(y, label):
     )
 
 
-def pill(x, y, w, label, accented=False):
+def pill(x, y, w, label, accented=False, size=16):
     fill = ACCENT_SOFT if accented else PANEL_2
     stroke = "#6b4a12" if accented else "#2b3040"
     colour = "#f0b429" if accented else "#c8cdda"
     return (
         f'<rect x="{x}" y="{y}" width="{w}" height="34" rx="17" fill="{fill}" stroke="{stroke}"/>'
-        + text(x + w / 2, y + 22, label, colour, 16, "500", "middle")
+        + text(x + w / 2, y + 22, label, colour, size, "500", "middle")
     )
 
 
@@ -435,12 +435,14 @@ def social():
         f'      <stop offset="0" stop-color="{ACCENT}" stop-opacity="0.26"/>\n'
         f'      <stop offset="1" stop-color="{ACCENT}" stop-opacity="0"/>\n'
         "    </radialGradient>\n"
-        # Runs out under the window's left border: the two overlap, the text
-        # keeps its ground, and no headline ends up across a file list.
+        # The window slides in behind the text column and fades out under it.
+        # Full cover where the words sit, then a long ramp, so the overlap
+        # reads as depth rather than as two pictures on top of each other.
         '    <linearGradient id="scrim" x1="0" y1="0" x2="1" y2="0">\n'
         '      <stop offset="0" stop-color="#0f1118" stop-opacity="1"/>\n'
-        '      <stop offset="0.50" stop-color="#0f1118" stop-opacity="1"/>\n'
-        '      <stop offset="0.69" stop-color="#0f1118" stop-opacity="0"/>\n'
+        '      <stop offset="0.40" stop-color="#0f1118" stop-opacity="1"/>\n'
+        '      <stop offset="0.52" stop-color="#0f1118" stop-opacity="0.45"/>\n'
+        '      <stop offset="0.66" stop-color="#0f1118" stop-opacity="0"/>\n'
         "    </linearGradient>\n"
         '    <filter id="cardshadow" x="-30%" y="-30%" width="160%" height="160%">\n'
         '      <feDropShadow dx="0" dy="22" stdDeviation="34" flood-color="#000" '
@@ -453,9 +455,9 @@ def social():
     )
 
     # ---- the window, drawn first so the text column can lie over its edge
-    wx, wy, ww, wh = 570, 62, 710, 520
+    wx, wy, ww, wh = 380, 48, 900, 552
     half = ww // 2
-    tree_w = 118
+    tree_w = 155
     out.append(
         f'<g filter="url(#cardshadow)"><rect x="{wx}" y="{wy}" width="{ww}" height="{wh}" '
         f'rx="18" fill="{PANEL}" stroke="{BORDER}"/></g>'
@@ -473,7 +475,7 @@ def social():
 
     # server log
     log_y = wy + 44
-    out.append(rect(wx, log_y, ww, 78, "#12151d"))
+    out.append(rect(wx, log_y, ww, 84, "#12151d"))
     out.append(text(wx + 16, log_y + 17, "SERVER-LOG", FAINT, 9.5, "600"))
     out.append(text(wx + ww - 16, log_y + 17, "F4  Raw-Befehle", FAINT, 9.5,
                     family=MONO, anchor="end"))
@@ -486,11 +488,11 @@ def social():
         out.append(text(wx + 16, ly, stamp, FAINT, 10.5, family=MONO))
         out.append(text(wx + 76, ly, arrow, ACCENT, 10.5, family=MONO))
         out.append(text(wx + 96, ly, message, colour, 10.5, family=MONO))
-    pane_y = log_y + 78
+    pane_y = log_y + 84
     out.append(line(wx, pane_y, wx + ww, pane_y))
 
     # two panes, each with its own folder tree
-    pane_h = 230
+    pane_h = 250
     for index, (label, place, tree, rows) in enumerate(
         (("LOKAL", "~/Projekte/website", left_tree, left_rows),
          ("SERVER", "/var/www/html", right_tree, right_rows))
@@ -534,10 +536,10 @@ def social():
         jy = queue_y + 34 + index * 30
         out.append(text(wx + 14, jy + 12, arrow, colour, 12, "600", family=MONO))
         out.append(text(wx + 34, jy + 12, name, MUTED, 11))
-        out.append(text(wx + 170, jy + 12, target, FAINT, 10, family=MONO))
-        out.append(rect(wx + 330, jy + 5, 250, 8, PANEL_3, 4))
+        out.append(text(wx + 190, jy + 12, target, FAINT, 10.5, family=MONO))
+        out.append(rect(wx + 420, jy + 5, 330, 8, PANEL_3, 4))
         if done > 0:
-            out.append(rect(wx + 330, jy + 5, int(250 * done), 8, colour, 4))
+            out.append(rect(wx + 420, jy + 5, int(330 * done), 8, colour, 4))
         out.append(text(wx + ww - 12, jy + 12, note, colour, 10, family=MONO, anchor="end"))
 
     # status strip
@@ -550,7 +552,7 @@ def social():
                     family=MONO, anchor="end"))
 
     # ---- the scrim, and the text column on top of it
-    out.append(rect(0, 0, 860, SH, "url(#scrim)"))
+    out.append(rect(0, 0, 900, SH, "url(#scrim)"))
 
     out.append('<rect x="72" y="72" width="76" height="76" rx="24" fill="url(#brand)"/>')
     out.append(
@@ -560,21 +562,22 @@ def social():
         '<path d="M97 92h11" opacity="0.42"/><path d="M91 128h17" opacity="0.42"/></g>'
     )
     out.append(text(168, 106, "AmberBeam", TEXT, 30, "700"))
-    out.append(text(168, 136, "Dual-pane FTP and SFTP client", "#8a91a3", 18))
-    out.append(text(72, 236, "Two panes,", "#ffffff", 42, "700"))
-    out.append(text(72, 286, "the keyboard in charge.", "#ffffff", 42, "700"))
-    out.append(text(72, 334, "A file transfer client in the tradition of FlashFXP —", MUTED, 19))
-    out.append(text(72, 360, "on the Mac, on Windows, on Linux, on your server.", MUTED, 19))
+    out.append(text(168, 136, "Dual-pane FTP and SFTP", "#8a91a3", 18))
+    out.append(text(72, 224, "Two panes.", "#ffffff", 44, "700"))
+    out.append(text(72, 274, "The keyboard", "#ffffff", 44, "700"))
+    out.append(text(72, 324, "in charge.", "#ffffff", 44, "700"))
+    out.append(text(72, 372, "In the tradition of FlashFXP —", MUTED, 19))
+    out.append(text(72, 398, "for everyone who misses it.", MUTED, 19))
 
-    out.append(tick(414, "SFTP, FTP and FTPS"))
-    out.append(tick(454, "Resume a transfer that broke in mid-file"))
-    out.append(tick(494, "Import sites from FileZilla, WinSCP and FlashFXP"))
+    out.append(tick(446, "SFTP, FTP and FTPS"))
+    out.append(tick(484, "Resume a broken transfer mid-file"))
+    out.append(tick(522, "Import sites from FileZilla and WinSCP"))
 
-    out.append(pill(72, 552, 88, "macOS"))
-    out.append(pill(168, 552, 100, "Windows"))
-    out.append(pill(276, 552, 76, "Linux"))
-    out.append(pill(360, 552, 88, "Docker", accented=True))
-    out.append(pill(456, 552, 108, "AGPL-3.0"))
+    out.append(pill(72, 562, 80, "macOS", size=15))
+    out.append(pill(160, 562, 92, "Windows", size=15))
+    out.append(pill(260, 562, 70, "Linux", size=15))
+    out.append(pill(338, 562, 80, "Docker", accented=True, size=15))
+    out.append(pill(426, 562, 96, "AGPL-3.0", size=15))
 
     out.append("\n  </g>\n</svg>\n")
     return "".join(out)

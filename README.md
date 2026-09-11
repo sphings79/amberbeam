@@ -10,7 +10,7 @@ the keyboard in charge. Native app on macOS, Windows and Linux, and a container
 with a web interface for your own server.
 
 [![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-e08b12?style=flat-square)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#build-it-yourself)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20(Apple%20Silicon)%20%7C%20Windows%20%7C%20Linux%20%7C%20Docker-2b3040?style=flat-square)](#build-it-yourself)
 [![Built with Rust](https://img.shields.io/badge/core-Rust-b7410e?style=flat-square)](https://www.rust-lang.org/)
 [![Built with Svelte](https://img.shields.io/badge/interface-Svelte%205-ff3e00?style=flat-square)](https://svelte.dev/)
 [![CI](https://img.shields.io/github/actions/workflow/status/sphings79/amberbeam/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/sphings79/amberbeam/actions/workflows/ci.yml)
@@ -111,7 +111,7 @@ what your system needs to build a native window:
 
 | | Additionally |
 |---|---|
-| **macOS** | `xcode-select --install` |
+| **macOS 13+, Apple Silicon** | `xcode-select --install` |
 | **Windows** | Microsoft C++ Build Tools and the WebView2 runtime (Windows 11 ships it) |
 | **Linux** | `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev` |
 
@@ -127,6 +127,13 @@ npm run tauri build   # app and installer in target/release/bundle
 
 What comes out: `.app` and `.dmg` on macOS, `.msi` and an NSIS installer on
 Windows, `.deb`, `.rpm` and an AppImage on Linux.
+
+> **On the Mac that means Apple Silicon, and only Apple Silicon.** No Intel
+> build and no universal binary: macOS 26 Tahoe is the last release to carry
+> Intel at all, and anyone buying a Mac today to leave Windows behind buys a
+> MacBook Air or a Mac mini — both Apple Silicon for generations. Rust and Tauri
+> are architecture-agnostic, so an Intel build is one line in the build
+> settings. The door stays open; we just do not walk through it.
 
 The first `cargo build` downloads a lot and takes several minutes. That is
 normal, not a hung process.
