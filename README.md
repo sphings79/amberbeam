@@ -164,6 +164,12 @@ SmartScreen will have their say.
 npm run verify                    # language files, seams, types
 cargo test --package amberbeam-core
 cargo clippy --package amberbeam-core --all-targets -- -D warnings
+
+# Against a real SFTP server, one login at a time
+dev/test-sftp-server.sh start
+AMBERBEAM_TEST_SFTP=127.0.0.1:2222 \
+  cargo test --package amberbeam-core --test sftp -- --test-threads=1
+dev/test-sftp-server.sh stop
 ```
 
 The core is a separate crate that knows nothing about Tauri, so it builds and

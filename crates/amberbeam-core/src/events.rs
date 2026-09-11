@@ -63,6 +63,13 @@ pub enum Event {
     Listed { endpoint: EndpointId, path: String },
 }
 
+/// A listener on the event stream.
+pub type Listener = broadcast::Receiver<Event>;
+
+/// Why receiving failed. Re-exported so a shell can tell "fell behind" from
+/// "the core is gone" without taking a dependency on the channel underneath.
+pub use broadcast::error::RecvError;
+
 /// How many events are held for a listener that is briefly behind.
 ///
 /// A listing of fifty thousand entries produces a handful of log lines, not
@@ -106,7 +113,7 @@ impl Events {
     }
 
     /// A new listener. It receives what is emitted from now on.
-    pub fn subscribe(&self) -> broadcast::Receiver<Event> {
+    pub fn subscribe(&self) -> Listener {
         self.sender.subscribe()
     }
 }

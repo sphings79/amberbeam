@@ -1,0 +1,89 @@
+//! One open place, whatever protocol it speaks.
+//!
+//! An enumeration rather than a trait object: the set of protocols is closed
+//! and short — local, SFTP, and FTP with FTPS in M3 — so dispatching by match
+//! costs nothing, needs no boxing and no extra crate, and adding FTP is one
+//! more variant instead of a new layer.
+//!
+//! What matters is what callers see: a session, with no notion of which side of
+//! a transfer it is on. Nothing above this may ask "is this the local one".
+
+use crate::endpoint::Protocol;
+use crate::error::Result;
+use crate::fs::{self, Listing};
+use crate::local::LocalSession;
+use crate::sftp::SftpSession;
+
+/// An open session on one endpoint.
+#[derive(Debug)]
+pub enum Session {
+    Local(LocalSession),
+    Sftp(Box<SftpSession>),
+}
+
+impl Session {
+    pub fn protocol(&self) -> Protocol {
+        match self {
+            Session::Local(_) => Protocol::Local,
+            Session::Sftp(_) => Protocol::Sftp,
+        }
+    }
+
+    /// Where a pane starts when nothing else is known.
+    pub async fn home(&self) -> Result<String> {
+        match self {
+            Session::Local(session) => session.home(),
+            Session::Sftp(session) => session.home().await,
+        }
+    }
+
+    pub async fn list_dir(&self, path: &str) -> Result<Listing> {
+        match self {
+            Session::Local(session) => session.list_dir(path).await,
+            Session::Sftp(session) => session.list_dir(path).await,
+        }
+    }
+
+    /// The directory above, or `None` at the top.
+    ///
+    /// Paths are the endpoint's own: POSIX on a server whatever the client runs
+    /// on, and the system's own notation locally. Mixing the two produces paths
+    /// that look right and are not.
+    pub fn parent(&self, path: &str) -> Option<String> {
+        match self {
+            Session::Local(session) => session.parent(path),
+            Session::Sftp(_) => fs::parent_remote(path),
+        }
+    }
+
+    pub fn join(&self, directory: &str, name: &str) -> String {
+        match self {
+            Session::Local(session) => session.join(directory, name),
+            Session::Sftp(_) => fs::join_remote(directory, name),
+        }
+    }
+
+    pub async fn disconnect(&mut self) {
+        match self {
+            Session::Local(_) => {}
+            Session::Sftp(session) => session.disconnect().await,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_local_session_walks_up_in_the_notation_of_this_system() {
+        let session = Session::Local(LocalSession::new());
+        assert_eq!(session.protocol(), Protocol::Local);
+        // Not asserting a separator: the point is that it asks the platform
+        // rather than assuming a slash.
+        assert!(session.parent("/var/www/html").is_some());
+        assert!(session
+            .join("/var/www", "index.html")
+            .ends_with("index.html"));
+    }
+}

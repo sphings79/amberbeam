@@ -3,8 +3,26 @@
 //! Start one with `dev/test-sftp-server.sh start`, then
 //!
 //! ```sh
-//! AMBERBEAM_TEST_SFTP=127.0.0.1:2222 cargo test -p amberbeam-core --test sftp
+//! AMBERBEAM_TEST_SFTP=127.0.0.1:2222 \
+//!   cargo test -p amberbeam-core --test sftp -- --test-threads=1
 //! ```
+//!
+//! **One at a time on purpose.** Cargo runs tests in parallel, and a dozen
+//! logins arriving together walk straight into sshd's `MaxStartups`, which
+//! drops connections — the failure then looks like "server unreachable" and
+//! has nothing to do with the code. It is also a small demonstration of why
+//! the queue in M2 has a per-server limit at all.
+//!
+//! Another server can be used instead:
+//!
+//! ```sh
+//! AMBERBEAM_TEST_SFTP=192.168.0.10:2222 AMBERBEAM_TEST_USER=someone \
+//!   AMBERBEAM_TEST_PASSWORD=secret AMBERBEAM_TEST_PATH=/upload \
+//!   cargo test -p amberbeam-core --test sftp -- --test-threads=1
+//! ```
+//!
+//! Tests that need this repository's own fixture or its test key skip
+//! themselves when `AMBERBEAM_TEST_PATH` says the server is somebody else's.
 //!
 //! Without that variable every test here reports itself skipped and passes:
 //! `cargo test` has to work on a machine with no container runtime, or nobody
@@ -23,9 +41,27 @@ use amberbeam_core::events::{Event, Events, LogDirection};
 use amberbeam_core::fs::EntryKind;
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision, SftpSession};
 
-const USER: &str = "amberbeam";
-const PASSWORD: &str = "tannenbaum";
-const TESTDATA: &str = "/config/testdata";
+/// Defaults match the server `dev/test-sftp-server.sh` starts. Overridable, so
+/// the same tests can be pointed at a real server elsewhere — which is worth
+/// doing, because a container of one's own agrees with one's own assumptions.
+fn user() -> String {
+    std::env::var("AMBERBEAM_TEST_USER").unwrap_or_else(|_| "amberbeam".into())
+}
+
+fn password_value() -> String {
+    std::env::var("AMBERBEAM_TEST_PASSWORD").unwrap_or_else(|_| "tannenbaum".into())
+}
+
+fn testdata() -> String {
+    std::env::var("AMBERBEAM_TEST_PATH").unwrap_or_else(|_| "/config/testdata".into())
+}
+
+/// Tests that need what `dev/test-sftp-server.sh` sets up — the fixture
+/// directory and the client key in `authorized_keys` — are skipped when
+/// pointed at somebody else's server, which has neither.
+fn has_fixture() -> bool {
+    std::env::var("AMBERBEAM_TEST_PATH").is_err()
+}
 
 /// `Some((host, port))` when a server was named, otherwise a printed note.
 fn server() -> Option<(String, u16)> {
@@ -73,7 +109,7 @@ fn params(
     ConnectParams {
         host: host.to_string(),
         port,
-        user: USER.to_string(),
+        user: user(),
         method,
         host_key,
         known_hosts: Some(known_hosts.to_string_lossy().into_owned()),
@@ -82,7 +118,7 @@ fn params(
 
 fn password() -> AuthMethod {
     AuthMethod::Password {
-        password: PASSWORD.to_string(),
+        password: password_value(),
     }
 }
 
@@ -250,6 +286,10 @@ async fn a_wrong_password_is_reported_as_such() {
 #[tokio::test]
 async fn a_key_file_connects() {
     let (host, port) = server_or_skip!("a_key_file_connects");
+    if !has_fixture() {
+        eprintln!("skipping: this repository's test key is not on that server");
+        return;
+    }
     let known_hosts = scratch_known_hosts("key-file");
     let events = Events::new();
 
@@ -271,6 +311,10 @@ async fn a_key_file_connects() {
 #[tokio::test]
 async fn an_encrypted_key_needs_its_passphrase() {
     let (host, port) = server_or_skip!("an_encrypted_key");
+    if !has_fixture() {
+        eprintln!("skipping: this repository's test key is not on that server");
+        return;
+    }
     let known_hosts = scratch_known_hosts("locked-key");
     let events = Events::new();
 
@@ -298,13 +342,17 @@ async fn an_encrypted_key_needs_its_passphrase() {
 #[tokio::test]
 async fn a_listing_carries_everything_the_panes_show() {
     let (host, port) = server_or_skip!("a_listing_carries_everything");
+    if !has_fixture() {
+        eprintln!("skipping: pointed at a server without this repository's fixture");
+        return;
+    }
     let known_hosts = scratch_known_hosts("listing");
     let events = Events::new();
     let session = connect_trusting(&host, port, password(), &known_hosts, &events)
         .await
         .expect("connect");
 
-    let listing = session.list_dir(TESTDATA).await.expect("list testdata");
+    let listing = session.list_dir(&testdata()).await.expect("list testdata");
     let by_name = |name: &str| {
         listing
             .entries
@@ -362,6 +410,10 @@ async fn a_listing_carries_everything_the_panes_show() {
 #[tokio::test]
 async fn a_directory_without_permission_says_so() {
     let (host, port) = server_or_skip!("a_directory_without_permission");
+    if !has_fixture() {
+        eprintln!("skipping: pointed at a server without this repository's fixture");
+        return;
+    }
     let known_hosts = scratch_known_hosts("denied");
     let events = Events::new();
     let session = connect_trusting(&host, port, password(), &known_hosts, &events)
@@ -369,7 +421,7 @@ async fn a_directory_without_permission_says_so() {
         .expect("connect");
 
     let error = session
-        .list_dir(&format!("{TESTDATA}/locked"))
+        .list_dir(&format!("{}/locked", testdata()))
         .await
         .expect_err("a directory with mode 000 cannot be read");
     assert!(
@@ -432,7 +484,7 @@ async fn the_server_log_fills_while_connecting() {
     let session = connect_trusting(&host, port, password(), &known_hosts, &events)
         .await
         .expect("connect");
-    session.list_dir(TESTDATA).await.expect("list");
+    session.list_dir(&testdata()).await.expect("list");
 
     let mut lines = Vec::new();
     while let Ok(event) = listener.try_recv() {
@@ -454,4 +506,47 @@ async fn the_server_log_fills_while_connecting() {
             .any(|(direction, text)| *direction == LogDirection::Sent && text.contains("opendir")),
         "the log has to show the listing: {lines:?}"
     );
+}
+
+#[tokio::test]
+async fn every_row_of_a_real_listing_is_complete() {
+    // Runs against whatever server is named, fixture or not: pointing the
+    // tests at a real server is the only way to find out what real servers
+    // actually send, and SFTP implementations differ.
+    let (host, port) = server_or_skip!("every_row_of_a_real_listing");
+    let known_hosts = scratch_known_hosts("real-listing");
+    let events = Events::new();
+    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+        .await
+        .expect("connect");
+
+    let listing = session.list_dir(&testdata()).await.expect("list");
+    eprintln!("{} holds {} entries", listing.path, listing.entries.len());
+
+    assert!(
+        listing.path.starts_with('/'),
+        "the pane needs an absolute path"
+    );
+    for entry in &listing.entries {
+        assert!(
+            !entry.name.is_empty(),
+            "a row without a name cannot be drawn"
+        );
+        assert!(
+            !entry.name.contains('/'),
+            "a name is never a path: {}",
+            entry.name
+        );
+        assert_ne!(entry.name, ".");
+        assert_ne!(entry.name, "..");
+        if entry.kind == EntryKind::File {
+            // Without a size the queue of M2 cannot show progress, and a
+            // resume cannot check whether the source changed.
+            assert!(
+                entry.size.is_some(),
+                "{} arrived without a size",
+                entry.name
+            );
+        }
+    }
 }

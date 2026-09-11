@@ -8,4 +8,5 @@
 import { api } from "@bridge-impl";
 
 export { api };
+export { LOCAL } from "./types";
 export type * from "./types";

@@ -28,7 +28,9 @@ jobs:
       - name: Start an SFTP server
         run: dev/test-sftp-server.sh start
       - name: Test against a real SFTP server
-        run: cargo test --package amberbeam-core --test sftp
+        # One at a time: parallel logins trip sshd's MaxStartups, and the
+        # resulting dropped connection looks like a bug that is not there.
+        run: cargo test --package amberbeam-core --test sftp -- --test-threads=1
         env:
           AMBERBEAM_TEST_SFTP: 127.0.0.1:2222
       - name: Stop the SFTP server

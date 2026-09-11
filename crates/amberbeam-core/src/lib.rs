@@ -13,18 +13,24 @@
 //! 2. Nothing in this crate produces text for the user. Messages are values
 //!    the user interface translates; see the `i18n` module of the frontend.
 
+pub mod config;
 pub mod endpoint;
 pub mod error;
 pub mod events;
 pub mod fs;
 pub mod local;
+pub mod registry;
+pub mod session;
 pub mod sftp;
 pub mod system;
 pub mod transfer;
 
+pub use config::{AuthKind, Config, QuickConnectEntry, Site};
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};
 pub use error::{Error, PathProblem, Result};
 pub use events::{ConnectionState, Event, Events, LogDirection};
 pub use fs::{DirEntry, EntryKind, Listing, Permissions};
+pub use registry::{Connected, Sessions};
+pub use session::Session;
 pub use system::CoreInfo;
 pub use transfer::{ConflictPolicy, JobState, ResumeMarker, TransferJob, TransferSide};

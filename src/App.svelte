@@ -1,451 +1,474 @@
 <script lang="ts">
-  import { api, type CoreInfo } from "./lib/bridge";
-  import { LOCALES, locale, setLocale, t } from "./lib/i18n/index.svelte";
+  import { api, LOCAL, type ConnectRequest, type CoreEvent, type Unsubscribe } from "./lib/bridge";
+  import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
+  import { recordEvent } from "./lib/state/log.svelte";
   import {
-    ACCENTS,
-    currentAccent,
-    currentTheme,
-    setAccent,
-    setTheme,
-    THEMES,
-  } from "./lib/theme/index.svelte";
+    focusedSide,
+    goUp,
+    moveCursor,
+    openSession,
+    pane,
+    reload,
+    setTreeVisible,
+    switchFocus,
+    toggleSelection,
+    visibleEntries,
+    enter,
+    type Side,
+  } from "./lib/state/panes.svelte";
+  import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
+  import { hostKeyQuestion } from "./lib/ui/errors";
+  import FilePane from "./lib/ui/FilePane.svelte";
+  import HostKeyDialog from "./lib/ui/HostKeyDialog.svelte";
+  import QuickConnect from "./lib/ui/QuickConnect.svelte";
+  import ServerLog from "./lib/ui/ServerLog.svelte";
+  import Splitter from "./lib/ui/Splitter.svelte";
 
-  let info = $state<CoreInfo | null>(null);
-  let failure = $state<string | null>(null);
+  /** Heights, split and where each region sits — all kept across restarts. */
+  let logHeight = $state(120);
+  let queueHeight = $state(96);
+  let splitRatio = $state(0.5);
+  let settingsOpen = $state(false);
 
-  api
-    .coreInfo()
-    .then((answer) => (info = answer))
-    .catch((error: unknown) => (failure = error instanceof Error ? error.message : String(error)));
+  /**
+   * Where the server log and the queue sit relative to the file panes.
+   *
+   * The tradition puts the log on top and the queue at the bottom, and that is
+   * the default. It is a preference, not a law, so it is settable: with both on
+   * the same side the log is the outer one, which keeps it out of the way of
+   * the panes.
+   */
+  type Position = "top" | "bottom";
+  let logPosition = $state<Position>("bottom");
+  let queuePosition = $state<Position>("bottom");
 
-  const seams = [
-    { key: "endpoints", number: "08" },
-    { key: "bridge", number: "09" },
-    { key: "i18n", number: "11" },
-  ] as const;
+  let topRegions = $derived(
+    (["log", "queue"] as const).filter((region) =>
+      region === "log" ? logPosition === "top" : queuePosition === "top",
+    ),
+  );
+  let bottomRegions = $derived(
+    (["queue", "log"] as const).filter((region) =>
+      region === "log" ? logPosition === "bottom" : queuePosition === "bottom",
+    ),
+  );
+
+  let quickFor = $state<Side | null>(null);
+  let connecting = $state(false);
+  let connectFailure = $state<unknown>(null);
+  /** The request waiting on the user's answer about a server key. */
+  let pendingRequest = $state<{ request: ConnectRequest; historyId: string; side: Side } | null>(null);
+
+  let hostKey = $derived(hostKeyQuestion(connectFailure));
+
+  // Both panes start on the local file system. Which side later becomes a
+  // server is the user's business; nothing here treats one as privileged.
+  $effect(() => {
+    void (async () => {
+      const local = await api.localSession();
+      const saved = (await api.uiState().catch(() => null)) as
+        | {
+            logHeight?: number;
+            queueHeight?: number;
+            splitRatio?: number;
+            leftPath?: string;
+            logPosition?: Position;
+            queuePosition?: Position;
+            showTree?: { left?: boolean; right?: boolean };
+          }
+        | null;
+      if (saved?.logHeight) logHeight = saved.logHeight;
+      if (saved?.queueHeight) queueHeight = saved.queueHeight;
+      if (saved?.splitRatio) splitRatio = saved.splitRatio;
+      if (saved?.logPosition) logPosition = saved.logPosition;
+      if (saved?.queuePosition) queuePosition = saved.queuePosition;
+      if (saved?.showTree) {
+        setTreeVisible("left", saved.showTree.left ?? true);
+        setTreeVisible("right", saved.showTree.right ?? true);
+      }
+      await openSession("left", local, null, null, saved?.leftPath ?? null);
+      await openSession("right", local, null, null, null);
+    })();
+  });
+
+  let unsubscribe: Unsubscribe | null = null;
+  $effect(() => {
+    void api.subscribe((event: CoreEvent) => recordEvent(event)).then((stop) => {
+      unsubscribe = stop;
+    });
+    return () => unsubscribe?.();
+  });
+
+  /** Saved on every change, so a crash does not lose the layout. */
+  $effect(() => {
+    const state = {
+      logHeight,
+      queueHeight,
+      splitRatio,
+      logPosition,
+      queuePosition,
+      showTree: { left: pane("left").showTree, right: pane("right").showTree },
+      leftPath: pane("left").endpoint === LOCAL ? pane("left").path : undefined,
+    };
+    void api.setUiState(state).catch(() => undefined);
+  });
+
+  async function attempt(request: ConnectRequest, historyId: string, side: Side): Promise<void> {
+    connecting = true;
+    connectFailure = null;
+    try {
+      const session = await api.connect(request);
+      await openSession(side, session, `${request.user}@${request.host}`, historyId);
+      quickFor = null;
+      pendingRequest = null;
+    } catch (failure) {
+      connectFailure = failure;
+      pendingRequest = { request, historyId, side };
+    } finally {
+      connecting = false;
+    }
+  }
+
+  async function acceptHostKey(fingerprint: string): Promise<void> {
+    if (!pendingRequest) return;
+    const { request, historyId, side } = pendingRequest;
+    await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side);
+  }
+
+  async function disconnect(side: Side): Promise<void> {
+    const endpoint = pane(side).endpoint;
+    if (endpoint === LOCAL) return;
+    await api.disconnect(endpoint);
+    const local = await api.localSession();
+    await openSession(side, local, null, null, null);
+  }
+
+  /**
+   * The keys of a two pane client. F5 and F6 are bound because they cost
+   * nothing; whether they arrive at all depends on the system settings, and
+   * AmberBeam does not reach below the operating system to catch them. The
+   * first run dialog that explains this belongs to M5.
+   */
+  async function onKey(event: KeyboardEvent): Promise<void> {
+    const target = event.target as HTMLElement | null;
+    if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+    if (quickFor || hostKey) return;
+
+    const side = focusedSide();
+    const rows = visibleEntries(side);
+    const view = pane(side);
+
+    switch (event.key) {
+      case "Tab":
+      case "F6":
+        event.preventDefault();
+        switchFocus();
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        moveCursor(side, 1, rows.length);
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        moveCursor(side, -1, rows.length);
+        break;
+      case "PageDown":
+        event.preventDefault();
+        moveCursor(side, 15, rows.length);
+        break;
+      case "PageUp":
+        event.preventDefault();
+        moveCursor(side, -15, rows.length);
+        break;
+      case "Home":
+        event.preventDefault();
+        moveCursor(side, -rows.length, rows.length);
+        break;
+      case "End":
+        event.preventDefault();
+        moveCursor(side, rows.length, rows.length);
+        break;
+      case "Enter": {
+        const entry = rows[view.cursor];
+        if (entry) {
+          event.preventDefault();
+          await enter(side, entry);
+        }
+        break;
+      }
+      case "Backspace":
+        event.preventDefault();
+        await goUp(side);
+        break;
+      case " ":
+      case "Insert": {
+        const entry = rows[view.cursor];
+        if (entry) {
+          event.preventDefault();
+          toggleSelection(side, entry.name);
+          moveCursor(side, 1, rows.length);
+        }
+        break;
+      }
+      case "F5":
+        event.preventDefault();
+        await reload(side);
+        break;
+      default:
+        break;
+    }
+  }
+
+  function resizeSplit(delta: number): void {
+    const width = window.innerWidth || 1280;
+    splitRatio = Math.min(0.85, Math.max(0.15, splitRatio + delta / width));
+  }
 </script>
 
-<div class="shell">
-  <header>
-    <div class="mark" aria-hidden="true">
-      <svg viewBox="0 0 256 256">
-        <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#markGradient)" />
-        <defs>
-          <linearGradient id="markGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="var(--accent)" stop-opacity="0.95" />
-            <stop offset="1" stop-color="var(--accent)" stop-opacity="0.7" />
-          </linearGradient>
-        </defs>
-        <g fill="none" stroke="#fff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M62 128h108" />
-          <path d="M146 96l38 32-38 32" />
-          <path d="M62 92h30M62 164h30" opacity="0.55" />
-        </g>
-      </svg>
-    </div>
-    <div class="title">
-      <h1>Amber<span>Beam</span></h1>
-      <p>{t("app.tagline")}</p>
-    </div>
-    <span class="chip accent mono">{t("status.badge")}</span>
-  </header>
+<svelte:window onkeydown={onKey} />
 
-  <div class="beam" aria-hidden="true"></div>
-
-  <main>
-    <p class="lead">{t("status.explain")}</p>
-
-    <section>
-      <h2>{t("seams.title")}</h2>
-      <p class="intro">{t("seams.intro")}</p>
-      <div class="seams">
-        {#each seams as seam (seam.key)}
-          <article class="card">
-            <span class="number mono">{seam.number}</span>
-            <h3>{t(`seam.${seam.key}.title`)}</h3>
-            <p>{t(`seam.${seam.key}.body`)}</p>
-          </article>
-        {/each}
+<div class="window">
+  {#each topRegions as region (region)}
+    {#if region === "log"}
+      <div class="region log" style:height="{logHeight}px"><ServerLog /></div>
+      <Splitter
+        direction="horizontal"
+        label={t("splitter.log")}
+        onmove={(d) => (logHeight = Math.min(400, Math.max(60, logHeight + d)))}
+      />
+    {:else}
+      <div class="region queue" style:height="{queueHeight}px">
+        <header>
+          <span class="title">{t("queue.title")}</span>
+          <span class="spacer"></span>
+          <span class="soon">{t("queue.soon")}</span>
+        </header>
+        <p class="empty">{t("queue.empty")}</p>
       </div>
-    </section>
+      <Splitter
+        direction="horizontal"
+        label={t("splitter.queue")}
+        onmove={(d) => (queueHeight = Math.min(400, Math.max(60, queueHeight + d)))}
+      />
+    {/if}
+  {/each}
 
-    <section>
-      <h2>{t("core.title")}</h2>
-      {#if failure}
-        <p class="card danger">{t("core.failed", { reason: failure })}</p>
-      {:else if !info}
-        <p class="card quiet">{t("core.loading")}</p>
-      {:else}
-        <div class="card">
-          <dl>
-            <div>
-              <dt>{t("core.version")}</dt>
-              <dd class="mono">{info.version}</dd>
-            </div>
-            <div>
-              <dt>{t("core.platform")}</dt>
-              <dd class="mono">{info.arch} · {info.os}</dd>
-            </div>
-            <div>
-              <dt>{t("core.shell")}</dt>
-              <dd>{t(`core.shell.${api.shell}`)}</dd>
-            </div>
-          </dl>
+  <div class="panes">
+    <div class="half" style:flex="{splitRatio}">
+      <FilePane
+        side="left"
+        onquickconnect={() => ((quickFor = "left"), (connectFailure = null))}
+        ondisconnect={() => disconnect("left")}
+      />
+    </div>
+    <Splitter direction="vertical" label={t("splitter.panes")} onmove={resizeSplit} />
+    <div class="half" style:flex="{1 - splitRatio}">
+      <FilePane
+        side="right"
+        onquickconnect={() => ((quickFor = "right"), (connectFailure = null))}
+        ondisconnect={() => disconnect("right")}
+      />
+    </div>
+  </div>
 
-          <h3>{t("protocols.title")}</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>{t("protocols.column.protocol")}</th>
-                <th>{t("protocols.column.port")}</th>
-                <th>{t("protocols.column.concurrency")}</th>
-                <th>{t("protocols.column.encryption")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each info.protocols as entry (entry.protocol)}
-                <tr>
-                  <td>{t(`protocol.${entry.protocol}`)}</td>
-                  <td class="mono">{entry.defaultPort ?? t("protocols.port.none")}</td>
-                  <td class="mono">{entry.defaultConcurrency}</td>
-                  <td>
-                    <span class="chip {entry.encrypted ? 'ok' : 'warn'}">
-                      {entry.encrypted ? t("encryption.on") : t("encryption.off")}
-                    </span>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-    </section>
-
-    <section>
-      <h2>{t("appearance.title")}</h2>
-      <div class="card settings">
-        <div class="row">
-          <span class="label">{t("appearance.theme")}</span>
-          <div class="choices">
-            {#each THEMES as candidate (candidate)}
-              <button
-                type="button"
-                class:active={currentTheme() === candidate}
-                aria-pressed={currentTheme() === candidate}
-                onclick={() => setTheme(candidate)}
-              >
-                {t(`theme.${candidate}`)}
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <div class="row">
-          <span class="label">{t("appearance.accent")}</span>
-          <div class="choices">
-            {#each ACCENTS as candidate (candidate)}
-              <button
-                type="button"
-                class="swatch"
-                class:active={currentAccent() === candidate}
-                aria-pressed={currentAccent() === candidate}
-                title={t(`accent.${candidate}`)}
-                aria-label={t(`accent.${candidate}`)}
-                data-accent={candidate}
-                onclick={() => setAccent(candidate)}
-              ></button>
-            {/each}
-          </div>
-        </div>
-
-        <div class="row">
-          <span class="label">{t("language.title")}</span>
-          <div class="choices">
-            {#each LOCALES as candidate (candidate)}
-              <button
-                type="button"
-                class:active={locale() === candidate}
-                aria-pressed={locale() === candidate}
-                onclick={() => setLocale(candidate)}
-              >
-                {t(`language.${candidate}`)}
-              </button>
-            {/each}
-          </div>
-        </div>
+  {#each bottomRegions as region (region)}
+    {#if region === "log"}
+      <Splitter
+        direction="horizontal"
+        label={t("splitter.log")}
+        onmove={(d) => (logHeight = Math.min(400, Math.max(60, logHeight - d)))}
+      />
+      <div class="region log" style:height="{logHeight}px"><ServerLog /></div>
+    {:else}
+      <Splitter
+        direction="horizontal"
+        label={t("splitter.queue")}
+        onmove={(d) => (queueHeight = Math.min(400, Math.max(60, queueHeight - d)))}
+      />
+      <div class="region queue" style:height="{queueHeight}px">
+        <header>
+          <span class="title">{t("queue.title")}</span>
+          <span class="spacer"></span>
+          <span class="soon">{t("queue.soon")}</span>
+        </header>
+        <p class="empty">{t("queue.empty")}</p>
       </div>
-    </section>
-
-    <section>
-      <h2>{t("next.title")}</h2>
-      <p class="intro">{t("next.body")}</p>
-    </section>
-  </main>
+    {/if}
+  {/each}
 
   <footer>
-    <span class="mono">{t("footer.line", { version: info?.version ?? "0.1.0" })}</span>
-    <a href="https://github.com/sphings79/amberbeam" target="_blank" rel="noreferrer">
-      {t("footer.repository")}
-    </a>
+    <span class="keys mono">{t("status.keys")}</span>
+    <span class="spacer"></span>
+    <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
+      {t("appearance.title")}
+    </button>
   </footer>
+
+  {#if settingsOpen}
+    <div class="settings-bar">
+      <span class="label">{t("layout.log")}</span>
+      {#each ["top", "bottom"] as const as where (where)}
+        <button type="button" class:active={logPosition === where} onclick={() => (logPosition = where)}>
+          {t(`layout.${where}`)}
+        </button>
+      {/each}
+      <span class="label">{t("layout.queue")}</span>
+      {#each ["top", "bottom"] as const as where (where)}
+        <button type="button" class:active={queuePosition === where} onclick={() => (queuePosition = where)}>
+          {t(`layout.${where}`)}
+        </button>
+      {/each}
+    </div>
+    <div class="settings-bar">
+      <span class="label">{t("appearance.theme")}</span>
+      {#each THEMES as candidate (candidate)}
+        <button type="button" class:active={currentTheme() === candidate} onclick={() => setTheme(candidate)}>
+          {t(`theme.${candidate}`)}
+        </button>
+      {/each}
+      <span class="label">{t("appearance.accent")}</span>
+      {#each ACCENTS as candidate (candidate)}
+        <button
+          type="button"
+          class="swatch"
+          class:active={currentAccent() === candidate}
+          data-accent={candidate}
+          aria-label={t(`accent.${candidate}`)}
+          onclick={() => setAccent(candidate)}
+        ></button>
+      {/each}
+      <span class="label">{t("language.title")}</span>
+      {#each LOCALES as candidate (candidate)}
+        <button type="button" class:active={locale() === candidate} onclick={() => setLocale(candidate)}>
+          {t(`language.${candidate}`)}
+        </button>
+      {/each}
+    </div>
+  {/if}
 </div>
 
+{#if quickFor}
+  <QuickConnect
+    endpoint={quickFor === "left" ? "left-remote" : "right-remote"}
+    busy={connecting}
+    failure={hostKey ? null : connectFailure}
+    onconnect={(request, historyId) => attempt(request, historyId, quickFor ?? "left")}
+    onclose={() => ((quickFor = null), (connectFailure = null), (pendingRequest = null))}
+  />
+{/if}
+
+{#if hostKey}
+  <HostKeyDialog
+    question={hostKey}
+    onaccept={acceptHostKey}
+    oncancel={() => ((connectFailure = null), (pendingRequest = null))}
+  />
+{/if}
+
 <style>
-  .shell {
-    max-width: 940px;
-    margin: 0 auto;
-    padding: 34px 28px 48px;
-    animation: ab-fade-up 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  header {
+  .window {
     display: flex;
-    align-items: center;
-    gap: 16px;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
   }
 
-  .mark {
-    width: 52px;
-    height: 52px;
+  .region {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     flex: none;
   }
 
-  .mark svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    filter: drop-shadow(var(--shadow));
+  .panes {
+    display: flex;
+    flex: 1;
+    min-height: 0;
   }
 
-  .title {
-    flex: 1;
+  .half {
+    display: flex;
     min-width: 0;
   }
 
-  h1 {
-    margin: 0;
-    font-size: 1.68rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-  }
-
-  h1 span {
-    color: var(--accent);
-  }
-
-  .title p {
-    margin: 2px 0 0;
-    color: var(--text-muted);
-    max-width: 60ch;
-  }
-
-  .beam {
-    height: 4px;
-    margin: 20px 0 26px;
-    border-radius: 999px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
-    background-size: 60% 100%;
-    background-repeat: no-repeat;
-    animation: ab-beam 3.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
-
-  .lead {
-    margin: 0 0 32px;
-    max-width: 72ch;
-    color: var(--text-muted);
-    font-size: 0.96rem;
-  }
-
-  section {
-    margin-bottom: 32px;
-  }
-
-  h2 {
-    margin: 0 0 6px;
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-  }
-
-  .intro {
-    margin: 0 0 14px;
-    color: var(--text-muted);
-    max-width: 72ch;
-  }
-
-  .card {
+  .queue {
     background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: var(--shadow);
-    padding: 16px 18px;
   }
 
-  .card.quiet {
-    color: var(--text-muted);
-    margin: 0;
-  }
-
-  .card.danger {
-    margin: 0;
-    border-color: var(--danger);
-    background: var(--danger-soft);
-    color: var(--danger);
-  }
-
-  .seams {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 14px;
-  }
-
-  .seams .number {
-    font-size: 0.7rem;
-    letter-spacing: 0.08em;
-    color: var(--accent);
-  }
-
-  .seams h3 {
-    margin: 4px 0 6px;
-    font-size: 0.96rem;
-  }
-
-  .seams p {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.87rem;
-  }
-
-  dl {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 14px;
-    margin: 0 0 20px;
-  }
-
-  dl div {
+  .queue header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 10px;
     background: var(--surface-2);
-    border-radius: 0.7rem;
-    padding: 10px 12px;
-  }
-
-  dt {
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-  }
-
-  dd {
-    margin: 2px 0 0;
-    font-size: 0.98rem;
-  }
-
-  .card h3 {
-    margin: 0 0 8px;
-    font-size: 0.86rem;
-    color: var(--text-muted);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-  }
-
-  th,
-  td {
-    text-align: left;
-    padding: 8px 10px;
     border-bottom: 1px solid var(--border);
   }
 
-  tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  th {
-    font-size: 0.68rem;
-    letter-spacing: 0.07em;
+  .title {
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-faint);
     font-weight: 600;
   }
 
-  .chip {
-    display: inline-block;
-    padding: 2px 9px;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    letter-spacing: 0.04em;
-    background: var(--surface-3);
-    color: var(--text-muted);
+  .spacer {
+    flex: 1;
   }
 
-  .chip.accent {
-    background: var(--accent-soft);
-    color: var(--accent);
-    text-transform: uppercase;
-    align-self: flex-start;
-  }
-
-  .chip.ok {
-    background: var(--ok-soft);
-    color: var(--ok);
-  }
-
-  .chip.warn {
-    background: var(--warn-soft);
-    color: var(--warn);
-  }
-
-  .settings .row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 16px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .settings .row:first-child {
-    padding-top: 0;
-  }
-
-  .settings .row:last-child {
-    padding-bottom: 0;
-    border-bottom: none;
-  }
-
-  .label {
-    min-width: 92px;
+  .soon {
     font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 1px 8px;
+    border-radius: 999px;
+  }
+
+  .queue .empty {
+    margin: 0;
+    padding: 12px;
+    font-size: 0.78rem;
     color: var(--text-faint);
   }
 
-  .choices {
+  footer,
+  .settings-bar {
     display: flex;
+    align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    padding: 4px 10px;
+    background: var(--surface-2);
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    flex: none;
+  }
+
+  .keys {
+    font-size: 0.7rem;
+  }
+
+  .settings-bar .label {
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-left: 6px;
   }
 
   button {
     font: inherit;
-    font-size: 0.86rem;
-    padding: 5px 14px;
-    border: 1px solid var(--border-strong);
+    font-size: 0.74rem;
+    padding: 2px 10px;
     border-radius: 999px;
+    border: 1px solid var(--border-strong);
     background: var(--surface-1);
     color: var(--text);
     cursor: default;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
   }
 
   button:hover {
-    background: var(--surface-2);
+    background: var(--surface-3);
   }
 
   button.active {
@@ -454,14 +477,9 @@
     color: var(--accent);
   }
 
-  button:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--accent-ring);
-  }
-
   button.swatch {
-    width: 26px;
-    height: 26px;
+    width: 18px;
+    height: 18px;
     padding: 0;
     border-radius: 999px;
     background: var(--accent);
@@ -470,22 +488,10 @@
   }
 
   button.swatch.active {
-    border-color: var(--surface-1);
     box-shadow: 0 0 0 2px var(--accent);
   }
 
-  footer {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 8px 20px;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    color: var(--text-faint);
-    font-size: 0.8rem;
-  }
-
-  a {
-    color: var(--accent);
+  .settings {
+    color: var(--text-muted);
   }
 </style>
