@@ -41,9 +41,12 @@ use amberbeam_core::engine::Progress;
 use amberbeam_core::error::{Error, PathProblem};
 use amberbeam_core::events::{Event, Events, LogDirection};
 use amberbeam_core::fs::EntryKind;
+use amberbeam_core::queue::QueuedJob;
 use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+use amberbeam_core::runner::Runner;
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision, SftpSession};
 use amberbeam_core::transfer::ResumeMarker;
+use amberbeam_core::transfer::{ConflictPolicy, JobState};
 
 /// Defaults match the server `dev/test-sftp-server.sh` starts. Overridable, so
 /// the same tests can be pointed at a real server elsewhere — which is worth
@@ -130,6 +133,7 @@ fn params(
         known_hosts: Some(known_hosts.to_string_lossy().into_owned()),
         concurrency: 4,
         retries: 5,
+        temporary_name: true,
     }
 }
 
@@ -842,6 +846,7 @@ async fn a_file_travels_to_the_server_and_back() {
         keep_modified: true,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
     let done = sessions.transfer(&up, &progress).await.expect("upload");
     assert!(done.complete);
@@ -868,6 +873,7 @@ async fn a_file_travels_to_the_server_and_back() {
         keep_modified: true,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
     sessions.transfer(&down, &progress).await.expect("download");
     assert_eq!(std::fs::read(&back).expect("read back"), contents);
@@ -902,6 +908,7 @@ async fn a_broken_download_carries_on_where_it_stopped() {
         keep_modified: true,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
     sessions
         .transfer(&run, &Progress::new(None, 0))
@@ -931,10 +938,17 @@ async fn a_broken_download_carries_on_where_it_stopped() {
         keep_modified: true,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
     let finished = sessions.transfer(&rest, &progress).await.expect("resume");
 
     assert!(finished.complete);
+    // The point of the whole exercise: only what was missing crossed the wire.
+    assert_eq!(
+        finished.moved,
+        contents.len() as u64 - offset,
+        "a resumed transfer moves the remainder, not the file again"
+    );
     assert_eq!(
         std::fs::read(&target).expect("read"),
         contents,
@@ -977,6 +991,7 @@ async fn a_cancelled_transfer_reports_where_to_pick_up() {
         keep_modified: false,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
     let stopped = sessions.transfer(&run, &progress).await.expect("cancelled");
 
@@ -1023,6 +1038,7 @@ async fn a_source_that_changed_refuses_to_be_continued() {
         keep_modified: true,
         keep_permissions: false,
         source_permissions: None,
+        use_temporary_name: true,
     };
 
     let error = sessions
@@ -1070,6 +1086,7 @@ async fn the_connection_carries_several_transfers_at_once() {
                 keep_modified: false,
                 keep_permissions: false,
                 source_permissions: None,
+                use_temporary_name: true,
             };
             let done = sessions
                 .transfer(&run, &Progress::new(None, 0))
@@ -1085,4 +1102,218 @@ async fn the_connection_carries_several_transfers_at_once() {
         assert!(complete);
         sessions.remove(&server, &remote).await.expect("clean up");
     }
+}
+
+#[tokio::test]
+async fn the_temporary_name_can_be_switched_off() {
+    let (host, port) = server_or_skip!("temporary_name_off");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+
+    let source = scratch_file("direct.bin", &b"z".repeat(20_000));
+    let remote = format!("{}/amberbeam-direct.bin", testdata());
+
+    // Cancelled before anything moves, with the temporary name switched off:
+    // whatever exists on the server afterwards wears the final name.
+    let progress = Progress::new(None, 0);
+    progress.cancel();
+    let run = TransferRun {
+        source_endpoint: local.clone(),
+        source_path: source.clone(),
+        target_endpoint: server.clone(),
+        target_path: remote.clone(),
+        resume: None,
+        keep_modified: false,
+        keep_permissions: false,
+        source_permissions: None,
+        use_temporary_name: false,
+    };
+    sessions.transfer(&run, &progress).await.expect("cancelled");
+
+    let listing = sessions.list_dir(&server, &testdata()).await.expect("list");
+    assert!(
+        listing
+            .entries
+            .iter()
+            .any(|entry| entry.name == "amberbeam-direct.bin"),
+        "without the temporary name the file is created under its own name"
+    );
+    assert!(
+        !listing
+            .entries
+            .iter()
+            .any(|entry| entry.name.ends_with(".ampart")),
+        "and no temporary name is left behind"
+    );
+
+    let _ = sessions.remove(&server, &remote).await;
+    let _ = std::fs::remove_file(&source);
+}
+
+#[tokio::test]
+async fn the_queue_works_through_several_files_and_survives_a_restart() {
+    let (host, port) = server_or_skip!("the_queue_works_through");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+    let sessions = std::sync::Arc::new(sessions);
+
+    let queue_file = std::env::temp_dir().join("amberbeam-queue-live.json");
+    let _ = std::fs::remove_file(&queue_file);
+    let runner = Runner::new(
+        std::sync::Arc::clone(&sessions),
+        events.clone(),
+        queue_file.clone(),
+    );
+
+    let mut names = Vec::new();
+    let mut jobs = Vec::new();
+    for index in 0..6 {
+        let name = format!("amberbeam-queued-{index}.bin");
+        let source = scratch_file(&name, &b"q".repeat(30_000));
+        let target = format!("{}/{name}", testdata());
+        names.push((source.clone(), target.clone()));
+        jobs.push(QueuedJob {
+            id: format!("job-{index}"),
+            source_endpoint: local.clone(),
+            source_path: source,
+            target_endpoint: server.clone(),
+            target_path: target,
+            name: name.clone(),
+            state: JobState::Queued,
+            conflict_policy: ConflictPolicy::Overwrite,
+            total_bytes: Some(30_000),
+            done_bytes: 0,
+            resume: None,
+            keep_modified: true,
+            keep_permissions: false,
+            use_temporary_name: true,
+            attempts: 0,
+            retries: Some(3),
+            failure: None,
+            added: index,
+        });
+    }
+    runner.add_all(jobs).await;
+
+    // Wait for the queue to empty, but never forever: a test that hangs says
+    // less than one that fails.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        let totals = runner.totals().await;
+        if totals.done_jobs == 6 {
+            break;
+        }
+        assert!(
+            totals.failed_jobs == 0,
+            "a job failed: {:?}",
+            runner
+                .snapshot()
+                .await
+                .jobs
+                .iter()
+                .map(|job| (job.name.clone(), job.state, job.failure.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the queue did not finish"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    let listing = sessions.list_dir(&server, &testdata()).await.expect("list");
+    for index in 0..6 {
+        let name = format!("amberbeam-queued-{index}.bin");
+        let entry = listing
+            .entries
+            .iter()
+            .find(|entry| entry.name == name)
+            .unwrap_or_else(|| panic!("{name} never arrived"));
+        assert_eq!(entry.size, Some(30_000));
+    }
+    assert!(
+        !listing.entries.iter().any(|e| e.name.ends_with(".ampart")),
+        "no temporary names are left behind"
+    );
+
+    // The queue on disk is the queue in the window.
+    let reopened = amberbeam_core::queue::load(&queue_file);
+    assert_eq!(reopened.jobs.len(), 6);
+    assert!(reopened.jobs.iter().all(|job| job.state == JobState::Done));
+
+    for (source, target) in names {
+        let _ = std::fs::remove_file(&source);
+        sessions.remove(&server, &target).await.expect("clean up");
+    }
+    let _ = std::fs::remove_file(&queue_file);
+}
+
+#[tokio::test]
+async fn a_held_job_keeps_its_place_and_its_offset() {
+    let (host, port) = server_or_skip!("a_held_job");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+    let sessions = std::sync::Arc::new(sessions);
+
+    let queue_file = std::env::temp_dir().join("amberbeam-queue-hold.json");
+    let _ = std::fs::remove_file(&queue_file);
+    let runner = Runner::new(
+        std::sync::Arc::clone(&sessions),
+        events.clone(),
+        queue_file.clone(),
+    );
+    // Nothing starts while the queue is held, which is what makes the state
+    // observable at all.
+    runner.set_paused(true).await;
+
+    let source = scratch_file("held.bin", &b"h".repeat(10_000));
+    let target = format!("{}/amberbeam-held.bin", testdata());
+    runner
+        .add(QueuedJob {
+            id: "held".into(),
+            source_endpoint: local.clone(),
+            source_path: source.clone(),
+            target_endpoint: server.clone(),
+            target_path: target.clone(),
+            name: "held.bin".into(),
+            state: JobState::Queued,
+            conflict_policy: ConflictPolicy::Overwrite,
+            total_bytes: Some(10_000),
+            done_bytes: 0,
+            resume: None,
+            keep_modified: false,
+            keep_permissions: false,
+            use_temporary_name: true,
+            attempts: 0,
+            retries: Some(3),
+            failure: None,
+            added: 0,
+        })
+        .await;
+
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    let totals = runner.totals().await;
+    assert_eq!(totals.waiting_jobs, 1, "a held queue starts nothing");
+    assert_eq!(totals.running_jobs, 0);
+
+    // Let it go, and it finishes.
+    runner.set_paused(false).await;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while runner.totals().await.done_jobs == 0 {
+        assert!(std::time::Instant::now() < deadline, "nothing happened");
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    sessions.remove(&server, &target).await.expect("clean up");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&queue_file);
 }

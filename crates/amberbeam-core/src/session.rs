@@ -162,6 +162,20 @@ impl Session {
         }
     }
 
+    /// Whether a file arriving here is written under a temporary name first.
+    ///
+    /// The protocol still has the last word: over FTP the rename at the end
+    /// needs a right many accounts lack, and a transfer that completes and then
+    /// fails to rename leaves nothing usable behind.
+    pub fn temporary_name(&self) -> bool {
+        match self {
+            // A local rename is free and atomic; there is no reason to write a
+            // half file under its final name.
+            Session::Local(_) => true,
+            Session::Sftp(session) => session.temporary_name(),
+        }
+    }
+
     /// How many transfers this endpoint currently allows at once.
     pub async fn concurrency(&self) -> u32 {
         match self {

@@ -37,6 +37,9 @@ pub struct TransferRun {
     pub resume: Option<ResumeMarker>,
     pub keep_modified: bool,
     pub keep_permissions: bool,
+    /// Whether to write through a temporary name. The endpoint and the protocol
+    /// can still say no.
+    pub use_temporary_name: bool,
     /// The source's bits, when they are to be carried across.
     pub source_permissions: Option<u32>,
 }
@@ -45,6 +48,9 @@ pub struct TransferRun {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transferred {
     pub complete: bool,
+    /// Bytes moved in this run. After a resume that is the remainder, not the
+    /// whole file.
+    pub moved: u64,
     /// Where to pick up, when it was stopped rather than finished.
     pub resume: Option<ResumeMarker>,
 }
@@ -210,22 +216,33 @@ impl Sessions {
         };
         progress.set_done(offset);
 
-        let use_partial = target.protocol().rename_is_dependable();
+        // Three things have to agree: the job, the endpoint's own setting, and
+        // what the protocol can actually promise about renaming.
+        let use_partial = job.use_temporary_name
+            && target.temporary_name()
+            && target.protocol().rename_is_dependable();
         let write_path = if use_partial {
             engine::partial_name(&job.target_path)
         } else {
             job.target_path.clone()
         };
 
-        {
+        // Both sides are opened at the offset, so a transfer that stopped at
+        // 10 of 20 MB reads and writes the remaining 10 and not one byte more.
+        let moved = {
             let (mut reader, _source_lease) = source.open_read(&job.source_path, offset).await?;
             let (mut writer, _target_lease) = target.open_write(&write_path, offset).await?;
-            engine::copy(&mut reader, &mut writer, progress).await?;
-        }
+            engine::copy(&mut reader, &mut writer, progress).await?
+        };
+        debug_assert!(
+            offset + moved <= size.max(offset + moved),
+            "a resumed transfer never re-reads what it already has"
+        );
 
         if progress.is_cancelled() {
             return Ok(Transferred {
                 complete: false,
+                moved,
                 resume: Some(ResumeMarker {
                     offset: progress.done(),
                     source_size: size,
@@ -254,6 +271,7 @@ impl Sessions {
 
         Ok(Transferred {
             complete: true,
+            moved,
             resume: None,
         })
     }
@@ -270,6 +288,11 @@ impl Sessions {
             self.events
                 .log(endpoint, LogDirection::Note, "disconnected");
         }
+    }
+
+    /// Every endpoint that currently has a session.
+    pub async fn open_endpoints(&self) -> Vec<EndpointId> {
+        self.open.lock().await.keys().cloned().collect()
     }
 
     pub async fn is_connected(&self, endpoint: &EndpointId) -> bool {

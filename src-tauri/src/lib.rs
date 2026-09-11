@@ -53,6 +53,9 @@ struct ConnectRequest {
     concurrency: Option<u8>,
     /// Attempts before a broken job is paused. Falls back to the settings.
     retries: Option<u8>,
+    /// Write through a temporary name on this server. Falls back to the
+    /// settings.
+    temporary_name: Option<bool>,
 }
 
 impl ConnectRequest {
@@ -82,6 +85,7 @@ impl ConnectRequest {
                 .or(settings.concurrency)
                 .unwrap_or_else(|| amberbeam_core::Protocol::Sftp.default_concurrency()),
             retries: self.retries.unwrap_or(settings.retries),
+            temporary_name: self.temporary_name.unwrap_or(settings.temporary_name),
         }
     }
 }
@@ -116,6 +120,7 @@ async fn connect(
         saved_as_site: false,
         concurrency: request.concurrency,
         retries: request.retries,
+        temporary_name: request.temporary_name,
     };
 
     let connected = state

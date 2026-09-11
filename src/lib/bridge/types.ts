@@ -72,6 +72,7 @@ export interface ConnectRequest {
   /** Transfers at once for this connection; falls back to the settings. */
   concurrency?: number;
   retries?: number;
+  temporaryName?: boolean;
 }
 
 export interface QuickConnectEntry {
@@ -142,6 +143,8 @@ export interface Settings {
   retries: number;
   keepModified: boolean;
   keepPermissions: boolean;
+  /** Write to a temporary name and rename when the file is whole. */
+  temporaryName: boolean;
 }
 
 /** What a recursive delete is about to remove. */

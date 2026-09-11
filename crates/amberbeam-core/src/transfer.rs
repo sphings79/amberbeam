@@ -46,6 +46,9 @@ pub enum ConflictPolicy {
 pub enum JobState {
     Queued,
     Running,
+    /// Something is already at the target and the user has to decide what
+    /// happens to it. Nothing moves until they do.
+    Asking,
     /// Held by the user, or by the core after the retry limit was reached. A
     /// job is never silently dropped.
     Paused,

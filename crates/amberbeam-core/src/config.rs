@@ -53,6 +53,12 @@ pub struct Settings {
     /// Carry the source's permission bits across. Off by default: bits that
     /// made sense on one machine often make a mess on another.
     pub keep_permissions: bool,
+    /// Write to a temporary name and rename when the file is whole.
+    ///
+    /// On by default, and the same thing WinSCP does with its `.filepart`.
+    /// Worth switching off where something on the other side watches the
+    /// directory and trips over a name it does not expect.
+    pub temporary_name: bool,
 }
 
 impl Default for Settings {
@@ -62,6 +68,7 @@ impl Default for Settings {
             retries: 5,
             keep_modified: true,
             keep_permissions: false,
+            temporary_name: true,
         }
     }
 }
@@ -94,6 +101,9 @@ pub struct QuickConnectEntry {
     /// settings.
     #[serde(default)]
     pub retries: Option<u8>,
+    /// Write through a temporary name on this server. `None` uses the settings.
+    #[serde(default)]
+    pub temporary_name: Option<bool>,
 }
 
 impl QuickConnectEntry {
@@ -306,6 +316,7 @@ mod tests {
             saved_as_site: false,
             concurrency: None,
             retries: None,
+            temporary_name: None,
         }
     }
 
@@ -433,6 +444,10 @@ mod tests {
         assert!(
             !settings.keep_permissions,
             "bits from one machine often make a mess on another"
+        );
+        assert!(
+            settings.temporary_name,
+            "a half file should not wear a finished name unless asked"
         );
     }
 

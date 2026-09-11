@@ -46,6 +46,8 @@ pub struct ConnectParams {
     pub concurrency: u8,
     /// How often a broken transfer is retried before the job is paused.
     pub retries: u8,
+    /// Whether a file arriving here is written under a temporary name first.
+    pub temporary_name: bool,
     /// Which `known_hosts` file to consult. `None` means the one the terminal
     /// uses, `~/.ssh/known_hosts`, which is the point on a desktop. The
     /// container build of M7 has no such home directory, and tests must not
@@ -123,6 +125,7 @@ pub struct SftpSession {
     allowed: Mutex<u32>,
     endpoint: EndpointId,
     events: Events,
+    temporary_name: bool,
 }
 
 /// A transfer channel on loan. Returns itself when dropped.
@@ -302,7 +305,13 @@ impl SftpSession {
             allowed: Mutex::new(u32::from(allowed)),
             endpoint: endpoint.clone(),
             events: events.clone(),
+            temporary_name: params.temporary_name,
         })
+    }
+
+    /// Whether files arriving here are written under a temporary name first.
+    pub fn temporary_name(&self) -> bool {
+        self.temporary_name
     }
 
     /// Opens one more SFTP channel on the same connection.

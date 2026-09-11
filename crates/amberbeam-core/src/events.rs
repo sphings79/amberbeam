@@ -61,6 +61,25 @@ pub enum Event {
     },
     /// A directory was read again, so the pane showing it should follow.
     Listed { endpoint: EndpointId, path: String },
+    /// How far the running transfers have come.
+    ///
+    /// Sent on a timer rather than per chunk: a transfer moves a thousand
+    /// chunks a second and the window redraws sixty times.
+    Progress { jobs: Vec<JobProgress> },
+    /// The queue changed in a way the window cannot infer from progress alone:
+    /// a job finished, failed, was added or needs an answer.
+    Queue,
+}
+
+/// One running transfer, as the queue reports it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JobProgress {
+    pub id: String,
+    pub done_bytes: u64,
+    pub total_bytes: Option<u64>,
+    /// Bytes per second over the last stretch, once there is enough to say.
+    pub rate: Option<u64>,
 }
 
 /// A listener on the event stream.
