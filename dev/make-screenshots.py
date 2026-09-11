@@ -478,20 +478,38 @@ def social():
     out.append(text(wx + 14, 189, "&#8592;  226 Directory send OK", OK, 10.5, family=MONO))
     out.append(line(wx, 198, wx + ww, 198))
 
-    # two panes
+    # two panes, each with its own folder tree on the left — the half of
+    # FlashFXP nobody who used it would accept losing
+    left_tree = [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True),
+                 (3, "website", True), (2, "Bilder", False)]
+    right_tree = [(0, "/", True), (1, "var", True), (2, "www", True),
+                  (3, "html", True), (1, "srv", False)]
     half = ww // 2
-    for index, (label, place, rows) in enumerate(
-        (("LOKAL", "~/Projekte/website", left_rows), ("SERVER", "/var/www/html", right_rows))
+    tree_w = 86
+    for index, (label, place, tree, rows) in enumerate(
+        (("LOKAL", "~/Projekte/website", left_tree, left_rows),
+         ("SERVER", "/var/www/html", right_tree, right_rows))
     ):
         px = wx + index * half
         out.append(rect(px, 198, half, 22, PANEL_2))
         out.append(text(px + 14, 213, label, FAINT, 9, "600"))
         out.append(text(px + half - 12, 213, place, FAINT, 9, family=MONO, anchor="end"))
         out.append(line(px, 220, px + half, 220))
+
+        out.append(rect(px, 220, tree_w, 178, PANEL_2))
+        out.append(line(px + tree_w, 220, px + tree_w, 398))
+        ty = 238
+        for depth, name, open_ in tree:
+            out.append(text(px + 8 + depth * 9, ty, "▾" if open_ else "▸", FAINT, 7))
+            out.append(text(px + 18 + depth * 9, ty, name, ACCENT if open_ else FAINT, 9.5))
+            ty += 20
+
+        list_x = px + tree_w
+        list_w = half - tree_w
         ry = 220
         for name, size, is_dir, selected in rows:
-            out.append(mini_row(px, half, ry, name, size, is_dir, selected))
-            out.append(line(px, ry + 26, px + half, ry + 26))
+            out.append(mini_row(list_x, list_w, ry, name, size, is_dir, selected))
+            out.append(line(list_x, ry + 26, list_x + list_w, ry + 26))
             ry += 26
     out.append(line(wx + half, 198, wx + half, 398, BORDER_STRONG))
     out.append(line(wx, 398, wx + ww, 398))

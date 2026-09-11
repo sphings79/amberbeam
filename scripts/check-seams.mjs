@@ -20,6 +20,10 @@ const source = join(root, "src");
 const BRIDGE_DIR = join("src", "lib", "bridge");
 const BRIDGE_ENTRY = join(BRIDGE_DIR, "index.ts");
 
+/**
+ * @param {string} directory
+ * @returns {Generator<string>}
+ */
 function* walk(directory) {
   for (const entry of readdirSync(directory)) {
     const path = join(directory, entry);

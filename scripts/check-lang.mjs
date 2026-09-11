@@ -16,6 +16,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const catalogueDir = join(here, "..", "src", "lib", "i18n");
 const REFERENCE = "en";
 
+/**
+ * @param {string} name
+ * @returns {Record<string, unknown>}
+ */
 function load(name) {
   return JSON.parse(readFileSync(join(catalogueDir, `${name}.json`), "utf8"));
 }
