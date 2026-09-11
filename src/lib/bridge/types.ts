@@ -109,6 +109,11 @@ export interface QuickConnectEntry {
   auth: AuthKind;
   keyPath: string | null;
   lastPath: string | null;
+  /** FTP only: how the connection was encrypted. */
+  encryption: Encryption | null;
+  passive: boolean | null;
+  latin1: boolean | null;
+  keepAlive: number | null;
   /** null means: whatever the settings say. */
   concurrency: number | null;
   retries: number | null;

@@ -342,3 +342,132 @@ async fn an_idle_connection_is_kept_alive() {
 
     session.disconnect().await;
 }
+
+/// A transfer that was cut in half and picked up again.
+///
+/// This is the one failure that must never happen: a resumed transfer that
+/// starts the file again at the server end while the client writes at the end
+/// of what it already has. The result looks complete, has the right length, and
+/// is wrong in the middle — which no progress bar and no size comparison would
+/// ever reveal. Only reading the bytes back proves it.
+#[tokio::test]
+async fn a_transfer_cut_in_half_finishes_correctly() {
+    use amberbeam_core::engine::Progress;
+    use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+    use amberbeam_core::transfer::ResumeMarker;
+
+    let (host, port) = server_or_skip!("a_transfer_cut_in_half");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+
+    // Bytes that differ everywhere, so a half from the wrong place shows up
+    // wherever it lands rather than only at one seam.
+    let written: Vec<u8> = (0..400_000_u32)
+        .map(|i| (i.wrapping_mul(2_654_435_761) >> 13) as u8)
+        .collect();
+    let half = written.len() / 2;
+
+    let dir = std::env::temp_dir().join("amberbeam-ftp-resume");
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let source = dir.join("whole.bin");
+    let target = dir.join("returned.bin");
+    std::fs::write(&source, &written).expect("write the source");
+
+    let remote_path = format!(
+        "{}/amberbeam-resume.bin",
+        connected.home.trim_end_matches('/')
+    );
+
+    // Put the whole file up first; the interesting half is the way back down.
+    sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: local.clone(),
+                source_path: source.to_string_lossy().into_owned(),
+                target_endpoint: remote.clone(),
+                target_path: remote_path.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                use_temporary_name: false,
+                source_permissions: None,
+            },
+            &Progress::default(),
+        )
+        .await
+        .expect("upload");
+
+    // A download that stopped in the middle, written by hand so the test does
+    // not depend on catching a real one at the right moment.
+    std::fs::write(&target, &written[..half]).expect("write the half");
+
+    // The marker has to carry what the server says, not what this test
+    // believes: the whole point of the check before a resume is that the two
+    // are compared.
+    let listed = sessions
+        .list_dir(&remote, connected.home.trim_end_matches('/'))
+        .await
+        .expect("list the directory");
+    let entry = listed
+        .entries
+        .iter()
+        .find(|entry| entry.name == "amberbeam-resume.bin")
+        .expect("the uploaded file is in the listing");
+    let size = entry.size.expect("the server states a size");
+    let modified = entry.modified;
+    assert_eq!(
+        size,
+        written.len() as u64,
+        "the server disagrees about length"
+    );
+
+    let rest = sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: remote.clone(),
+                source_path: remote_path.clone(),
+                target_endpoint: local.clone(),
+                target_path: target.to_string_lossy().into_owned(),
+                resume: Some(ResumeMarker {
+                    offset: half as u64,
+                    source_size: size,
+                    source_modified: modified,
+                }),
+                keep_modified: false,
+                keep_permissions: false,
+                use_temporary_name: false,
+                source_permissions: None,
+            },
+            &Progress::default(),
+        )
+        .await
+        .expect("the remainder");
+
+    assert!(rest.complete);
+    assert_eq!(
+        rest.moved,
+        (written.len() - half) as u64,
+        "a resumed transfer moves the remainder, not the whole file again"
+    );
+
+    let returned = std::fs::read(&target).expect("read what came back");
+    assert_eq!(returned.len(), written.len(), "the file changed length");
+    assert!(
+        returned == written,
+        "the two halves do not join up — the second half came from the wrong offset"
+    );
+
+    sessions
+        .remove(&remote, &remote_path)
+        .await
+        .expect("tidy up");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&target);
+}

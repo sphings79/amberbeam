@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::endpoint::Protocol;
 use crate::error::{Error, PathProblem, Result};
 use crate::ftp::tls::Exceptions;
+use crate::ftp::Encryption;
 
 /// Where everything lives. Settable, because the container build of M7 has a
 /// mounted directory rather than a home, and tests need their own.
@@ -112,6 +113,21 @@ pub struct QuickConnectEntry {
     /// Write through a temporary name on this server. `None` uses the settings.
     #[serde(default)]
     pub temporary_name: Option<bool>,
+    /// FTP only: how this connection was encrypted. Kept because the port does
+    /// not answer it — explicit FTPS on a port of somebody's choosing looks
+    /// exactly like implicit FTPS would, and reconnecting to the wrong one
+    /// either hangs or sends the login in the clear.
+    #[serde(default)]
+    pub encryption: Option<Encryption>,
+    /// FTP only. `None` means passive, which is what works behind a router.
+    #[serde(default)]
+    pub passive: Option<bool>,
+    /// FTP only: the server does not speak UTF-8.
+    #[serde(default)]
+    pub latin1: Option<bool>,
+    /// FTP only: seconds between keep-alive commands on an idle connection.
+    #[serde(default)]
+    pub keep_alive: Option<u32>,
 }
 
 impl QuickConnectEntry {
@@ -209,6 +225,10 @@ impl Config {
             concurrency: entry
                 .concurrency
                 .unwrap_or_else(|| entry.protocol.default_concurrency()),
+            encryption: entry.encryption,
+            passive: entry.passive,
+            latin1: entry.latin1,
+            keep_alive: entry.keep_alive,
             colour: None,
         };
 
@@ -293,6 +313,18 @@ pub struct Site {
     /// Directory the local side opens in.
     pub local_path: Option<String>,
     pub concurrency: u8,
+    /// FTP only: how the connection is encrypted.
+    #[serde(default)]
+    pub encryption: Option<Encryption>,
+    /// FTP only.
+    #[serde(default)]
+    pub passive: Option<bool>,
+    /// FTP only: the server does not speak UTF-8.
+    #[serde(default)]
+    pub latin1: Option<bool>,
+    /// FTP only: seconds between keep-alive commands on an idle connection.
+    #[serde(default)]
+    pub keep_alive: Option<u32>,
     /// Colour marking in the site list.
     pub colour: Option<String>,
 }
@@ -398,6 +430,10 @@ mod tests {
             concurrency: None,
             retries: None,
             temporary_name: None,
+            encryption: None,
+            passive: None,
+            latin1: None,
+            keep_alive: None,
         }
     }
 
@@ -464,18 +500,42 @@ mod tests {
         assert_eq!(site.remote_path.as_deref(), Some("/var/www"));
         assert_eq!(site.concurrency, 8, "SFTP starts at eight at a time");
 
-        // No field may hold a secret. The value "password" is allowed — it is
-        // the name of a method — but a field called password or passphrase is
-        // not, and that is what this watches for.
+        // A site file may hold exactly these and nothing else. Named one by
+        // one rather than filtered by a word, because a field called "passive"
+        // is fine and one called "passphrase" is not, and no rule about
+        // substrings tells those apart. Adding a field to `Site` fails this
+        // test until somebody has looked at it and decided it carries no
+        // secret — which is the point.
+        const ALLOWED: [&str; 15] = [
+            "name",
+            "protocol",
+            "host",
+            "port",
+            "user",
+            "auth",
+            "keyPath",
+            "remotePath",
+            "localPath",
+            "concurrency",
+            "encryption",
+            "passive",
+            "latin1",
+            "keepAlive",
+            "colour",
+        ];
         let raw: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         for field in raw.as_object().expect("an object").keys() {
-            let field = field.to_lowercase();
             assert!(
-                !field.contains("pass") && !field.contains("secret"),
-                "a site file must not carry {field}"
+                ALLOWED.contains(&field.as_str()),
+                "a site file grew a field nobody has vetted: {field}"
             );
         }
+        assert_eq!(
+            raw.as_object().expect("an object").len(),
+            ALLOWED.len(),
+            "the allowed list and the file have drifted apart"
+        );
 
         // And the history knows it has been taken over.
         assert!(config.quick_connect()[0].saved_as_site);

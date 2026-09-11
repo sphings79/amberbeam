@@ -229,6 +229,20 @@ impl Session {
         }
     }
 
+    /// Whether a transfer that stopped can be picked up where it left off.
+    ///
+    /// A file handle can always be positioned; an FTP server can only do it if
+    /// it said so in `FEAT`. Asked before a transfer rather than discovered
+    /// during one, because the answer decides whether a broken transfer resumes
+    /// or starts again — and being wrong about it produces a file that has the
+    /// right length and the wrong middle.
+    pub fn can_resume(&self) -> bool {
+        match self {
+            Session::Local(_) | Session::Sftp(_) => true,
+            Session::Ftp(session) => session.abilities().rest,
+        }
+    }
+
     /// How many transfers this endpoint currently allows at once.
     pub async fn concurrency(&self) -> u32 {
         match self {

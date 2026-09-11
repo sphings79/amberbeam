@@ -210,12 +210,24 @@ impl FtpSession {
             endpoint,
             LogDirection::Received,
             format!(
-                "FEAT: MLSD {}, REST STREAM {}, UTF8 {}",
+                "FEAT: MLSD {}, REST STREAM {}, UTF8 {}, SIZE {}, MFMT {}",
                 yes_no(abilities.mlsd),
                 yes_no(abilities.rest),
-                yes_no(abilities.utf8)
+                yes_no(abilities.utf8),
+                yes_no(abilities.size),
+                yes_no(abilities.mfmt)
             ),
         );
+
+        if !abilities.rest {
+            // Said here rather than when a transfer breaks: by then the choice
+            // of server has been made and the time has been spent.
+            events.log(
+                endpoint,
+                LogDirection::Note,
+                "this server cannot continue an interrupted transfer; a broken one starts again",
+            );
+        }
 
         if abilities.utf8 {
             // Asked for rather than assumed: a server that speaks UTF-8 only

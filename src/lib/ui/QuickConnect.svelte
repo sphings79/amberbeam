@@ -112,9 +112,17 @@
 
   /** Fills the form from a history entry. The password is never there. */
   function fill(entry: QuickConnectEntry): void {
-    // Implicit and explicit share a protocol in the history, so the port is
-    // what tells them apart when one is picked again.
+    // Implicit and explicit share a protocol, and the port does not tell them
+    // apart on a server that listens somewhere of its own choosing. The entry
+    // says which it was; the port is only the fallback for entries written
+    // before it did.
     kind =
+      KINDS.find(
+        (candidate) =>
+          candidate.protocol === entry.protocol &&
+          ("encryption" in candidate ? candidate.encryption : null) ===
+            (entry.protocol === "ftps" ? entry.encryption : null),
+      ) ??
       KINDS.find(
         (candidate) =>
           candidate.protocol === entry.protocol &&
@@ -122,6 +130,8 @@
       ) ??
       KINDS.find((candidate) => candidate.protocol === entry.protocol) ??
       KINDS[0];
+    passive = entry.passive ?? true;
+    latin1 = entry.latin1 ?? false;
     host = entry.host;
     port = entry.port;
     user = entry.user;
@@ -132,7 +142,12 @@
     concurrency = entry.concurrency === null ? "" : String(entry.concurrency);
     retries = entry.retries === null ? "" : String(entry.retries);
     temporaryName = entry.temporaryName;
-    advanced = entry.concurrency !== null || entry.retries !== null || entry.temporaryName !== null;
+    advanced =
+      entry.concurrency !== null ||
+      entry.retries !== null ||
+      entry.temporaryName !== null ||
+      entry.passive === false ||
+      entry.latin1 === true;
   }
 
   async function forget(entry: QuickConnectEntry): Promise<void> {

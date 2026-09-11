@@ -259,7 +259,15 @@ impl Sessions {
         // Nothing is appended to before the source has been shown to be what it
         // was. A file stitched together from two versions looks complete and is
         // not, which is the one failure this program must never produce.
-        let verdict = engine::may_resume(job.resume.as_ref(), size, modified);
+        // Both ends have to be able to do it. A server that cannot continue a
+        // download and one that cannot continue an upload rule it out just the
+        // same, and the transfer starts again rather than failing.
+        let resumable = source.can_resume() && target.can_resume();
+        let verdict = if resumable {
+            engine::may_resume(job.resume.as_ref(), size, modified)
+        } else {
+            ResumeVerdict::Fresh
+        };
         let offset = match verdict {
             ResumeVerdict::Safe => job.resume.as_ref().map_or(0, |marker| marker.offset),
             ResumeVerdict::Changed => return Err(Error::SourceChanged),
@@ -302,7 +310,11 @@ impl Sessions {
             return Ok(Transferred {
                 complete: false,
                 moved,
-                resume: Some(ResumeMarker {
+                // No marker where nothing can act on one. Handing back an
+                // offset that the next attempt has to ignore is how a resumed
+                // transfer ends up reading from the start and writing at the
+                // end.
+                resume: resumable.then(|| ResumeMarker {
                     offset: progress.done(),
                     source_size: size,
                     source_modified: modified,

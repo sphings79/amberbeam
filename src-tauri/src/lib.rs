@@ -168,6 +168,10 @@ async fn connect(
 ) -> Result<Connected, Error> {
     let endpoint = EndpointId::new(request.endpoint.clone());
     let settings = state.config.settings();
+    let remote_ftp = matches!(
+        request.protocol,
+        amberbeam_core::Protocol::Ftp | amberbeam_core::Protocol::Ftps
+    );
     let history = QuickConnectEntry {
         id: QuickConnectEntry::id_for(&request.user, &request.host, request.port),
         protocol: request.protocol,
@@ -182,6 +186,15 @@ async fn connect(
         concurrency: request.concurrency,
         retries: request.retries,
         temporary_name: request.temporary_name,
+        // Kept only where they mean something. An SFTP entry carrying an FTP
+        // encryption mode would be answering a question nobody asked.
+        encryption: match request.protocol {
+            amberbeam_core::Protocol::Ftps => Some(request.encryption),
+            _ => None,
+        },
+        passive: remote_ftp.then_some(request.passive.unwrap_or(true)),
+        latin1: remote_ftp.then_some(request.latin1.unwrap_or(false)),
+        keep_alive: request.keep_alive,
     };
 
     let accepted_now = request.accept_certificate.clone();
