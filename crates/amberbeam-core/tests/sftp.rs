@@ -82,6 +82,17 @@ macro_rules! server_or_skip {
     };
 }
 
+/// The `known_hosts` every test shares that is not about host keys.
+///
+/// Accepting the fingerprint costs a connection of its own, and doing that
+/// twelve times over means two dozen logins in a couple of seconds. Servers
+/// and port forwards both dislike that — see the note at the top about running
+/// one at a time — so the acceptance happens once and the rest connect
+/// straight away.
+fn shared_known_hosts() -> PathBuf {
+    std::env::temp_dir().join("amberbeam-known-hosts-shared")
+}
+
 /// A `known_hosts` file nobody else touches.
 fn scratch_known_hosts(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("amberbeam-known-hosts-{name}"));
@@ -122,6 +133,64 @@ fn password() -> AuthMethod {
     }
 }
 
+/// Retries a connection that never reached the server.
+///
+/// Only ever on [`Error::Unreachable`], and only in the tests. A container port
+/// forward stops accepting for a moment after a burst of connections — the
+/// server itself logs nothing, because nothing arrives — and that has no
+/// bearing on whether the code is right. Every other failure is passed
+/// straight through: retrying a wrong password until it works is how test
+/// suites start lying.
+async fn with_retry<F, Fut>(attempt: F) -> Result<SftpSession, Error>
+where
+    F: Fn() -> Fut,
+    Fut: std::future::Future<Output = Result<SftpSession, Error>>,
+{
+    for _ in 0..4 {
+        match attempt().await {
+            Err(Error::Unreachable { .. }) => {
+                tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            }
+            other => return other,
+        }
+    }
+    attempt().await
+}
+
+/// Connects using the shared `known_hosts`, accepting the key the first time.
+///
+/// A key that no longer matches — the test container was recreated and has new
+/// host keys — throws the shared file away and starts over, rather than failing
+/// every test with a changed-key error that says nothing about the code.
+async fn connect_ready(
+    host: &str,
+    port: u16,
+    method: AuthMethod,
+    events: &Events,
+) -> Result<SftpSession, Error> {
+    let shared = shared_known_hosts();
+    let endpoint = EndpointId::new("test");
+    let known_only = params(
+        host,
+        port,
+        method.clone(),
+        &shared,
+        HostKeyDecision::KnownOnly,
+    );
+
+    match with_retry(|| SftpSession::connect(&known_only, &endpoint, events)).await {
+        Ok(session) => Ok(session),
+        Err(Error::HostKeyChanged { .. }) => {
+            let _ = std::fs::remove_file(&shared);
+            connect_trusting(host, port, method, &shared, events).await
+        }
+        Err(Error::HostKeyUnknown { .. }) => {
+            connect_trusting(host, port, method, &shared, events).await
+        }
+        Err(other) => Err(other),
+    }
+}
+
 /// Connects the way the window does: first attempt, accept the fingerprint,
 /// second attempt.
 async fn connect_trusting(
@@ -132,18 +201,16 @@ async fn connect_trusting(
     events: &Events,
 ) -> Result<SftpSession, Error> {
     let endpoint = EndpointId::new("test");
-    let first = SftpSession::connect(
-        &params(
-            host,
-            port,
-            method.clone(),
-            known_hosts,
-            HostKeyDecision::KnownOnly,
-        ),
-        &endpoint,
-        events,
-    )
-    .await;
+    // Built once and borrowed: a set of parameters created inside the closure
+    // would not outlive the future that borrows it.
+    let blind = params(
+        host,
+        port,
+        method.clone(),
+        known_hosts,
+        HostKeyDecision::KnownOnly,
+    );
+    let first = with_retry(|| SftpSession::connect(&blind, &endpoint, events)).await;
 
     let fingerprint = match first {
         Ok(session) => return Ok(session),
@@ -151,18 +218,14 @@ async fn connect_trusting(
         Err(other) => return Err(other),
     };
 
-    SftpSession::connect(
-        &params(
-            host,
-            port,
-            method,
-            known_hosts,
-            HostKeyDecision::Trust { fingerprint },
-        ),
-        &endpoint,
-        events,
-    )
-    .await
+    let trusting = params(
+        host,
+        port,
+        method,
+        known_hosts,
+        HostKeyDecision::Trust { fingerprint },
+    );
+    with_retry(|| SftpSession::connect(&trusting, &endpoint, events)).await
 }
 
 #[tokio::test]
@@ -262,16 +325,14 @@ async fn a_changed_server_key_blocks_the_connection() {
 #[tokio::test]
 async fn a_wrong_password_is_reported_as_such() {
     let (host, port) = server_or_skip!("a_wrong_password");
-    let known_hosts = scratch_known_hosts("wrong-password");
     let events = Events::new();
 
-    let error = connect_trusting(
+    let error = connect_ready(
         &host,
         port,
         AuthMethod::Password {
             password: "not the password".into(),
         },
-        &known_hosts,
         &events,
     )
     .await
@@ -290,17 +351,15 @@ async fn a_key_file_connects() {
         eprintln!("skipping: this repository's test key is not on that server");
         return;
     }
-    let known_hosts = scratch_known_hosts("key-file");
     let events = Events::new();
 
-    let mut session = connect_trusting(
+    let mut session = connect_ready(
         &host,
         port,
         AuthMethod::KeyFile {
             path: key_path("client"),
             passphrase: None,
         },
-        &known_hosts,
         &events,
     )
     .await
@@ -315,17 +374,15 @@ async fn an_encrypted_key_needs_its_passphrase() {
         eprintln!("skipping: this repository's test key is not on that server");
         return;
     }
-    let known_hosts = scratch_known_hosts("locked-key");
     let events = Events::new();
 
-    let error = connect_trusting(
+    let error = connect_ready(
         &host,
         port,
         AuthMethod::KeyFile {
             path: key_path("client-locked"),
             passphrase: Some("wrong".into()),
         },
-        &known_hosts,
         &events,
     )
     .await
@@ -346,9 +403,8 @@ async fn a_listing_carries_everything_the_panes_show() {
         eprintln!("skipping: pointed at a server without this repository's fixture");
         return;
     }
-    let known_hosts = scratch_known_hosts("listing");
     let events = Events::new();
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -405,6 +461,7 @@ async fn a_listing_carries_everything_the_panes_show() {
         by_name("secret.txt").permissions.map(|p| p.to_rwx()),
         Some("rw-------".into())
     );
+    session.disconnect().await;
 }
 
 #[tokio::test]
@@ -414,9 +471,8 @@ async fn a_directory_without_permission_says_so() {
         eprintln!("skipping: pointed at a server without this repository's fixture");
         return;
     }
-    let known_hosts = scratch_known_hosts("denied");
     let events = Events::new();
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -434,14 +490,14 @@ async fn a_directory_without_permission_says_so() {
         ),
         "got {error:?}"
     );
+    session.disconnect().await;
 }
 
 #[tokio::test]
 async fn a_missing_directory_says_so() {
     let (host, port) = server_or_skip!("a_missing_directory");
-    let known_hosts = scratch_known_hosts("missing");
     let events = Events::new();
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -459,29 +515,29 @@ async fn a_missing_directory_says_so() {
         ),
         "got {error:?}"
     );
+    session.disconnect().await;
 }
 
 #[tokio::test]
 async fn the_home_directory_comes_back_absolute() {
     let (host, port) = server_or_skip!("the_home_directory");
-    let known_hosts = scratch_known_hosts("home");
     let events = Events::new();
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
     let home = session.home().await.expect("home");
     assert!(home.starts_with('/'), "a pane cannot start from {home:?}");
+    session.disconnect().await;
 }
 
 #[tokio::test]
 async fn the_server_log_fills_while_connecting() {
     let (host, port) = server_or_skip!("the_server_log_fills");
-    let known_hosts = scratch_known_hosts("log");
     let events = Events::new();
     let mut listener = events.subscribe();
 
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
     session.list_dir(&testdata()).await.expect("list");
@@ -506,6 +562,7 @@ async fn the_server_log_fills_while_connecting() {
             .any(|(direction, text)| *direction == LogDirection::Sent && text.contains("opendir")),
         "the log has to show the listing: {lines:?}"
     );
+    session.disconnect().await;
 }
 
 #[tokio::test]
@@ -514,9 +571,8 @@ async fn every_row_of_a_real_listing_is_complete() {
     // tests at a real server is the only way to find out what real servers
     // actually send, and SFTP implementations differ.
     let (host, port) = server_or_skip!("every_row_of_a_real_listing");
-    let known_hosts = scratch_known_hosts("real-listing");
     let events = Events::new();
-    let session = connect_trusting(&host, port, password(), &known_hosts, &events)
+    let mut session = connect_ready(&host, port, password(), &events)
         .await
         .expect("connect");
 
@@ -549,4 +605,5 @@ async fn every_row_of_a_real_listing_is_complete() {
             );
         }
     }
+    session.disconnect().await;
 }

@@ -35,7 +35,21 @@ fixture() {
     chmod 000 /config/testdata/locked
     chown -R 1000:1000 /config/testdata
   ' >/dev/null
-  echo "fixture in /config/testdata"
+
+  # A test server should not be the thing that fails first. OpenSSH drops
+  # connections once ten unauthenticated ones are in flight, and a test run
+  # opens dozens in a few seconds — through a container port forward that is in
+  # no hurry to report them closed. The dropped connection then looks like
+  # "server unreachable", which is a fault report about the wrong thing.
+  docker exec "$NAME" sh -c '
+    set -e
+    grep -q "^MaxStartups" /config/sshd/sshd_config || {
+      printf "\nMaxStartups 200:30:400\nMaxSessions 100\n" >> /config/sshd/sshd_config
+    }
+    pkill -HUP sshd 2>/dev/null || true
+  ' >/dev/null 2>&1 || true
+
+  echo "fixture in /config/testdata, connection limits raised"
 }
 
 case "${1:-start}" in

@@ -182,14 +182,34 @@ impl SftpSession {
             return Err(error);
         }
 
-        let channel = handle.channel_open_session().await.map_err(Error::other)?;
-        channel
-            .request_subsystem(true, "sftp")
-            .await
-            .map_err(Error::other)?;
-        let sftp = RawSftp::new(channel.into_stream())
-            .await
-            .map_err(Error::other)?;
+        // From here on a failure has to close the connection too, for the same
+        // reason: an authenticated session that nobody uses is still a session
+        // the server is counting.
+        let opened = async {
+            let channel = handle.channel_open_session().await.map_err(Error::other)?;
+            channel
+                .request_subsystem(true, "sftp")
+                .await
+                .map_err(Error::other)?;
+            RawSftp::new(channel.into_stream())
+                .await
+                .map_err(Error::other)
+        }
+        .await;
+
+        let sftp = match opened {
+            Ok(sftp) => sftp,
+            Err(error) => {
+                let _ = handle.disconnect(Disconnect::ByApplication, "", "en").await;
+                events.connection(
+                    endpoint,
+                    ConnectionState::Failed {
+                        error: error.clone(),
+                    },
+                );
+                return Err(error);
+            }
+        };
 
         // Only now, with the connection proven end to end, is the key worth
         // recording. Writing it earlier would remember a server that then
