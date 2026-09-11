@@ -29,6 +29,7 @@ pub mod sftp;
 pub mod stream;
 pub mod system;
 pub mod transfer;
+pub mod update;
 
 pub use config::{AuthKind, Config, QuickConnectEntry, Settings, Site};
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};

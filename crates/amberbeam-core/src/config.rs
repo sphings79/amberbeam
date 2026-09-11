@@ -59,6 +59,12 @@ pub struct Settings {
     /// Worth switching off where something on the other side watches the
     /// directory and trips over a name it does not expect.
     pub temporary_name: bool,
+    /// Ask GitHub now and then whether a newer release exists.
+    ///
+    /// On by default and switchable off. It is the only request AmberBeam
+    /// makes that the user did not ask for, so what it does is written out in
+    /// the settings rather than left to be assumed.
+    pub check_for_updates: bool,
 }
 
 impl Default for Settings {
@@ -69,6 +75,7 @@ impl Default for Settings {
             keep_modified: true,
             keep_permissions: false,
             temporary_name: true,
+            check_for_updates: true,
         }
     }
 }
