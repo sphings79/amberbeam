@@ -257,5 +257,13 @@
   "sites.open.right": "Right",
   "sites.password.title": "Password for {name}",
   "sites.password.body": "This entry has no password stored. It is used for this connection only and kept nowhere.",
-  "action.save": "Save"
+  "action.save": "Save",
+  "import.source.ssh-config": "OpenSSH (~/.ssh/config)",
+  "import.source.winscp": "WinSCP (WinSCP.ini)",
+  "import.source.wcx-ftp": "Total Commander (wcx_ftp.ini)",
+  "import.source.filezilla": "FileZilla (sitemanager.xml)",
+  "import.source.sites-dat": "Sites.dat of an older Windows client",
+  "import.source.sites-xml": ".ftp site export of an older Windows client",
+  "import.warning.master-password": "This file is protected by a master password. The servers can be read, the passwords cannot.",
+  "import.warning.some-passwords": "Some passwords could not be read. Those entries arrive without one rather than with a wrong one."
 }

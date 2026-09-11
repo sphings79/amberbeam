@@ -20,6 +20,7 @@ pub mod error;
 pub mod events;
 pub mod fs;
 pub mod ftp;
+pub mod import;
 pub mod local;
 pub mod ops;
 pub mod queue;

@@ -257,5 +257,13 @@
   "sites.open.right": "Rechts",
   "sites.password.title": "Passwort für {name}",
   "sites.password.body": "Für diesen Eintrag ist kein Passwort hinterlegt. Es gilt nur für diese Verbindung und wird nirgends gespeichert.",
-  "action.save": "Speichern"
+  "action.save": "Speichern",
+  "import.source.ssh-config": "OpenSSH (~/.ssh/config)",
+  "import.source.winscp": "WinSCP (WinSCP.ini)",
+  "import.source.wcx-ftp": "Total Commander (wcx_ftp.ini)",
+  "import.source.filezilla": "FileZilla (sitemanager.xml)",
+  "import.source.sites-dat": "Sites.dat eines älteren Windows-Clients",
+  "import.source.sites-xml": ".ftp-Export eines älteren Windows-Clients",
+  "import.warning.master-password": "Diese Datei ist durch ein Hauptpasswort geschützt. Die Server lassen sich lesen, die Passwörter nicht.",
+  "import.warning.some-passwords": "Einige Passwörter ließen sich nicht lesen. Diese Einträge kommen ohne an statt mit einem falschen."
 }
