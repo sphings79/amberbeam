@@ -46,6 +46,30 @@ pub struct TransferRun {
     pub source_permissions: Option<u32>,
 }
 
+/// One thing a search turned up.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Match {
+    pub path: String,
+    pub name: String,
+    pub kind: crate::fs::EntryKind,
+    pub size: Option<u64>,
+    pub modified: Option<i64>,
+}
+
+/// What a search found, and whether it got to the end.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub matches: Vec<Match>,
+    /// How many directories were read. Shown, because over FTP that is the
+    /// cost, and somebody who sees it will scope their next search better.
+    pub directories: usize,
+    /// True when a bound was reached rather than the tree ending. An answer
+    /// that admits it is partial is useful; one that pretends otherwise is not.
+    pub truncated: bool,
+}
+
 /// One file found while resolving what was selected.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Expanded {
@@ -183,6 +207,83 @@ impl Sessions {
             home,
             certificate_accepted: false,
         })
+    }
+
+    /// Looks for a name through a whole tree.
+    ///
+    /// Over SFTP a directory listing is cheap; over FTP each one is a separate
+    /// data connection, and a search through a large tree is minutes of work
+    /// the server can feel. So it is bounded on both sides — enough matches,
+    /// or enough directories — and says which bound it hit. An answer that
+    /// admits it is partial is useful; one that pretends to be complete is not.
+    ///
+    /// The needle is compared without regard to case, because nobody looking
+    /// for a file remembers how they capitalised it.
+    pub async fn search(
+        &self,
+        endpoint: &EndpointId,
+        root: &str,
+        needle: &str,
+        limit: usize,
+    ) -> Result<SearchResult> {
+        /// Enough directories that an honest search finishes, few enough that a
+        /// wrong turn does not run all night.
+        const DIRECTORIES: usize = 2_000;
+
+        let session = self.find(endpoint).await?;
+        let needle = needle.trim().to_lowercase();
+        if needle.is_empty() {
+            return Err(Error::other("nothing to look for"));
+        }
+
+        let mut found = SearchResult::default();
+        let mut pending = vec![root.to_string()];
+        let mut visited = 0_usize;
+
+        while let Some(directory) = pending.pop() {
+            if found.matches.len() >= limit || visited >= DIRECTORIES {
+                found.truncated = true;
+                break;
+            }
+            visited += 1;
+
+            // A directory that cannot be read is stepped over. Half a search is
+            // an answer; refusing to look anywhere because one folder is closed
+            // is not.
+            let Ok(listing) = session.list_dir(&directory).await else {
+                continue;
+            };
+            self.events.emit(crate::events::Event::Listed {
+                endpoint: endpoint.clone(),
+                path: directory.clone(),
+            });
+
+            for entry in listing.entries {
+                let path = session.join(&directory, &entry.name);
+                if entry.name.to_lowercase().contains(&needle) {
+                    found.matches.push(Match {
+                        path: path.clone(),
+                        name: entry.name.clone(),
+                        kind: entry.kind,
+                        size: entry.size,
+                        modified: entry.modified,
+                    });
+                    if found.matches.len() >= limit {
+                        found.truncated = true;
+                        break;
+                    }
+                }
+                // Symbolic links are not followed. A link pointing at its own
+                // parent is not exotic, and a search that walks in a circle
+                // looks exactly like one that has hung.
+                if entry.kind == crate::fs::EntryKind::Directory {
+                    pending.push(path);
+                }
+            }
+        }
+
+        found.directories = visited;
+        Ok(found)
     }
 
     /// Sends one hand-typed command to an endpoint.

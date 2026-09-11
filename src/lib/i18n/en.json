@@ -377,5 +377,14 @@
   "raw.not-here": "Raw commands exist only over FTP. SSH carries a file transfer protocol with typed operations, not a conversation in text — there is nothing here to type into.",
   "raw.data-warning": "This command opens a data connection. It will be sent, and the control connection closed afterwards rather than reused — it would otherwise be left mid-sentence, and every later reply would belong to the previous question. The next command logs in again.",
   "setup.cost.fn": "F5, or fn + F5",
-  "setup.cost.no-f-keys": "no F keys"
+  "setup.cost.no-f-keys": "no F keys",
+  "filter.placeholder": "Narrow the list… Enter searches below this folder",
+  "filter.deep": "Search below",
+  "filter.deep.hint": "Reads every directory under this one. Over FTP each of those is a separate connection, so this is not free.",
+  "filter.searching": "Searching…",
+  "filter.count": "{count} found, {directories} directories read",
+  "filter.none": "Nothing found in {directories} directories",
+  "filter.truncated": "— stopped early, so there may be more",
+  "pane.count.one": "1 entry",
+  "filter.count.one": "1 found, {directories} directories read"
 }

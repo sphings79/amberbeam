@@ -595,3 +595,70 @@ async fn a_raw_command_answers_and_does_not_poison_the_next_one() {
     let again = session.raw("FEAT").await.expect("FEAT again");
     assert_eq!(again.code, 211);
 }
+
+/// Looking for a name through a whole tree.
+#[tokio::test]
+async fn a_search_walks_the_tree_and_says_what_it_cost() {
+    use amberbeam_core::registry::{Sessions, LOCAL};
+
+    let (host, port) = server_or_skip!("a_search_walks");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let _ = LOCAL;
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+    let home = connected.home.trim_end_matches('/').to_string();
+    let root = if home.is_empty() {
+        "/".to_string()
+    } else {
+        home
+    };
+
+    // The fixture holds index.html inside testdata, one level down.
+    let Ok(found) = sessions.search(&remote, &root, "index", 100).await else {
+        eprintln!("skipping: this server refused the search");
+        return;
+    };
+    eprintln!(
+        "{} matches after reading {} directories",
+        found.matches.len(),
+        found.directories
+    );
+
+    if found.matches.is_empty() {
+        eprintln!("skipping the rest: no fixture on this server");
+        return;
+    }
+    assert!(
+        found.matches.iter().any(|m| m.name.contains("index")),
+        "a match must actually contain what was looked for"
+    );
+    assert!(
+        found.matches.iter().all(|m| m.path.starts_with('/')),
+        "a match has to be reachable, so its path is the whole path"
+    );
+    assert!(found.directories >= 1);
+
+    // Case is not remembered by anybody looking for a file.
+    let upper = sessions
+        .search(&remote, &root, "INDEX", 100)
+        .await
+        .expect("search");
+    assert_eq!(upper.matches.len(), found.matches.len());
+
+    // A bound that is reached is admitted rather than hidden.
+    let one = sessions
+        .search(&remote, &root, "index", 1)
+        .await
+        .expect("search");
+    assert_eq!(one.matches.len(), 1);
+    assert!(one.truncated, "a search that stopped early has to say so");
+
+    // And nothing to look for is a refusal, not an empty answer that looks
+    // like "there is nothing there".
+    assert!(sessions.search(&remote, &root, "   ", 10).await.is_err());
+}

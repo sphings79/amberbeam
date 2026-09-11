@@ -384,6 +384,24 @@ export interface BundlePreview {
   entries: BundleRow[];
 }
 
+/** One thing a search turned up. */
+export interface SearchMatch {
+  path: string;
+  name: string;
+  kind: EntryKind;
+  size: number | null;
+  modified: number | null;
+}
+
+/** What a search found, and whether it got to the end. */
+export interface SearchResult {
+  matches: SearchMatch[];
+  /** How many directories were read. Over FTP that is what it cost. */
+  directories: number;
+  /** True when a bound was reached rather than the tree ending. */
+  truncated: boolean;
+}
+
 /** What the server answered a hand-typed command. */
 export interface RawReply {
   code: number;
@@ -562,6 +580,15 @@ export interface AmberBeamApi {
     chosen: number[],
     into: string,
   ): Promise<number>;
+
+  /**
+   * Looks for a name through a whole tree, without regard to case.
+   *
+   * Bounded on both sides — enough matches, or enough directories — and says
+   * which bound it hit. Over FTP every directory is a separate data
+   * connection, so this is not free and does not pretend to be.
+   */
+  search(endpoint: string, root: string, needle: string, limit: number): Promise<SearchResult>;
 
   /**
    * Sends one command exactly as typed.

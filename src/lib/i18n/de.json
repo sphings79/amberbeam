@@ -377,5 +377,14 @@
   "raw.not-here": "Raw-Befehle gibt es nur über FTP. SSH trägt ein Dateiübertragungsprotokoll mit festen Operationen, kein Gespräch in Textform — hier ist nichts, worein man tippen könnte.",
   "raw.data-warning": "Dieser Befehl öffnet einen Datenkanal. Er wird gesendet, und die Steuerverbindung danach geschlossen statt weiterverwendet — sie bliebe sonst mitten im Satz stehen, und jede spätere Antwort gehörte zur vorigen Frage. Der nächste Befehl meldet sich neu an.",
   "setup.cost.fn": "F5, oder fn + F5",
-  "setup.cost.no-f-keys": "keine F-Tasten"
+  "setup.cost.no-f-keys": "keine F-Tasten",
+  "filter.placeholder": "Liste eingrenzen… Enter sucht unterhalb dieses Ordners",
+  "filter.deep": "Darunter suchen",
+  "filter.deep.hint": "Liest jedes Verzeichnis unterhalb. Über FTP ist jedes davon eine eigene Verbindung, das ist also nicht umsonst.",
+  "filter.searching": "Wird gesucht…",
+  "filter.count": "{count} gefunden, {directories} Verzeichnisse gelesen",
+  "filter.none": "Nichts gefunden in {directories} Verzeichnissen",
+  "filter.truncated": "— vorzeitig abgebrochen, es kann mehr geben",
+  "pane.count.one": "1 Eintrag",
+  "filter.count.one": "1 gefunden, {directories} Verzeichnisse gelesen"
 }

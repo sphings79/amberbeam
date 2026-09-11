@@ -253,6 +253,26 @@ fn open_site(app: tauri::AppHandle, id: String, side: String) -> Result<(), Erro
         .map_err(Error::other)
 }
 
+/// Looks for a name through a whole tree.
+#[tauri::command]
+async fn search(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    root: String,
+    needle: String,
+    limit: usize,
+) -> Result<amberbeam_core::registry::SearchResult, Error> {
+    state
+        .sessions
+        .search(
+            &EndpointId::new(endpoint),
+            &root,
+            &needle,
+            limit.clamp(1, 2_000),
+        )
+        .await
+}
+
 /// Sends one command exactly as typed, and answers with what came back.
 #[tauri::command]
 async fn raw_command(
@@ -1145,6 +1165,7 @@ pub fn run() {
             save_as_site,
             open_site_manager,
             raw_command,
+            search,
             export_sites,
             bundle_preview,
             bundle_apply,

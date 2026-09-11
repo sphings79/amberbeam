@@ -42,6 +42,17 @@ export interface PaneState {
   showHidden: boolean;
   /** Whether the folder tree beside the list is shown. */
   showTree: boolean;
+  /**
+   * What is typed into the filter, narrowing the list as it is typed.
+   *
+   * Cleared on every change of directory, and that is deliberate. A filter that
+   * quietly survives into the next folder hides files nobody knows are there —
+   * and in a program that deletes and overwrites, a list that is silently
+   * incomplete is the dangerous kind of wrong.
+   */
+  filter: string;
+  /** Whether the filter field is shown at all. */
+  filtering: boolean;
   /** Name of the row being renamed in place, or null. */
   renaming: string | null;
   /**
@@ -77,6 +88,8 @@ function emptyPane(): PaneState {
     showTree: true,
     renaming: null,
     requested: null,
+    filter: "",
+    filtering: false,
     busy: false,
     failure: null,
     expanded: new Set<string>(),
@@ -110,9 +123,14 @@ export function switchFocus(): void {
 /** Rows in the order the pane shows them: directories first, then the sort. */
 export function visibleEntries(side: Side): DirEntry[] {
   const state = panes[side];
-  const rows = state.showHidden
+  let rows = state.showHidden
     ? state.entries
     : state.entries.filter((entry) => !entry.name.startsWith("."));
+
+  const needle = state.filter.trim().toLowerCase();
+  if (needle) {
+    rows = rows.filter((entry) => entry.name.toLowerCase().includes(needle));
+  }
 
   const direction = state.sortAscending ? 1 : -1;
   return [...rows].sort((a, b) => {
@@ -138,6 +156,19 @@ export function isDirectory(entry: DirEntry): boolean {
     entry.kind === "directory" ||
     (entry.kind === "symlink" && entry.kindOfTarget === "directory")
   );
+}
+
+/** Shows or hides the filter field, and clears it on the way out. */
+export function setFiltering(side: Side, on: boolean): void {
+  panes[side].filtering = on;
+  if (!on) panes[side].filter = "";
+}
+
+export function setFilter(side: Side, text: string): void {
+  panes[side].filter = text;
+  // The cursor goes to the top of whatever is left, or it would point at a row
+  // the filter has just taken away.
+  panes[side].cursor = 0;
 }
 
 /** Asks a pane to run one of its own commands. */
@@ -190,6 +221,9 @@ export async function navigate(side: Side, path: string): Promise<void> {
     state.selected = new Set<string>();
     state.cursor = 0;
     state.renaming = null;
+    // A filter belongs to the directory it was typed in. Carrying it into the
+    // next one hides files nobody knows are there.
+    state.filter = "";
     if (state.historyId) {
       // Remembering where a server was left is what makes reconnecting feel
       // like coming back rather than starting over.

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, LOCAL, type DirEntry, type Measurement } from "../bridge";
+  import { api, LOCAL, type DirEntry, type Measurement, type SearchResult } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import {
     clearRequest,
@@ -8,7 +8,10 @@
     focusPane,
     goUp,
     pane,
+    navigate,
     reload,
+    setFilter,
+    setFiltering,
     startRename,
     stopRename,
     targets,
@@ -40,6 +43,49 @@
 
   /** Set while something is being dragged over this pane. */
   let dropTarget = $state(false);
+
+  let filterField = $state<HTMLInputElement | null>(null);
+  /** What a recursive search turned up, or null when none has run. */
+  let found = $state<SearchResult | null>(null);
+  let searching = $state(false);
+
+  // The cursor goes into the field when the key opens it, and the results of a
+  // previous search go away — they belong to what was typed then, not now.
+  $effect(() => {
+    if (view.filtering) queueMicrotask(() => filterField?.focus());
+    else found = null;
+  });
+
+  /**
+   * Looks through the whole tree below this directory.
+   *
+   * Separate from the filter above it on purpose: filtering costs nothing and
+   * happens as one types, while this reads every directory underneath — over
+   * FTP each of those is its own data connection. So it happens when asked and
+   * says afterwards what it cost.
+   */
+  async function searchDeep(): Promise<void> {
+    const needle = view.filter.trim();
+    if (!needle || searching) return;
+    searching = true;
+    trouble = null;
+    try {
+      found = await api.search(view.endpoint, view.path, needle, 500);
+    } catch (failure) {
+      trouble = failure;
+    } finally {
+      searching = false;
+    }
+  }
+
+  /** Goes to where a match sits, and stops searching. */
+  async function goTo(match: { path: string; kind: string }): Promise<void> {
+    const target =
+      match.kind === "directory" ? match.path : await api.parentOf(view.endpoint, match.path);
+    if (!target) return;
+    setFiltering(side, false);
+    await navigate(side, target);
+  }
 
   let view = $derived(pane(side));
 
@@ -296,11 +342,71 @@
     {/each}
   </div>
 
+  {#if view.filtering}
+    <div class="filter">
+      <input
+        bind:this={filterField}
+        value={view.filter}
+        oninput={(event) => setFilter(side, event.currentTarget.value)}
+        onkeydown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setFiltering(side, false);
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            void searchDeep();
+          }
+        }}
+        placeholder={t("filter.placeholder")}
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <button
+        type="button"
+        onclick={() => void searchDeep()}
+        disabled={searching || view.filter.trim() === ""}
+        title={t("filter.deep.hint")}
+      >
+        {searching ? t("filter.searching") : t("filter.deep")}
+      </button>
+      <button type="button" class="quiet" onclick={() => setFiltering(side, false)}>×</button>
+    </div>
+
+    {#if found}
+      <div class="found">
+        <div class="summary">
+          {found.matches.length === 0
+            ? t("filter.none", { directories: found.directories })
+            : found.matches.length === 1
+              ? t("filter.count.one", { directories: found.directories })
+              : t("filter.count", {
+                  count: found.matches.length,
+                  directories: found.directories,
+                })}
+          {#if found.truncated}
+            <span class="warn">{t("filter.truncated")}</span>
+          {/if}
+        </div>
+        {#each found.matches as match (match.path)}
+          <button type="button" class="match" onclick={() => void goTo(match)}>
+            <span class="mono">{match.path}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+  {/if}
+
   <div class="path">
     <button type="button" class="up" onclick={() => goUp(side)} title={t("pane.up")}>↑</button>
     <span class="mono current" title={view.path}>{view.path || "—"}</span>
     {#if view.busy}<span class="busy">{t("pane.loading")}</span>{/if}
-    <span class="count">{t("pane.count", { count: rows.length })}</span>
+    <!-- "1 Einträge" is the sort of thing that makes a program feel machine
+         translated, and it takes one key to avoid. -->
+    <span class="count">
+      {rows.length === 1 ? t("pane.count.one") : t("pane.count", { count: rows.length })}
+    </span>
   </div>
 
   {#if view.failure}
@@ -398,6 +504,83 @@
   .mark.warn {
     color: var(--warn);
     background: var(--warn-soft);
+  }
+
+  .filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
+  }
+
+  .filter input {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 0.4rem;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-0);
+    color: var(--text);
+  }
+
+  .filter button {
+    font: inherit;
+    font-size: 0.76rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-1);
+    color: var(--text);
+    cursor: default;
+  }
+
+  .filter button:disabled {
+    opacity: 0.4;
+  }
+
+  .filter button.quiet {
+    border: none;
+    color: var(--text-faint);
+    padding: 2px 6px;
+  }
+
+  .found {
+    max-height: 180px;
+    overflow: auto;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-0);
+  }
+
+  .summary {
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    color: var(--text-faint);
+  }
+
+  .summary .warn {
+    color: var(--warn);
+  }
+
+  .match {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    cursor: default;
+  }
+
+  .match:hover {
+    background: var(--surface-2);
+    color: var(--text);
   }
 
   .label {

@@ -28,6 +28,7 @@
     reload,
     setHiddenVisible,
     requestCommand,
+    setFiltering,
     setTreeVisible,
     startRename,
     switchFocus,
@@ -539,6 +540,9 @@
         break;
       case "raw":
         rawOpen = !rawOpen;
+        break;
+      case "search":
+        setFiltering(side, !view.filtering);
         break;
       case "fullscreen":
         await api.toggleFullscreen().catch(() => undefined);

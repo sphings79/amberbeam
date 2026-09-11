@@ -24,6 +24,7 @@ import type {
   ImportSource,
   OpenSide,
   RawReply,
+  SearchResult,
   Release,
   SecretKind,
   Site,
@@ -137,6 +138,8 @@ export const api: AmberBeamApi = {
     into: string,
   ) => invoke<number>("import_apply", { source, path, chosen, expected, takePasswords, into }),
 
+  search: (endpoint: string, root: string, needle: string, limit: number) =>
+    invoke<SearchResult>("search", { endpoint, root, needle, limit }),
   rawCommand: (endpoint: string, command: string) =>
     invoke<RawReply>("raw_command", { endpoint, command }),
 
