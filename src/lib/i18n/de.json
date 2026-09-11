@@ -173,5 +173,21 @@
   "conflict.for-all": "Genauso mit den {count} anderen wartenden verfahren",
   "conflict.skip-all": "Alle wartenden überspringen",
   "queue.state.skipped": "übersprungen",
-  "queue.asking": "{count} warten auf eine Antwort"
+  "queue.asking": "{count} warten auf eine Antwort",
+  "settings.title": "Einstellungen",
+  "settings.concurrency": "Gleichzeitige Übertragungen",
+  "settings.concurrency.auto": "Protokoll",
+  "settings.concurrency.hint": "Leer lässt das Protokoll entscheiden: acht bei SFTP, weil OpenSSH zehn erlaubt, und vier bei FTP, weil Webhoster oft weniger zulassen. Lehnt ein Server mehr ab, sagt er es, und AmberBeam fragt von selbst nach weniger.",
+  "settings.retries": "Versuche bis zum Anhalten",
+  "settings.retries.hint": "Die Pausen wachsen: eine Sekunde, zwei, vier, acht, sechzehn. Danach wird der Auftrag angehalten statt verworfen — sein Versatz ist mehr wert als der Versuch.",
+  "settings.temporary-name": "Über einen Zwischennamen schreiben",
+  "settings.temporary-name.hint": "Eine Datei kommt als name.ampart an und wird erst umbenannt, wenn sie vollständig ist — so sieht eine halbe Datei nie fertig aus. Nur dort, wo Umbenennen verlässlich ist: lokal und über SFTP, nicht über FTP.",
+  "settings.keep-modified": "Zeitstempel übernehmen",
+  "settings.keep-permissions": "Rechte übernehmen",
+  "settings.keep-permissions.hint": "Voreingestellt aus: Bits, die auf einem Rechner sinnvoll waren, richten auf einem anderen oft Unfug an.",
+  "settings.per-connection": "Eine Verbindung kann eigene Werte tragen; diese gelten, wo sie nichts sagt.",
+  "quick.advanced": "Mehr",
+  "quick.from-settings": "Einstellungen",
+  "quick.yes": "ja",
+  "quick.no": "nein"
 }

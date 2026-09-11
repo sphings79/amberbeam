@@ -21,6 +21,8 @@
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
+  import Icon from "./lib/ui/Icon.svelte";
+  import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
   import { hostKeyQuestion } from "./lib/ui/errors";
   import FilePane from "./lib/ui/FilePane.svelte";
   import HostKeyDialog from "./lib/ui/HostKeyDialog.svelte";
@@ -34,6 +36,7 @@
   let queueHeight = $state(96);
   let splitRatio = $state(0.5);
   let settingsOpen = $state(false);
+  let transferSettingsOpen = $state(false);
 
   /**
    * Where the server log and the queue sit relative to the file panes.
@@ -393,19 +396,24 @@
     <span class="spacer"></span>
     <button
       type="button"
-      class="link"
+      class="support star"
       onclick={() => api.openUrl("https://github.com/sphings79/amberbeam")}
       title={t("support.star.hint")}
     >
-      ★ {t("support.star")}
+      <Icon name="star" size={14} />
+      {t("support.star")}
     </button>
     <button
       type="button"
-      class="link coffee"
+      class="support coffee"
       onclick={() => api.openUrl("https://buymeacoffee.com/sphings")}
       title={t("support.coffee.hint")}
     >
-      ☕ {t("support.coffee")}
+      <Icon name="coffee" size={14} />
+      {t("support.coffee")}
+    </button>
+    <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
+      {t("settings.title")}
     </button>
     <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
       {t("appearance.title")}
@@ -463,6 +471,10 @@
     onconnect={(request, historyId) => attempt(request, historyId, quickFor ?? "left")}
     onclose={() => ((quickFor = null), (connectFailure = null), (pendingRequest = null))}
   />
+{/if}
+
+{#if transferSettingsOpen}
+  <SettingsDialog onclose={() => (transferSettingsOpen = false)} />
 {/if}
 
 {#if asking.length > 0 && asking[0]}
@@ -580,15 +592,34 @@
     color: var(--text-muted);
   }
 
-  .link {
-    border: none;
-    background: none;
-    color: var(--text-faint);
-    padding: 2px 8px;
+  /* Loud enough to be found, quiet enough not to nag: the accent colour and a
+     filled pill, but no animation and no growing on hover. */
+  .support {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 3px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
-  .link:hover {
-    background: none;
-    color: var(--accent);
+  .support:hover {
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .support.coffee {
+    border-color: var(--warn);
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .support.coffee:hover {
+    background: var(--warn);
+    color: var(--surface-1);
   }
 </style>

@@ -173,5 +173,21 @@
   "conflict.for-all": "Do the same for the other {count} waiting",
   "conflict.skip-all": "Skip everything waiting",
   "queue.state.skipped": "skipped",
-  "queue.asking": "{count} waiting for an answer"
+  "queue.asking": "{count} waiting for an answer",
+  "settings.title": "Settings",
+  "settings.concurrency": "Transfers at once",
+  "settings.concurrency.auto": "protocol",
+  "settings.concurrency.hint": "Empty lets the protocol decide: eight for SFTP, because OpenSSH allows ten, and four for FTP, because shared hosters often allow fewer. A server that refuses more says so, and AmberBeam asks for fewer by itself.",
+  "settings.retries": "Attempts before pausing",
+  "settings.retries.hint": "The pauses grow: one second, two, four, eight, sixteen. After that the job is held rather than dropped — its offset is worth more than the attempt.",
+  "settings.temporary-name": "Write to a temporary name",
+  "settings.temporary-name.hint": "A file arrives as name.ampart and is renamed once it is whole, so a half file never looks finished. Only where renaming is dependable — locally and over SFTP, not over FTP.",
+  "settings.keep-modified": "Carry the modification time across",
+  "settings.keep-permissions": "Carry the permission bits across",
+  "settings.keep-permissions.hint": "Off by default: bits that made sense on one machine often make a mess on another.",
+  "settings.per-connection": "A connection can carry its own values; these apply where it says nothing.",
+  "quick.advanced": "More",
+  "quick.from-settings": "settings",
+  "quick.yes": "yes",
+  "quick.no": "no"
 }

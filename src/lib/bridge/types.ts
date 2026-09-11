@@ -84,8 +84,10 @@ export interface QuickConnectEntry {
   auth: AuthKind;
   keyPath: string | null;
   lastPath: string | null;
+  /** null means: whatever the settings say. */
   concurrency: number | null;
   retries: number | null;
+  temporaryName: boolean | null;
   lastUsed: number;
   savedAsSite: boolean;
 }

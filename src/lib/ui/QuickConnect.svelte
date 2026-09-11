@@ -23,6 +23,12 @@
   let keyPath = $state("");
   let passphrase = $state("");
 
+  /** Per connection, empty meaning "whatever the settings say". */
+  let concurrency = $state("");
+  let retries = $state("");
+  let temporaryName = $state<boolean | null>(null);
+  let advanced = $state(false);
+
   let history = $state<QuickConnectEntry[]>([]);
   let note = $state<string | null>(null);
 
@@ -47,9 +53,18 @@
         password: auth === "password" ? password : undefined,
         keyPath: auth === "key-file" ? keyPath : undefined,
         passphrase: auth === "key-file" && passphrase ? passphrase : undefined,
+        concurrency: numberOrNothing(concurrency),
+        retries: numberOrNothing(retries),
+        temporaryName: temporaryName ?? undefined,
       },
       idFor(),
     );
+  }
+
+  /** Empty means "not set here", which lets the settings answer instead. */
+  function numberOrNothing(text: string): number | undefined {
+    const parsed = Number.parseInt(text.trim(), 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
   }
 
   /** Fills the form from a history entry. The password is never there. */
@@ -61,6 +76,10 @@
     keyPath = entry.keyPath ?? "";
     password = "";
     passphrase = "";
+    concurrency = entry.concurrency === null ? "" : String(entry.concurrency);
+    retries = entry.retries === null ? "" : String(entry.retries);
+    temporaryName = entry.temporaryName;
+    advanced = entry.concurrency !== null || entry.retries !== null || entry.temporaryName !== null;
   }
 
   async function forget(entry: QuickConnectEntry): Promise<void> {
@@ -132,6 +151,55 @@
           </label>
         {:else}
           <p class="hint">{t("quick.agent.hint")}</p>
+        {/if}
+
+        <button type="button" class="more" onclick={() => (advanced = !advanced)}>
+          {advanced ? "▾" : "▸"} {t("quick.advanced")}
+        </button>
+
+        {#if advanced}
+          <div class="advanced">
+            <label class="narrow">
+              <span>{t("settings.concurrency")}</span>
+              <input
+                bind:value={concurrency}
+                type="number"
+                min="1"
+                max="64"
+                placeholder={t("quick.from-settings")}
+                autocomplete="off"
+              />
+            </label>
+            <label class="narrow">
+              <span>{t("settings.retries")}</span>
+              <input
+                bind:value={retries}
+                type="number"
+                min="1"
+                max="20"
+                placeholder={t("quick.from-settings")}
+                autocomplete="off"
+              />
+            </label>
+            <div class="tri">
+              <span>{t("settings.temporary-name")}</span>
+              <div class="choices">
+                {#each [null, true, false] as choice (String(choice))}
+                  <button
+                    type="button"
+                    class:active={temporaryName === choice}
+                    onclick={() => (temporaryName = choice)}
+                  >
+                    {choice === null
+                      ? t("quick.from-settings")
+                      : choice
+                        ? t("quick.yes")
+                        : t("quick.no")}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          </div>
         {/if}
 
         {#if failure}
@@ -330,6 +398,55 @@
     margin: 0;
     font-size: 0.78rem;
     color: var(--text-faint);
+  }
+
+  .more {
+    align-self: flex-start;
+    border: none;
+    background: none;
+    padding: 2px 0;
+    font-size: 0.76rem;
+    color: var(--text-faint);
+  }
+
+  .more:hover {
+    background: none;
+    color: var(--accent);
+  }
+
+  .advanced {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: 0.6rem;
+  }
+
+  .narrow,
+  .tri {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .narrow input {
+    width: 110px;
+    text-align: right;
+  }
+
+  .tri span,
+  .narrow span {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .tri .choices button {
+    font-size: 0.74rem;
+    padding: 3px 9px;
   }
 
   .failure {
