@@ -14,16 +14,26 @@ use std::task::{Context, Poll};
 
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
+/// An FTP data connection, carrying one transfer.
+///
+/// Unlike the other two it is not a file handle but a second socket, and it has
+/// to be closed properly: the server's verdict on the transfer arrives on the
+/// control connection afterwards, and a transfer nobody asked about is a
+/// transfer nobody knows succeeded.
+pub type FtpTransfer = suppaftp::tokio::TransferStream<suppaftp::tokio::AsyncRustlsStream>;
+
 /// A file being read, local or remote.
 pub enum Reader {
     Local(tokio::fs::File),
     Sftp(Box<russh_sftp::client::fs::File>),
+    Ftp(Box<FtpTransfer>),
 }
 
 /// A file being written, local or remote.
 pub enum Writer {
     Local(tokio::fs::File),
     Sftp(Box<russh_sftp::client::fs::File>),
+    Ftp(Box<FtpTransfer>),
 }
 
 impl AsyncRead for Reader {
@@ -35,6 +45,7 @@ impl AsyncRead for Reader {
         match self.get_mut() {
             Reader::Local(file) => Pin::new(file).poll_read(cx, buf),
             Reader::Sftp(file) => Pin::new(file.as_mut()).poll_read(cx, buf),
+            Reader::Ftp(transfer) => Pin::new(transfer.as_mut()).poll_read(cx, buf),
         }
     }
 }
@@ -48,6 +59,7 @@ impl AsyncWrite for Writer {
         match self.get_mut() {
             Writer::Local(file) => Pin::new(file).poll_write(cx, data),
             Writer::Sftp(file) => Pin::new(file.as_mut()).poll_write(cx, data),
+            Writer::Ftp(transfer) => Pin::new(transfer.as_mut()).poll_write(cx, data),
         }
     }
 
@@ -55,6 +67,7 @@ impl AsyncWrite for Writer {
         match self.get_mut() {
             Writer::Local(file) => Pin::new(file).poll_flush(cx),
             Writer::Sftp(file) => Pin::new(file.as_mut()).poll_flush(cx),
+            Writer::Ftp(transfer) => Pin::new(transfer.as_mut()).poll_flush(cx),
         }
     }
 
@@ -62,6 +75,7 @@ impl AsyncWrite for Writer {
         match self.get_mut() {
             Writer::Local(file) => Pin::new(file).poll_shutdown(cx),
             Writer::Sftp(file) => Pin::new(file.as_mut()).poll_shutdown(cx),
+            Writer::Ftp(transfer) => Pin::new(transfer.as_mut()).poll_shutdown(cx),
         }
     }
 }

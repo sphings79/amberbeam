@@ -218,3 +218,95 @@ fn self_signed_and_expired_are_never_the_same_message() {
         CertificateProblem::Expired.message_key()
     );
 }
+
+/// A file put onto the server, read back, and removed again.
+///
+/// The round trip is the point: a transfer that reports success and leaves
+/// different bytes behind is the failure this program exists to avoid, and only
+/// reading them back proves it did not happen.
+#[tokio::test]
+async fn a_file_travels_up_and_comes_back_the_same() {
+    use amberbeam_core::registry::TransferRun;
+    use amberbeam_core::registry::{Sessions, LOCAL};
+
+    let (host, port) = server_or_skip!("a_file_travels_up");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+
+    // Big enough that the copy loop runs more than once, small enough not to
+    // sit on the test server.
+    let written: Vec<u8> = (0..300_000_u32).map(|i| (i % 251) as u8).collect();
+    let dir = std::env::temp_dir().join("amberbeam-ftp-test");
+    std::fs::create_dir_all(&dir).expect("scratch directory");
+    let source = dir.join("sent.bin");
+    let back = dir.join("returned.bin");
+    std::fs::write(&source, &written).expect("write the source");
+
+    let run = |from: (&EndpointId, String), to: (&EndpointId, String)| TransferRun {
+        source_endpoint: from.0.clone(),
+        source_path: from.1,
+        target_endpoint: to.0.clone(),
+        target_path: to.1,
+        resume: None,
+        keep_modified: false,
+        keep_permissions: false,
+        use_temporary_name: false,
+        source_permissions: None,
+    };
+
+    // Written where the account actually starts, rather than at a path this
+    // test decided on: the server's idea of home is the only one that counts.
+    let remote_path = format!(
+        "{}/amberbeam-round-trip.bin",
+        connected.home.trim_end_matches('/')
+    );
+    let progress = amberbeam_core::engine::Progress::default();
+
+    let up = sessions
+        .transfer(
+            &run(
+                (&local, source.to_string_lossy().into_owned()),
+                (&remote, remote_path.clone()),
+            ),
+            &progress,
+        )
+        .await
+        .expect("upload");
+    assert!(up.complete);
+    assert_eq!(up.moved, written.len() as u64, "every byte was sent");
+
+    let progress = amberbeam_core::engine::Progress::default();
+    let down = sessions
+        .transfer(
+            &run(
+                (&remote, remote_path.clone()),
+                (&local, back.to_string_lossy().into_owned()),
+            ),
+            &progress,
+        )
+        .await
+        .expect("download");
+    assert!(down.complete);
+
+    let returned = std::fs::read(&back).expect("read what came back");
+    assert_eq!(returned.len(), written.len(), "the file changed length");
+    assert!(
+        returned == written,
+        "the bytes that came back are not the ones sent"
+    );
+
+    // Tidied up, so the next run starts from the same place.
+    sessions
+        .remove(&remote, &remote_path)
+        .await
+        .expect("remove the uploaded file");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&back);
+}

@@ -15,6 +15,7 @@ use crate::engine::{self, Progress, ResumeVerdict};
 use crate::error::{Error, PathProblem, Result};
 use crate::events::{Events, LogDirection};
 use crate::fs::Listing;
+use crate::ftp::{Encryption, FtpParams, FtpSession};
 use crate::local::LocalSession;
 use crate::ops::Measurement;
 use crate::session::Session;
@@ -131,6 +132,38 @@ impl Sessions {
         })
     }
 
+    /// Opens an FTP or FTPS connection.
+    ///
+    /// Separate from the SFTP door because the two need genuinely different
+    /// things — a key and a channel limit against a certificate and a login
+    /// count — and folding them into one set of parameters would mean half of
+    /// it being meaningless in either case.
+    pub async fn connect_ftp(
+        &self,
+        endpoint: &EndpointId,
+        params: &FtpParams,
+    ) -> Result<Connected> {
+        self.disconnect(endpoint).await;
+
+        let session = FtpSession::connect(params, endpoint, &self.events).await?;
+        let home = session.home().await?;
+        let protocol = match params.encryption {
+            Encryption::None => Protocol::Ftp,
+            Encryption::Explicit | Encryption::Implicit => Protocol::Ftps,
+        };
+
+        self.open
+            .lock()
+            .await
+            .insert(endpoint.clone(), Arc::new(Session::Ftp(Box::new(session))));
+
+        Ok(Connected {
+            endpoint: endpoint.clone(),
+            protocol,
+            home,
+        })
+    }
+
     /// Reports the local session the way a connection would, so a pane can
     /// treat both the same.
     pub async fn local(&self) -> Result<Connected> {
@@ -240,9 +273,17 @@ impl Sessions {
         // Both sides are opened at the offset, so a transfer that stopped at
         // 10 of 20 MB reads and writes the remaining 10 and not one byte more.
         let moved = {
-            let (mut reader, _source_lease) = source.open_read(&job.source_path, offset).await?;
-            let (mut writer, _target_lease) = target.open_write(&write_path, offset).await?;
-            engine::copy(&mut reader, &mut writer, progress).await?
+            let (mut reader, source_hold) = source.open_read(&job.source_path, offset).await?;
+            let (mut writer, target_hold) = target.open_write(&write_path, offset).await?;
+            let moved = engine::copy(&mut reader, &mut writer, progress).await?;
+
+            // The writing side first: the target has to accept the file before
+            // there is any point asking the source whether it sent it all.
+            // Either may still refuse, and a refusal here means the transfer
+            // failed however many bytes went across.
+            target.finish_write(writer, target_hold).await?;
+            source.finish_read(reader, source_hold).await?;
+            moved
         };
         debug_assert!(
             offset + moved <= size.max(offset + moved),

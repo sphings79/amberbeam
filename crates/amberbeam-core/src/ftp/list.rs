@@ -39,6 +39,36 @@ fn epoch_seconds(year: i64, month: u32, day: u32, hour: u32, minute: u32, second
         + i64::from(second)
 }
 
+/// The civil date for a day count since the epoch — the inverse of
+/// [`days_from_civil`], and the same author's algorithm.
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let days = days + 719_468;
+    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
+    let day_of_era = days - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = (day_of_year - (153 * month_prime + 2) / 5 + 1) as u32;
+    let month = (month_prime + if month_prime < 10 { 3 } else { -9 }) as u32;
+    (if month <= 2 { year + 1 } else { year }, month, day)
+}
+
+/// A timestamp in the notation `MFMT` and `MDTM` use: `YYYYMMDDHHMMSS`, UTC.
+///
+/// Written out here rather than taken from a date library, because the whole
+/// crate needs exactly this one direction and one parser for the other.
+pub fn timestamp(seconds: i64) -> String {
+    // Floor division, so a moment before the epoch lands on the day before
+    // rather than on the day after.
+    let days = seconds.div_euclid(86_400);
+    let rest = seconds.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(days);
+    let (hour, minute, second) = (rest / 3600, (rest % 3600) / 60, rest % 60);
+    format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}")
+}
+
 fn month_from_name(name: &str) -> Option<u32> {
     const MONTHS: [&str; 12] = [
         "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
@@ -330,6 +360,28 @@ fn parse_windows_time(date: &str, time: &str) -> Option<i64> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_timestamp_reads_back_as_the_moment_it_was_made() {
+        use super::{epoch_seconds, timestamp};
+
+        // A handful of moments that catch the usual mistakes: a leap day, the
+        // turn of a year, the epoch itself, and a date before it.
+        for (year, month, day, hour, minute, second) in [
+            (1970, 1, 1, 0, 0, 0),
+            (2000, 2, 29, 12, 34, 56),
+            (2024, 12, 31, 23, 59, 59),
+            (2026, 9, 11, 6, 5, 4),
+            (1969, 7, 20, 20, 17, 40),
+        ] {
+            let seconds = epoch_seconds(year, month, day, hour, minute, second);
+            assert_eq!(
+                timestamp(seconds),
+                format!("{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}"),
+                "{year}-{month}-{day} {hour}:{minute}:{second}"
+            );
+        }
+    }
+
     use super::*;
 
     /// 11 September 2026, 17:02:00 UTC.

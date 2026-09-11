@@ -125,8 +125,7 @@ impl Verdict {
 
     /// Noted whichever way the certificate was judged.
     pub fn saw_certificate(&self) {
-        self.seen
-            .store(true, std::sync::atomic::Ordering::Relaxed);
+        self.seen.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// True once the server has presented a certificate, so anything that goes
@@ -201,7 +200,6 @@ impl Exceptions {
     }
 }
 
-
 // --- The rustls side ---------------------------------------------------------
 //
 // Everything below turns the decision above into something a TLS handshake can
@@ -211,19 +209,19 @@ impl Exceptions {
 use std::sync::Arc;
 
 use suppaftp::tokio::AsyncRustlsConnector;
-use suppaftp::tokio_rustls::TlsConnector;
-use suppaftp::tokio_rustls::rustls::client::WebPkiServerVerifier;
 use suppaftp::tokio_rustls::rustls::client::danger::{
     HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier,
 };
+use suppaftp::tokio_rustls::rustls::client::WebPkiServerVerifier;
 use suppaftp::tokio_rustls::rustls::crypto::{
-    CryptoProvider, verify_tls12_signature, verify_tls13_signature,
+    verify_tls12_signature, verify_tls13_signature, CryptoProvider,
 };
 use suppaftp::tokio_rustls::rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use suppaftp::tokio_rustls::rustls::{
     CertificateError, ClientConfig, DigitallySignedStruct, Error as TlsError, RootCertStore,
     SignatureScheme,
 };
+use suppaftp::tokio_rustls::TlsConnector;
 
 /// Names the reason rustls gave, so the window can say *why* rather than
 /// "certificate error".
@@ -388,7 +386,10 @@ pub fn system_roots() -> Arc<RootCertStore> {
 /// The verdict is handed back because a TLS handshake that fails says very
 /// little by the time the error surfaces; the fingerprint and the reason have
 /// to be caught while the certificate is still in hand.
-pub fn connector(host: &str, decision: CertificateDecision) -> (AsyncRustlsConnector, Arc<Verdict>) {
+pub fn connector(
+    host: &str,
+    decision: CertificateDecision,
+) -> (AsyncRustlsConnector, Arc<Verdict>) {
     let provider = Arc::new(suppaftp::tokio_rustls::rustls::crypto::ring::default_provider());
     let roots = system_roots();
     let trusted = if roots.is_empty() {
@@ -433,7 +434,10 @@ mod tests {
         let printed = fingerprint(CERTIFICATE);
         assert_eq!(printed.len(), 32 * 3 - 1, "32 bytes, colon separated");
         assert!(printed.chars().all(|c| c.is_ascii_hexdigit() || c == ':'));
-        assert!(printed.chars().filter(|c| c.is_alphabetic()).all(|c| c.is_uppercase()));
+        assert!(printed
+            .chars()
+            .filter(|c| c.is_alphabetic())
+            .all(|c| c.is_uppercase()));
         // The same certificate always prints the same thing, or comparing by
         // eye would be pointless.
         assert_eq!(printed, fingerprint(CERTIFICATE));
@@ -453,7 +457,10 @@ mod tests {
         ));
         let facts = verdict.take().expect("a refusal");
         assert_eq!(facts.problem, CertificateProblem::UnknownIssuer);
-        assert!(!facts.detail.is_empty(), "the log needs the original wording");
+        assert!(
+            !facts.detail.is_empty(),
+            "the log needs the original wording"
+        );
         assert_eq!(facts.fingerprint, fingerprint(CERTIFICATE));
         assert_eq!(facts.host, "example.org");
     }

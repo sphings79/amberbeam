@@ -11,6 +11,7 @@
 use crate::endpoint::Protocol;
 use crate::error::Result;
 use crate::fs::{self, Listing};
+use crate::ftp::{Encryption, FtpLease, FtpSession};
 use crate::local::LocalSession;
 use crate::ops::Measurement;
 use crate::sftp::SftpSession;
@@ -21,6 +22,18 @@ use crate::stream::{Reader, Writer};
 pub enum Session {
     Local(LocalSession),
     Sftp(Box<SftpSession>),
+    Ftp(Box<FtpSession>),
+}
+
+/// What a transfer has to keep alive while it runs.
+///
+/// Over SFTP that is a channel inside the one connection; over FTP it is a
+/// whole login, because that is what a second simultaneous transfer costs
+/// there. Nothing above this needs to know which — only that it must not be
+/// dropped until the transfer has been finished off.
+pub enum Hold<'a> {
+    Sftp(crate::sftp::Lease<'a>),
+    Ftp(FtpLease<'a>),
 }
 
 impl Session {
@@ -28,6 +41,10 @@ impl Session {
         match self {
             Session::Local(_) => Protocol::Local,
             Session::Sftp(_) => Protocol::Sftp,
+            Session::Ftp(session) => match session.encryption() {
+                Encryption::None => Protocol::Ftp,
+                Encryption::Explicit | Encryption::Implicit => Protocol::Ftps,
+            },
         }
     }
 
@@ -36,6 +53,7 @@ impl Session {
         match self {
             Session::Local(session) => session.home(),
             Session::Sftp(session) => session.home().await,
+            Session::Ftp(session) => session.home().await,
         }
     }
 
@@ -43,6 +61,7 @@ impl Session {
         match self {
             Session::Local(session) => session.list_dir(path).await,
             Session::Sftp(session) => session.list_dir(path).await,
+            Session::Ftp(session) => session.list_dir(path).await,
         }
     }
 
@@ -54,14 +73,14 @@ impl Session {
     pub fn parent(&self, path: &str) -> Option<String> {
         match self {
             Session::Local(session) => session.parent(path),
-            Session::Sftp(_) => fs::parent_remote(path),
+            Session::Sftp(_) | Session::Ftp(_) => fs::parent_remote(path),
         }
     }
 
     pub fn join(&self, directory: &str, name: &str) -> String {
         match self {
             Session::Local(session) => session.join(directory, name),
-            Session::Sftp(_) => fs::join_remote(directory, name),
+            Session::Sftp(_) | Session::Ftp(_) => fs::join_remote(directory, name),
         }
     }
 
@@ -69,6 +88,7 @@ impl Session {
         match self {
             Session::Local(session) => session.create_dir(path).await,
             Session::Sftp(session) => session.create_dir(path).await,
+            Session::Ftp(session) => session.create_dir(path).await,
         }
     }
 
@@ -76,6 +96,7 @@ impl Session {
         match self {
             Session::Local(session) => session.create_file(path).await,
             Session::Sftp(session) => session.create_file(path).await,
+            Session::Ftp(session) => session.create_file(path).await,
         }
     }
 
@@ -83,6 +104,7 @@ impl Session {
         match self {
             Session::Local(session) => session.rename(from, to).await,
             Session::Sftp(session) => session.rename(from, to).await,
+            Session::Ftp(session) => session.rename(from, to).await,
         }
     }
 
@@ -91,6 +113,7 @@ impl Session {
         match self {
             Session::Local(session) => session.measure(path).await,
             Session::Sftp(session) => session.measure(path).await,
+            Session::Ftp(session) => session.measure(path).await,
         }
     }
 
@@ -98,6 +121,7 @@ impl Session {
         match self {
             Session::Local(session) => session.remove(path).await,
             Session::Sftp(session) => session.remove(path).await,
+            Session::Ftp(session) => session.remove(path).await,
         }
     }
 
@@ -105,37 +129,62 @@ impl Session {
         match self {
             Session::Local(session) => session.set_permissions(path, mode, recursive).await,
             Session::Sftp(session) => session.set_permissions(path, mode, recursive).await,
+            Session::Ftp(session) => session.set_permissions(path, mode, recursive).await,
         }
     }
 
     /// Opens a file for reading at an offset. The lease, where there is one,
     /// holds the channel the transfer runs on and must be kept alive for as
     /// long as the reader is used.
-    pub async fn open_read(
-        &self,
-        path: &str,
-        offset: u64,
-    ) -> Result<(Reader, Option<crate::sftp::Lease<'_>>)> {
+    pub async fn open_read(&self, path: &str, offset: u64) -> Result<(Reader, Option<Hold<'_>>)> {
         match self {
             Session::Local(session) => Ok((session.open_read(path, offset).await?, None)),
             Session::Sftp(session) => {
                 let (reader, lease) = session.open_read(path, offset).await?;
-                Ok((reader, Some(lease)))
+                Ok((reader, Some(Hold::Sftp(lease))))
+            }
+            Session::Ftp(session) => {
+                let (reader, lease) = session.open_read(path, offset).await?;
+                Ok((reader, Some(Hold::Ftp(lease))))
             }
         }
     }
 
-    pub async fn open_write(
-        &self,
-        path: &str,
-        offset: u64,
-    ) -> Result<(Writer, Option<crate::sftp::Lease<'_>>)> {
+    pub async fn open_write(&self, path: &str, offset: u64) -> Result<(Writer, Option<Hold<'_>>)> {
         match self {
             Session::Local(session) => Ok((session.open_write(path, offset).await?, None)),
             Session::Sftp(session) => {
                 let (writer, lease) = session.open_write(path, offset).await?;
-                Ok((writer, Some(lease)))
+                Ok((writer, Some(Hold::Sftp(lease))))
             }
+            Session::Ftp(session) => {
+                let (writer, lease) = session.open_write(path, offset).await?;
+                Ok((writer, Some(Hold::Ftp(lease))))
+            }
+        }
+    }
+
+    /// Ends a transfer and asks the endpoint whether it went through.
+    ///
+    /// A file handle needs nothing of the sort; an FTP data connection does,
+    /// because the server's verdict arrives afterwards on the control
+    /// connection and a transfer nobody asked about is a transfer nobody knows
+    /// succeeded. Everything else here simply lets go.
+    pub async fn finish_read(&self, reader: Reader, hold: Option<Hold<'_>>) -> Result<()> {
+        match (self, reader, hold) {
+            (Session::Ftp(session), Reader::Ftp(transfer), Some(Hold::Ftp(lease))) => {
+                session.finish(*transfer, lease).await
+            }
+            _ => Ok(()),
+        }
+    }
+
+    pub async fn finish_write(&self, writer: Writer, hold: Option<Hold<'_>>) -> Result<()> {
+        match (self, writer, hold) {
+            (Session::Ftp(session), Writer::Ftp(transfer), Some(Hold::Ftp(lease))) => {
+                session.finish(*transfer, lease).await
+            }
+            _ => Ok(()),
         }
     }
 
@@ -144,6 +193,7 @@ impl Session {
         match self {
             Session::Local(session) => session.replace(from, to).await,
             Session::Sftp(session) => session.replace(from, to).await,
+            Session::Ftp(session) => session.replace(from, to).await,
         }
     }
 
@@ -152,6 +202,7 @@ impl Session {
         match self {
             Session::Local(session) => session.stat(path).await,
             Session::Sftp(session) => session.stat(path).await,
+            Session::Ftp(session) => session.stat(path).await,
         }
     }
 
@@ -159,6 +210,7 @@ impl Session {
         match self {
             Session::Local(session) => session.set_modified(path, seconds).await,
             Session::Sftp(session) => session.set_modified(path, seconds).await,
+            Session::Ftp(session) => session.set_modified(path, seconds).await,
         }
     }
 
@@ -173,6 +225,7 @@ impl Session {
             // half file under its final name.
             Session::Local(_) => true,
             Session::Sftp(session) => session.temporary_name(),
+            Session::Ftp(session) => session.temporary_name(),
         }
     }
 
@@ -183,6 +236,7 @@ impl Session {
             // limits a local copy is the disk, and that needs no permit.
             Session::Local(_) => u32::from(Protocol::MAX_CONCURRENCY),
             Session::Sftp(session) => session.concurrency().await,
+            Session::Ftp(session) => session.concurrency().await,
         }
     }
 
@@ -190,6 +244,7 @@ impl Session {
         match self {
             Session::Local(_) => {}
             Session::Sftp(session) => session.set_concurrency(wanted).await,
+            Session::Ftp(session) => session.set_concurrency(wanted).await,
         }
     }
 
@@ -197,6 +252,7 @@ impl Session {
         match self {
             Session::Local(_) => {}
             Session::Sftp(session) => session.disconnect().await,
+            Session::Ftp(session) => session.disconnect().await,
         }
     }
 }

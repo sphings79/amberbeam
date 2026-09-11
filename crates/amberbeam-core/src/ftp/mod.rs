@@ -23,7 +23,9 @@ use tokio::sync::{Mutex, Semaphore};
 use crate::endpoint::EndpointId;
 use crate::error::{Error, PathProblem, Result};
 use crate::events::{ConnectionState, Events, LogDirection};
-use crate::fs::{DirEntry, Listing};
+use crate::fs::{DirEntry, EntryKind, Listing};
+use crate::ops::Measurement;
+use crate::stream::{FtpTransfer, Reader, Writer};
 
 /// How a connection encrypts, and whether it insists on it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,11 +73,15 @@ pub struct Abilities {
     pub rest: bool,
     pub utf8: bool,
     pub size: bool,
+    /// Setting a file's modification time. Without it an uploaded file carries
+    /// the time it arrived, not the time it was written.
+    pub mfmt: bool,
 }
 
 impl Abilities {
     fn from_features(features: &suppaftp::types::Features) -> Self {
         let has = |name: &str| features.keys().any(|key| key.eq_ignore_ascii_case(name));
+        let mfmt = has("MFMT");
         let rest = features
             .iter()
             .find(|(key, _)| key.eq_ignore_ascii_case("REST"))
@@ -93,6 +99,7 @@ impl Abilities {
             rest,
             utf8: has("UTF8"),
             size: has("SIZE"),
+            mfmt,
         }
     }
 }
@@ -122,7 +129,18 @@ impl std::fmt::Debug for FtpSession {
     }
 }
 
-/// A control connection on loan. Returns itself when dropped.
+/// A control connection on loan.
+///
+/// It goes back into the pool only when [`FtpLease::release`] says it may. That
+/// is deliberate and the opposite of the obvious design: an FTP control
+/// connection carries a reply for every command, and a transfer that was
+/// abandoned half way leaves one of those replies unread. Reusing such a
+/// connection means every later answer belongs to the previous question — a
+/// listing that looks like a rename's confirmation, a delete that reports
+/// success because it read the reply to something else.
+///
+/// Logging in again costs two round trips. Being wrong about which reply
+/// belongs to which command costs the user their files.
 pub struct FtpLease<'a> {
     session: &'a FtpSession,
     connection: Option<Connection>,
@@ -137,14 +155,28 @@ impl FtpLease<'_> {
             .expect("a lease always holds a connection")
             .stream
     }
-}
 
-impl Drop for FtpLease<'_> {
-    fn drop(&mut self) {
+    /// Hands the connection back for the next caller. Only ever after a command
+    /// whose reply has been read.
+    fn release(mut self) {
         if let Some(connection) = self.connection.take() {
             if let Ok(mut idle) = self.session.idle.try_lock() {
                 idle.push(connection);
             }
+        }
+    }
+}
+
+impl Drop for FtpLease<'_> {
+    fn drop(&mut self) {
+        // Not released, so the connection's state is unknown: close it rather
+        // than hand somebody a conversation already in progress.
+        if self.connection.take().is_some() {
+            self.session.events.log(
+                &self.session.endpoint,
+                LogDirection::Note,
+                "a connection was left in an unknown state and was closed",
+            );
         }
     }
 }
@@ -287,16 +319,39 @@ impl FtpSession {
     pub async fn home(&self) -> Result<String> {
         let mut lease = self.lease().await?;
         self.events.log(&self.endpoint, LogDirection::Sent, "PWD");
-        lease
+        let home = lease
             .stream()
             .pwd()
             .await
-            .map_err(|source| ftp_error(".", source))
+            .map_err(|source| ftp_error(".", source))?;
+        lease.release();
+        Ok(home)
     }
 
     /// Reads one directory, preferring the machine readable listing.
     pub async fn list_dir(&self, path: &str) -> Result<Listing> {
         let mut lease = self.lease().await?;
+        let entries = self.read_dir(&mut lease, path).await?;
+        lease.release();
+
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Received,
+            format!("{} entries", entries.len()),
+        );
+
+        Ok(Listing {
+            path: path.to_string(),
+            entries,
+        })
+    }
+
+    /// One directory, on a connection the caller already holds.
+    ///
+    /// Separate from [`FtpSession::list_dir`] because anything recursive walks
+    /// many directories, and taking a fresh connection per level would deadlock
+    /// against its own limit the moment that limit is one.
+    async fn read_dir(&self, lease: &mut FtpLease<'_>, path: &str) -> Result<Vec<DirEntry>> {
         let now = now_seconds();
 
         let entries = if self.abilities.mlsd {
@@ -325,16 +380,416 @@ impl FtpSession {
                 .collect::<Vec<DirEntry>>()
         };
 
+        Ok(entries)
+    }
+
+    /// What a path is, as far as the server will say.
+    ///
+    /// FTP has nothing like `stat`. `MLST` answers for one entry where the
+    /// server offers it; otherwise the parent directory has to be listed and
+    /// the name looked up in it, which is a round trip nobody wants but the
+    /// only thing that works everywhere.
+    async fn kind_of(&self, lease: &mut FtpLease<'_>, path: &str) -> Result<EntryKind> {
+        if self.abilities.mlsd {
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("MLST {path}"));
+            if let Ok(reply) = lease.stream().mlst(Some(path)).await {
+                // The reply repeats the path rather than the bare name, so the
+                // facts are what matter here, not what the parser calls it.
+                if let Some(entry) = reply
+                    .lines()
+                    .filter_map(|line| list::parse_mlsd_line(&self.decode(line.trim())))
+                    .next()
+                {
+                    return Ok(entry.kind);
+                }
+            }
+        }
+
+        let (parent, name) = match crate::fs::parent_remote(path) {
+            Some(parent) => (parent, path.rsplit('/').next().unwrap_or(path).to_string()),
+            // The root is a directory, and listing its parent is not possible.
+            None => return Ok(EntryKind::Directory),
+        };
+        let entries = self.read_dir(lease, &parent).await?;
+        entries
+            .into_iter()
+            .find(|entry| entry.name == name)
+            .map(|entry| entry.kind)
+            .ok_or_else(|| Error::Path {
+                path: path.to_string(),
+                reason: PathProblem::NotFound,
+            })
+    }
+
+    pub async fn create_dir(&self, path: &str) -> Result<()> {
+        let mut lease = self.lease().await?;
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("MKD {path}"));
+        lease
+            .stream()
+            .mkdir(path)
+            .await
+            .map_err(|source| ftp_error(path, source))?;
+        lease.release();
+        Ok(())
+    }
+
+    /// Creates an empty file by uploading nothing to it.
+    ///
+    /// There is no command for "make this file"; a store of zero bytes is how
+    /// every client does it.
+    pub async fn create_file(&self, path: &str) -> Result<()> {
+        let mut lease = self.lease().await?;
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("STOR {path}"));
+        let mut empty = std::io::Cursor::new(Vec::new());
+        lease
+            .stream()
+            .put_file(path, &mut empty)
+            .await
+            .map_err(|source| ftp_error(path, source))?;
+        lease.release();
+        Ok(())
+    }
+
+    pub async fn rename(&self, from: &str, to: &str) -> Result<()> {
+        let mut lease = self.lease().await?;
         self.events.log(
             &self.endpoint,
-            LogDirection::Received,
-            format!("{} entries", entries.len()),
+            LogDirection::Sent,
+            format!("RNFR {from} / RNTO {to}"),
         );
+        lease
+            .stream()
+            .rename(from, to)
+            .await
+            .map_err(|source| ftp_error(from, source))?;
+        lease.release();
+        Ok(())
+    }
 
-        Ok(Listing {
-            path: path.to_string(),
-            entries,
-        })
+    /// Removes a file, or a directory and everything under it.
+    ///
+    /// Depth first on one connection: a directory cannot be removed until it is
+    /// empty, and opening a connection per level would deadlock against a limit
+    /// of one.
+    pub async fn remove(&self, path: &str) -> Result<()> {
+        let mut lease = self.lease().await?;
+
+        if self.kind_of(&mut lease, path).await? != EntryKind::Directory {
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("DELE {path}"));
+            lease
+                .stream()
+                .rm(path)
+                .await
+                .map_err(|source| ftp_error(path, source))?;
+            lease.release();
+            return Ok(());
+        }
+
+        // Collected shallowest first, then removed in reverse, so a directory
+        // is always empty by the time its turn comes.
+        let mut directories = Vec::new();
+        let mut pending = vec![path.to_string()];
+        while let Some(directory) = pending.pop() {
+            directories.push(directory.clone());
+            for entry in self.read_dir(&mut lease, &directory).await? {
+                let child = crate::fs::join_remote(&directory, &entry.name);
+                if entry.kind == EntryKind::Directory {
+                    pending.push(child);
+                } else {
+                    self.events
+                        .log(&self.endpoint, LogDirection::Sent, format!("DELE {child}"));
+                    lease
+                        .stream()
+                        .rm(&child)
+                        .await
+                        .map_err(|source| ftp_error(&child, source))?;
+                }
+            }
+        }
+
+        for directory in directories.iter().rev() {
+            self.events.log(
+                &self.endpoint,
+                LogDirection::Sent,
+                format!("RMD {directory}"),
+            );
+            lease
+                .stream()
+                .rmdir(directory)
+                .await
+                .map_err(|source| ftp_error(directory, source))?;
+        }
+
+        lease.release();
+        Ok(())
+    }
+
+    /// Counts what a recursive delete would remove, so it can be shown first.
+    pub async fn measure(&self, path: &str) -> Result<Measurement> {
+        let mut measured = Measurement::default();
+        let mut lease = self.lease().await?;
+
+        if self.kind_of(&mut lease, path).await? != EntryKind::Directory {
+            let entries = match crate::fs::parent_remote(path) {
+                Some(parent) => self.read_dir(&mut lease, &parent).await.unwrap_or_default(),
+                None => Vec::new(),
+            };
+            let name = path.rsplit('/').next().unwrap_or(path);
+            let size = entries
+                .iter()
+                .find(|entry| entry.name == name)
+                .and_then(|entry| entry.size);
+            measured.add_file(size);
+            lease.release();
+            return Ok(measured);
+        }
+
+        let mut pending = vec![path.to_string()];
+        while let Some(directory) = pending.pop() {
+            measured.add_directory();
+            if measured.reached_cap() {
+                measured.truncated = true;
+                lease.release();
+                return Ok(measured);
+            }
+            // A directory that cannot be read is skipped rather than fatal: the
+            // count is there to warn, and half a count still warns.
+            let Ok(entries) = self.read_dir(&mut lease, &directory).await else {
+                continue;
+            };
+            for entry in entries {
+                match entry.kind {
+                    EntryKind::Directory => {
+                        pending.push(crate::fs::join_remote(&directory, &entry.name));
+                    }
+                    EntryKind::Symlink => measured.add_symlink(),
+                    // A socket or a device counts as one thing in the way, and
+                    // a warning that says "one file" beats one that says
+                    // nothing.
+                    EntryKind::File | EntryKind::Other => measured.add_file(entry.size),
+                }
+            }
+        }
+
+        lease.release();
+        Ok(measured)
+    }
+
+    /// Changes permissions through `SITE CHMOD`.
+    ///
+    /// Not part of the protocol but understood by nearly every Unix server, and
+    /// the only way to set a mode over FTP at all. A server that does not know
+    /// it says so, and that refusal is passed on rather than swallowed.
+    pub async fn set_permissions(&self, path: &str, mode: u32, recursive: bool) -> Result<()> {
+        let mut lease = self.lease().await?;
+        let mut pending = vec![path.to_string()];
+
+        while let Some(current) = pending.pop() {
+            self.events.log(
+                &self.endpoint,
+                LogDirection::Sent,
+                format!("SITE CHMOD {mode:03o} {current}"),
+            );
+            lease
+                .stream()
+                .site(format!("CHMOD {mode:03o} {current}"))
+                .await
+                .map_err(|source| ftp_error(&current, source))?;
+
+            if !recursive {
+                continue;
+            }
+            if self.kind_of(&mut lease, &current).await? != EntryKind::Directory {
+                continue;
+            }
+            for entry in self.read_dir(&mut lease, &current).await? {
+                pending.push(crate::fs::join_remote(&current, &entry.name));
+            }
+        }
+
+        lease.release();
+        Ok(())
+    }
+
+    /// Size and modification time, for deciding whether a resume is safe.
+    ///
+    /// `SIZE` and `MDTM` are asked separately, and both are optional. Where the
+    /// server answers neither, a resume cannot be judged safe and the transfer
+    /// starts again — which is the right way round.
+    pub async fn stat(&self, path: &str) -> Result<(u64, Option<i64>)> {
+        let mut lease = self.lease().await?;
+
+        let size = if self.abilities.size {
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("SIZE {path}"));
+            lease.stream().size(path).await.unwrap_or_default() as u64
+        } else {
+            0
+        };
+
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("MDTM {path}"));
+        let modified = lease
+            .stream()
+            .mdtm(path)
+            .await
+            .ok()
+            .map(|stamp| stamp.and_utc().timestamp());
+
+        lease.release();
+        Ok((size, modified))
+    }
+
+    /// Puts a finished file under its final name.
+    ///
+    /// `RNTO` onto an existing name is refused by many servers, so what is
+    /// there is removed first. That is the one moment where the target does not
+    /// exist, and it is the reason the temporary name can be switched off per
+    /// connection.
+    pub async fn replace(&self, from: &str, to: &str) -> Result<()> {
+        let mut lease = self.lease().await?;
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("DELE {to}"));
+        let _ = lease.stream().rm(to).await;
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("RNFR {from} / RNTO {to}"),
+        );
+        lease
+            .stream()
+            .rename(from, to)
+            .await
+            .map_err(|source| ftp_error(from, source))?;
+        lease.release();
+        Ok(())
+    }
+
+    /// Closes every pooled connection.
+    pub async fn disconnect(&self) {
+        let mut idle = self.idle.lock().await;
+        for mut connection in idle.drain(..) {
+            let _ = connection.stream.quit().await;
+        }
+        self.events
+            .connection(&self.endpoint, ConnectionState::Disconnected);
+    }
+
+    /// Opens a file for reading, continuing from `offset` where the server
+    /// allows it.
+    ///
+    /// `REST` is used only when the server said in `FEAT` that it supports
+    /// `REST STREAM`. Sending it blind to a server that does not is how a
+    /// resumed download silently starts from the beginning while the client
+    /// writes it at the end — the file that results looks complete and is not.
+    pub async fn open_read(&self, path: &str, offset: u64) -> Result<(Reader, FtpLease<'_>)> {
+        let mut lease = self.lease().await?;
+
+        if offset > 0 {
+            if !self.abilities.rest {
+                return Err(Error::other(
+                    "this server cannot continue a transfer; it has to start again",
+                ));
+            }
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("REST {offset}"));
+            lease
+                .stream()
+                .resume_transfer(offset as usize)
+                .await
+                .map_err(|source| ftp_error(path, source))?;
+        }
+
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("RETR {path}"));
+        let transfer = lease
+            .stream()
+            .retr_as_stream(path)
+            .await
+            .map_err(|source| ftp_error(path, source))?;
+
+        Ok((Reader::Ftp(Box::new(transfer)), lease))
+    }
+
+    /// Opens a file for writing, continuing from `offset` where the server
+    /// allows it.
+    pub async fn open_write(&self, path: &str, offset: u64) -> Result<(Writer, FtpLease<'_>)> {
+        let mut lease = self.lease().await?;
+
+        if offset > 0 {
+            if !self.abilities.rest {
+                return Err(Error::other(
+                    "this server cannot continue a transfer; it has to start again",
+                ));
+            }
+            self.events
+                .log(&self.endpoint, LogDirection::Sent, format!("REST {offset}"));
+            lease
+                .stream()
+                .resume_transfer(offset as usize)
+                .await
+                .map_err(|source| ftp_error(path, source))?;
+        }
+
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, format!("STOR {path}"));
+        let transfer = lease
+            .stream()
+            .put_with_stream(path)
+            .await
+            .map_err(|source| ftp_error(path, source))?;
+
+        Ok((Writer::Ftp(Box::new(transfer)), lease))
+    }
+
+    /// Closes a data connection and reads the server's verdict.
+    ///
+    /// The bytes having arrived is not the same as the transfer having
+    /// succeeded: the server says so afterwards, on the control connection, and
+    /// a client that does not wait for that sentence is guessing. Only once it
+    /// has been read does the connection go back into the pool.
+    pub async fn finish(&self, transfer: FtpTransfer, lease: FtpLease<'_>) -> Result<()> {
+        let outcome = transfer.finish().await;
+        match outcome {
+            Ok(()) => {
+                self.events
+                    .log(&self.endpoint, LogDirection::Received, "transfer complete");
+                lease.release();
+                Ok(())
+            }
+            // Not released: the control connection's state is no longer known.
+            Err(source) => Err(ftp_error("", source)),
+        }
+    }
+
+    /// Sets a file's modification time through `MFMT`.
+    ///
+    /// Only where the server announced it. There is no second way: `MDTM` with
+    /// an argument does the same on some servers and is a plain query on
+    /// others, and a command that means two things is not one to guess with.
+    pub async fn set_modified(&self, path: &str, seconds: i64) -> Result<()> {
+        if !self.abilities.mfmt {
+            return Err(Error::other("this server cannot set modification times"));
+        }
+
+        let mut lease = self.lease().await?;
+        let stamp = list::timestamp(seconds);
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Sent,
+            format!("MFMT {stamp} {path}"),
+        );
+        lease
+            .stream()
+            .custom_command(format!("MFMT {stamp} {path}"), &[Status::File])
+            .await
+            .map_err(|source| ftp_error(path, source))?;
+        lease.release();
+        Ok(())
     }
 
     /// Turns what the server sent into text.
