@@ -20,7 +20,13 @@ russh-sftp = "3"
 dirs = "7"
 # tokio with rustls-ring: the same TLS stack russh already brings, so the
 # binary carries one implementation rather than two.
-suppaftp = { version = "12", default-features = false, features = ["tokio", "tokio-rustls-ring", "async-secure"] }
+# Already in the tree through russh; declared directly so the fingerprint code
+# does not depend on somebody else's dependency staying where it is.
+sha2 = "0.11"
+# The operating system's trust store, so a certificate authority the user
+# installed is trusted here as well. Chosen over a bundled list for that reason.
+rustls-native-certs = "0.8"
+suppaftp = { version = "12", default-features = false, features = ["tokio", "tokio-rustls-ring", "async-secure", "deprecated"] }
 
 # Release profile lives here so both the desktop shell and a future headless
 # server binary (milestone M7) are built with the same settings.

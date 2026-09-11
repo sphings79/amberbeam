@@ -36,6 +36,21 @@ pub enum Error {
         fingerprint: String,
         known_fingerprint: String,
     },
+    /// The server's TLS certificate was not accepted. Carries what the window
+    /// needs to ask about it, including *why* it was refused.
+    CertificateUntrusted {
+        host: String,
+        fingerprint: String,
+        /// The translation key naming the problem — self-signed, expired and
+        /// wrong-name are told apart rather than lumped together.
+        reason: String,
+        /// What the TLS library said, for the log and the small print.
+        detail: String,
+    },
+    /// The server would not encrypt at all, or would not encrypt the data
+    /// channel. Never silently downgraded: a data channel without `PROT P` is
+    /// not half secure, it is in the clear.
+    EncryptionRefused { detail: String },
     /// A path could not be listed, read or written.
     Path { path: String, reason: PathProblem },
     /// The source changed since the transfer broke off, so continuing would
@@ -83,6 +98,8 @@ impl Error {
             Error::Agent => "error.agent",
             Error::HostKeyUnknown { .. } => "error.host-key-unknown",
             Error::HostKeyChanged { .. } => "error.host-key-changed",
+            Error::CertificateUntrusted { .. } => "error.certificate-untrusted",
+            Error::EncryptionRefused { .. } => "error.encryption-refused",
             Error::Path { .. } => "error.path",
             Error::SourceChanged => "error.source-changed",
             Error::Disconnected => "error.disconnected",

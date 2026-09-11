@@ -11,10 +11,11 @@
 //! its time doing it.
 
 pub mod list;
+pub mod tls;
 
 use std::sync::Arc;
 
-use suppaftp::tokio::AsyncFtpStream;
+use suppaftp::tokio::AsyncRustlsFtpStream;
 use suppaftp::types::FileType;
 use suppaftp::{FtpError, Status};
 use tokio::sync::{Mutex, Semaphore};
@@ -55,6 +56,9 @@ pub struct FtpParams {
     pub keep_alive: Option<u32>,
     /// Fallback when the server cannot speak UTF-8.
     pub latin1: bool,
+    /// What the user has already agreed to about this server's certificate.
+    /// Plain [`CertificateDecision::TrustedOnly`] on every first attempt.
+    pub certificate: tls::CertificateDecision,
 }
 
 /// What the server said it can do.
@@ -95,7 +99,7 @@ impl Abilities {
 
 /// One pooled control connection.
 struct Connection {
-    stream: AsyncFtpStream,
+    stream: AsyncRustlsFtpStream,
 }
 
 /// A live FTP connection, or rather a pool of them.
@@ -126,7 +130,7 @@ pub struct FtpLease<'a> {
 }
 
 impl FtpLease<'_> {
-    fn stream(&mut self) -> &mut AsyncFtpStream {
+    fn stream(&mut self) -> &mut AsyncRustlsFtpStream {
         &mut self
             .connection
             .as_mut()
@@ -366,14 +370,21 @@ async fn open(
     params: &FtpParams,
     endpoint: &EndpointId,
     events: &Events,
-) -> Result<AsyncFtpStream> {
+) -> Result<AsyncRustlsFtpStream> {
     let address = format!("{}:{}", params.host, params.port);
 
     let mut stream = match params.encryption {
         Encryption::Implicit => {
-            return Err(Error::other("implicit FTPS is not wired up yet"));
+            // Historically port 990: encrypted from the first byte, with no
+            // plaintext greeting to be tampered with — and no way to ask the
+            // server whether it speaks TLS, so a wrong port simply hangs up.
+            let (connector, verdict) = tls::connector(&params.host, params.certificate.clone());
+            events.log(endpoint, LogDirection::Note, "TLS from the first byte");
+            AsyncRustlsFtpStream::connect_secure_implicit(&address, connector, &params.host)
+                .await
+                .map_err(|error| tls_failure(error, &verdict, params))?
         }
-        _ => AsyncFtpStream::connect(&address)
+        _ => AsyncRustlsFtpStream::connect(&address)
             .await
             .map_err(|_| Error::Unreachable {
                 host: params.host.clone(),
@@ -382,7 +393,30 @@ async fn open(
     };
 
     if params.encryption == Encryption::Explicit {
-        return Err(Error::other("explicit FTPS is not wired up yet"));
+        let roots = tls::system_roots().len();
+        events.log(
+            endpoint,
+            LogDirection::Note,
+            format!("checking against {roots} root certificates from the system"),
+        );
+
+        let (connector, verdict) = tls::connector(&params.host, params.certificate.clone());
+        events.log(endpoint, LogDirection::Sent, "AUTH TLS");
+
+        // `into_secure` also sends PBSZ 0 and PROT P, so what comes back here
+        // is either a connection whose data channel is encrypted too, or a
+        // failure. There is deliberately no third outcome: a data channel
+        // without PROT P is not half secure, it is in the clear.
+        stream = stream
+            .into_secure(connector, &params.host)
+            .await
+            .map_err(|error| tls_failure(error, &verdict, params))?;
+
+        events.log(
+            endpoint,
+            LogDirection::Received,
+            "control and data channel encrypted (PBSZ 0, PROT P)",
+        );
     }
 
     events.log(
@@ -407,6 +441,40 @@ async fn open(
     }
 
     Ok(stream)
+}
+
+/// Says what actually went wrong when securing a connection failed.
+///
+/// Three different things arrive here as one error type, and telling the user
+/// "the server said no" would hide the only part that matters: whether to check
+/// a fingerprint, to pick a different port, or to stop using this server for
+/// anything private.
+fn tls_failure(error: FtpError, verdict: &tls::Verdict, params: &FtpParams) -> Error {
+    if let Some(facts) = verdict.take() {
+        return Error::CertificateUntrusted {
+            host: facts.host,
+            fingerprint: facts.fingerprint,
+            reason: facts.problem.message_key().to_string(),
+            detail: facts.detail,
+        };
+    }
+
+    if let FtpError::ConnectionError(_) = error {
+        return Error::Unreachable {
+            host: params.host.clone(),
+            port: params.port,
+        };
+    }
+
+    // The certificate was already accepted, so whatever the server refused came
+    // after the handshake: PBSZ or PROT, meaning it wants the data channel in
+    // the clear.
+    let detail = if verdict.handshaked() {
+        format!("the server refused to encrypt the data channel: {error}")
+    } else {
+        format!("the server refused to start TLS: {error}")
+    };
+    Error::EncryptionRefused { detail }
 }
 
 fn now_seconds() -> i64 {

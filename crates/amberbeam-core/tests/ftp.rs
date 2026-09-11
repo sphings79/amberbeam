@@ -13,6 +13,7 @@
 
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::events::Events;
+use amberbeam_core::ftp::tls::{CertificateDecision, CertificateProblem};
 use amberbeam_core::ftp::{Encryption, FtpParams, FtpSession};
 
 fn server() -> Option<(String, u16)> {
@@ -46,6 +47,7 @@ fn params(host: &str, port: u16, encryption: Encryption) -> FtpParams {
         temporary_name: false,
         keep_alive: None,
         latin1: false,
+        certificate: CertificateDecision::TrustedOnly,
     }
 }
 
@@ -129,4 +131,90 @@ async fn several_logins_share_one_session() {
     session.list_dir(&home).await.expect("first");
     session.list_dir(&home).await.expect("second");
     assert!(session.concurrency().await >= 1);
+}
+
+#[tokio::test]
+async fn an_unknown_certificate_stops_the_connection_and_names_the_reason() {
+    // The point of the test is the refusal, not the success: a client that
+    // shrugs at an unknown certificate offers encryption without authenticity,
+    // which is the part an attacker in the middle is counting on.
+    let (host, port) = server_or_skip!("an_unknown_certificate_stops");
+    let events = Events::new();
+    let error = FtpSession::connect(
+        &params(&host, port, Encryption::Explicit),
+        &EndpointId::new("ftps"),
+        &events,
+    )
+    .await
+    .expect_err("a certificate nobody has accepted must not be trusted");
+
+    match error {
+        amberbeam_core::error::Error::CertificateUntrusted {
+            host: named,
+            fingerprint,
+            reason,
+            detail,
+        } => {
+            assert_eq!(named, host);
+            assert_eq!(fingerprint.len(), 32 * 3 - 1, "a SHA-256 to compare by eye");
+            // Not "certificate error": the window has to be able to say which.
+            assert!(reason.starts_with("certificate."), "{reason}");
+            assert!(!detail.is_empty(), "the log needs the original wording");
+            eprintln!("refused: {reason} ({detail}), fingerprint {fingerprint}");
+        }
+        other => panic!("expected a certificate refusal, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn accepting_the_fingerprint_lets_the_connection_through() {
+    let (host, port) = server_or_skip!("accepting_the_fingerprint");
+    let events = Events::new();
+
+    // First attempt: refused, and it hands back the fingerprint to show.
+    let mut settings = params(&host, port, Encryption::Explicit);
+    let error = FtpSession::connect(&settings, &EndpointId::new("ftps"), &events)
+        .await
+        .expect_err("first attempt");
+    let amberbeam_core::error::Error::CertificateUntrusted { fingerprint, .. } = error else {
+        panic!("expected a certificate refusal");
+    };
+
+    // Second attempt, with the same fingerprint accepted — as if the user had
+    // compared it and pressed the button.
+    settings.certificate = CertificateDecision::Trust {
+        fingerprint: fingerprint.clone(),
+    };
+    let session = FtpSession::connect(&settings, &EndpointId::new("ftps"), &events)
+        .await
+        .expect("an accepted fingerprint connects");
+    assert_eq!(session.encryption(), Encryption::Explicit);
+
+    let home = session.home().await.expect("pwd");
+    let listing = session.list_dir(&home).await.expect("list over TLS");
+    eprintln!(
+        "{} holds {} entries, over an encrypted data channel",
+        listing.path,
+        listing.entries.len()
+    );
+
+    // A different fingerprint on the same server asks again rather than
+    // riding on the earlier decision.
+    settings.certificate = CertificateDecision::Trust {
+        fingerprint: "00:11:22:33".into(),
+    };
+    assert!(
+        FtpSession::connect(&settings, &EndpointId::new("ftps"), &events)
+            .await
+            .is_err(),
+        "accepting one certificate must not accept the next one"
+    );
+}
+
+#[test]
+fn self_signed_and_expired_are_never_the_same_message() {
+    assert_ne!(
+        CertificateProblem::UnknownIssuer.message_key(),
+        CertificateProblem::Expired.message_key()
+    );
 }
