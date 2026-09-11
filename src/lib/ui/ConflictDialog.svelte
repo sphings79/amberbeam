@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ConflictPolicy, QueuedJob } from "../bridge";
   import { t } from "../i18n/index.svelte";
-  import { formatSize } from "./format";
+  import { formatDate, formatSize } from "./format";
 
   interface Props {
     job: QueuedJob;
@@ -30,12 +30,45 @@
     <p class="subject mono" title={job.targetPath}>{job.name}</p>
     <p class="explain">{t("conflict.body")}</p>
 
-    <dl>
-      <dt>{t("conflict.incoming")}</dt>
-      <dd class="mono">{formatSize(job.totalBytes)}</dd>
-      <dt>{t("conflict.target")}</dt>
-      <dd class="mono">{job.targetPath}</dd>
-    </dl>
+    <!-- What is there against what is coming. Answering "overwrite or keep"
+         without seeing which is newer is guessing. -->
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>{t("conflict.existing")}</th>
+          <th>{t("conflict.new")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row">{t("column.size")}</th>
+          <td class="mono">{formatSize(job.existingSize)}</td>
+          <td class="mono" class:bigger={
+            job.totalBytes !== null &&
+            job.existingSize !== null &&
+            job.totalBytes > job.existingSize
+          }>
+            {formatSize(job.totalBytes)}
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">{t("column.modified")}</th>
+          <td class="mono">
+            {job.existingModified === null ? t("conflict.unknown") : formatDate(job.existingModified)}
+          </td>
+          <td class="mono" class:bigger={
+            job.sourceModified !== null &&
+            job.existingModified !== null &&
+            job.sourceModified > job.existingModified
+          }>
+            {job.sourceModified === null ? t("conflict.unknown") : formatDate(job.sourceModified)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="target mono" title={job.targetPath}>{job.targetPath}</p>
 
     <div class="choices">
       {#each CHOICES as choice (choice.policy)}
@@ -104,26 +137,50 @@
     color: var(--text-muted);
   }
 
-  dl {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 3px 16px;
-    margin: 0 0 14px;
-    padding: 10px 12px;
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
     background: var(--surface-2);
     border-radius: 0.6rem;
+    overflow: hidden;
     font-size: 0.8rem;
   }
 
-  dt {
-    color: var(--text-faint);
+  th,
+  td {
+    padding: 5px 10px;
+    text-align: right;
   }
 
-  dd {
-    margin: 0;
+  thead th {
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+
+  tbody th {
+    text-align: left;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+
+  /* The newer or larger of the two is marked, because that is the thing the
+     answer usually turns on. */
+  .bigger {
+    color: var(--accent);
+  }
+
+  .target {
+    margin: 0 0 12px;
+    font-size: 0.72rem;
+    color: var(--text-faint);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    direction: ltr;
   }
 
   .choices {

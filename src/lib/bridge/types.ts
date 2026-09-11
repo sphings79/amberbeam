@@ -187,6 +187,11 @@ export interface QueuedJob {
   attempts: number;
   retries: number | null;
   failure: CoreError | null;
+  /** What is already at the target, when a conflict was found. */
+  existingSize: number | null;
+  existingModified: number | null;
+  /** The source's own timestamp, for comparing the two. */
+  sourceModified: number | null;
   added: number;
 }
 
@@ -294,6 +299,8 @@ export interface AmberBeamApi {
   queueResume(id: string): Promise<void>;
   queueRemove(id: string): Promise<void>;
   queueClearFinished(): Promise<void>;
+  /** Empties the queue, stopping what is running. */
+  queueClearAll(): Promise<void>;
   queueMove(id: string, by?: number, to?: number): Promise<void>;
   queueDecide(id: string, policy: ConflictPolicy, forAll: boolean): Promise<void>;
 

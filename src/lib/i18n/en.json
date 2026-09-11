@@ -190,5 +190,12 @@
   "quick.from-settings": "settings",
   "quick.yes": "yes",
   "quick.no": "no",
-  "queue.lowered": "The server refused more connections. Running {allowed} at a time now; raise it again in the settings if you disagree."
+  "queue.lowered": "The server refused more connections. Running {allowed} at a time now; raise it again in the settings if you disagree.",
+  "queue.clear.hint": "Remove the jobs that are finished or skipped",
+  "queue.clear-all": "Empty",
+  "queue.clear-all.hint": "Empty the queue, stopping what is running",
+  "queue.reveal": "Double click opens the folder this is going to",
+  "conflict.existing": "Already there",
+  "conflict.new": "New",
+  "conflict.unknown": "unknown"
 }

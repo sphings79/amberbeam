@@ -46,6 +46,16 @@ pub struct QueuedJob {
     pub retries: Option<u8>,
     /// Why it last failed, for the row to explain itself.
     pub failure: Option<Error>,
+    /// What is already at the target, filled in when a conflict is found.
+    /// Without it the question "what should happen to it?" has to be answered
+    /// blind.
+    #[serde(default)]
+    pub existing_size: Option<u64>,
+    #[serde(default)]
+    pub existing_modified: Option<i64>,
+    /// The source's own size and time, for the same comparison.
+    #[serde(default)]
+    pub source_modified: Option<i64>,
     /// Seconds since the epoch, for stable ordering of equals.
     pub added: i64,
 }
@@ -90,6 +100,12 @@ impl Queue {
     /// caller's business, since only it holds the handle to stop it.
     pub fn remove(&mut self, id: &str) {
         self.jobs.retain(|job| job.id != id);
+    }
+
+    /// Empties the list completely. Running jobs have to be stopped first;
+    /// that is the caller's business, since only it holds the handles.
+    pub fn clear_all(&mut self) {
+        self.jobs.clear();
     }
 
     /// Clears out everything that will not run again.
@@ -247,6 +263,9 @@ mod tests {
             attempts: 0,
             retries: Some(5),
             failure: None,
+            existing_size: None,
+            existing_modified: None,
+            source_modified: None,
             added: 0,
         }
     }

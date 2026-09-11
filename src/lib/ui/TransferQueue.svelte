@@ -14,6 +14,13 @@
   import { formatSize } from "./format";
   import Icon from "./Icon.svelte";
 
+  interface Props {
+    /** Opens the folder a job is going to, in whichever pane shows it. */
+    onreveal: (endpoint: string, path: string) => void;
+  }
+
+  let { onreveal }: Props = $props();
+
   let queue = $derived(queueState());
   let totals = $derived(queueTotals());
   let dragging = $state<string | null>(null);
@@ -89,9 +96,18 @@
     <button
       type="button"
       onclick={() => api.queueClearFinished().then(refreshQueue)}
-      title={t("queue.clear")}
+      title={t("queue.clear.hint")}
     >
       {t("queue.clear")}
+    </button>
+    <button
+      type="button"
+      class="danger"
+      onclick={() => api.queueClearAll().then(refreshQueue)}
+      title={t("queue.clear-all.hint")}
+      disabled={queue.jobs.length === 0}
+    >
+      {t("queue.clear-all")}
     </button>
   </header>
 
@@ -115,6 +131,8 @@
         ondragstart={() => (dragging = job.id)}
         ondragover={(event) => event.preventDefault()}
         ondrop={(event) => onDrop(event, index)}
+        ondblclick={() => onreveal(job.targetEndpoint, job.targetPath)}
+        title={t("queue.reveal")}
       >
         <span class="arrow mono">{direction(job)}</span>
         <span class="name" title={job.targetPath}>{job.name}</span>
@@ -255,6 +273,15 @@
 
   header button.on {
     color: var(--accent);
+  }
+
+  header button.danger:hover:not(:disabled) {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+
+  header button:disabled {
+    opacity: 0.35;
   }
 
   .rows {

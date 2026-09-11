@@ -1199,6 +1199,9 @@ async fn the_queue_works_through_several_files_and_survives_a_restart() {
             attempts: 0,
             retries: Some(3),
             failure: None,
+            existing_size: None,
+            existing_modified: None,
+            source_modified: None,
             added: index,
         });
     }
@@ -1302,6 +1305,9 @@ async fn a_held_job_keeps_its_place_and_its_offset() {
             attempts: 0,
             retries: Some(3),
             failure: None,
+            existing_size: None,
+            existing_modified: None,
+            source_modified: None,
             added: 0,
         })
         .await;

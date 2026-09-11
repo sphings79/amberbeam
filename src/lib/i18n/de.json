@@ -190,5 +190,12 @@
   "quick.from-settings": "Einstellungen",
   "quick.yes": "ja",
   "quick.no": "nein",
-  "queue.lowered": "Der Server hat weitere Verbindungen abgelehnt. Es laufen jetzt {allowed} gleichzeitig; in den Einstellungen lässt sich das wieder anheben."
+  "queue.lowered": "Der Server hat weitere Verbindungen abgelehnt. Es laufen jetzt {allowed} gleichzeitig; in den Einstellungen lässt sich das wieder anheben.",
+  "queue.clear.hint": "Fertige und übersprungene Aufträge entfernen",
+  "queue.clear-all": "Leeren",
+  "queue.clear-all.hint": "Warteschlange leeren und Laufendes anhalten",
+  "queue.reveal": "Doppelklick öffnet den Zielordner",
+  "conflict.existing": "Vorhanden",
+  "conflict.new": "Neu",
+  "conflict.unknown": "unbekannt"
 }

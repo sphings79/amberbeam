@@ -158,6 +158,9 @@ impl Runner {
                     attempts: 0,
                     retries: request.retries,
                     failure: None,
+                    existing_size: None,
+                    existing_modified: None,
+                    source_modified: None,
                     added,
                 });
             }
@@ -184,6 +187,15 @@ impl Runner {
             live.progress.cancel();
         }
         self.queue.lock().await.remove(id);
+        self.after_change().await;
+    }
+
+    /// Empties the queue, stopping whatever is running first.
+    pub async fn clear_all(self: &Arc<Self>) {
+        for live in self.running.lock().await.values() {
+            live.progress.cancel();
+        }
+        self.queue.lock().await.clear_all();
         self.after_change().await;
     }
 
@@ -349,19 +361,28 @@ impl Runner {
             return ConflictOutcome::Run(Box::new(job.clone()));
         };
 
+        // Carried on the job either way, so the dialog can compare what is
+        // there with what is coming rather than asking blind.
+        let source_modified = match self.sessions.find(&job.source_endpoint).await {
+            Ok(session) => session
+                .stat(&job.source_path)
+                .await
+                .ok()
+                .and_then(|(_, when)| when),
+            Err(_) => None,
+        };
+        let described = QueuedJob {
+            existing_size: Some(existing_size),
+            existing_modified,
+            source_modified,
+            ..job.clone()
+        };
+
         match job.conflict_policy {
-            ConflictPolicy::Ask => ConflictOutcome::Ask,
+            ConflictPolicy::Ask => ConflictOutcome::Ask(Box::new(described)),
             ConflictPolicy::Overwrite => ConflictOutcome::Run(Box::new(job.clone())),
             ConflictPolicy::Skip => ConflictOutcome::Skip,
             ConflictPolicy::OverwriteIfNewer => {
-                let source_modified = match self.sessions.find(&job.source_endpoint).await {
-                    Ok(session) => session
-                        .stat(&job.source_path)
-                        .await
-                        .ok()
-                        .and_then(|(_, when)| when),
-                    Err(_) => None,
-                };
                 match (source_modified, existing_modified) {
                     // Without both times there is no "newer", and guessing
                     // would overwrite something for no reason.
@@ -447,10 +468,13 @@ impl Runner {
 
         let job = match self.resolve_conflict(&job).await {
             ConflictOutcome::Run(job) => *job,
-            ConflictOutcome::Ask => {
+            ConflictOutcome::Ask(described) => {
                 self.running.lock().await.remove(&job.id);
                 if let Some(entry) = self.queue.lock().await.get_mut(&job.id) {
                     entry.state = JobState::Asking;
+                    entry.existing_size = described.existing_size;
+                    entry.existing_modified = described.existing_modified;
+                    entry.source_modified = described.source_modified;
                 }
                 self.after_change().await;
                 return;
@@ -601,10 +625,11 @@ impl Runner {
 
 /// What to do about a file that is already at the target.
 enum ConflictOutcome {
-    /// Boxed because a job is far larger than the other two answers, and the
-    /// enum would otherwise carry that weight on every decision.
+    /// Boxed because a job is far larger than the plain answer, and the enum
+    /// would otherwise carry that weight on every decision.
     Run(Box<QueuedJob>),
-    Ask,
+    /// Carries the job with what was found at the target filled in.
+    Ask(Box<QueuedJob>),
     Skip,
 }
 

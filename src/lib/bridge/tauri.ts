@@ -75,6 +75,7 @@ export const api: AmberBeamApi = {
   queueResume: (id: string) => invoke<void>("queue_resume", { id }),
   queueRemove: (id: string) => invoke<void>("queue_remove", { id }),
   queueClearFinished: () => invoke<void>("queue_clear_finished"),
+  queueClearAll: () => invoke<void>("queue_clear_all"),
   queueMove: (id: string, by?: number, to?: number) => invoke<void>("queue_move", { id, by, to }),
   queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
     invoke<void>("queue_decide", { id, policy, forAll }),

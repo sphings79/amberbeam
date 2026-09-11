@@ -352,6 +352,12 @@ async fn queue_remove(state: tauri::State<'_, Arc<State>>, id: String) -> Result
 }
 
 #[tauri::command]
+async fn queue_clear_all(state: tauri::State<'_, Arc<State>>) -> Result<(), Error> {
+    state.queue.clear_all().await;
+    Ok(())
+}
+
+#[tauri::command]
 async fn queue_clear_finished(state: tauri::State<'_, Arc<State>>) -> Result<(), Error> {
     state.queue.clear_finished().await;
     Ok(())
@@ -562,6 +568,7 @@ pub fn run() {
             queue_resume,
             queue_remove,
             queue_clear_finished,
+            queue_clear_all,
             queue_move,
             queue_decide,
         ])

@@ -5,8 +5,10 @@
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
   import {
     focusedSide,
+    focusPane,
     goUp,
     moveCursor,
+    navigate,
     openSession,
     pane,
     reload,
@@ -231,6 +233,27 @@
     await refreshQueue();
   }
 
+  /**
+   * Shows the folder a job went to.
+   *
+   * Whichever pane is already on that endpoint gets it; if neither is, the
+   * focused one does — going somewhere is more useful than doing nothing.
+   */
+  async function reveal(endpoint: string, path: string): Promise<void> {
+    const separator = path.includes("\\") && !path.startsWith("/") ? "\\" : "/";
+    const cut = path.lastIndexOf(separator);
+    const directory = cut > 0 ? path.slice(0, cut) : path;
+    const side: Side =
+      pane("left").endpoint === endpoint
+        ? "left"
+        : pane("right").endpoint === endpoint
+          ? "right"
+          : focusedSide();
+    if (pane(side).endpoint !== endpoint) return;
+    focusPane(side);
+    await navigate(side, directory);
+  }
+
   async function disconnect(side: Side): Promise<void> {
     const endpoint = pane(side).endpoint;
     if (endpoint === LOCAL) return;
@@ -342,7 +365,7 @@
         onmove={(d) => (logHeight = Math.min(400, Math.max(60, logHeight + d)))}
       />
     {:else}
-      <div class="region queue" style:height="{queueHeight}px"><TransferQueue /></div>
+      <div class="region queue" style:height="{queueHeight}px"><TransferQueue onreveal={reveal} /></div>
       <Splitter
         direction="horizontal"
         label={t("splitter.queue")}
@@ -387,7 +410,7 @@
         label={t("splitter.queue")}
         onmove={(d) => (queueHeight = Math.min(400, Math.max(60, queueHeight - d)))}
       />
-      <div class="region queue" style:height="{queueHeight}px"><TransferQueue /></div>
+      <div class="region queue" style:height="{queueHeight}px"><TransferQueue onreveal={reveal} /></div>
     {/if}
   {/each}
 
