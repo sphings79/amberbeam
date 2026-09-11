@@ -179,6 +179,10 @@ dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
 ```
 
+`make-screenshots.py` draws the window once per language — every label, file
+name, date and size comes from one table at the top of the script, so an
+English page never shows a German window.
+
 `render-png.py` uses QuickLook and `sips`, so it needs a Mac. The SVGs
 themselves are the source of truth and are readable anywhere.
 

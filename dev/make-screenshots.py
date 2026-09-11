@@ -33,6 +33,114 @@ FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif"
 MONO = "ui-monospace, SFMono-Regular, Menlo, monospace"
 
 
+# Every word that appears inside a drawn window, per language. The pictures are
+# built for both, because a German window under English prose reads like a
+# screenshot of a different program — and the file names, dates and sizes have
+# to follow, or the point about locale-aware formatting is lost.
+STRINGS = {
+    "de": {
+        "title": "AmberBeam — Fensterlayout",
+        "alt": "Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum "
+               "links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander",
+        "desc": "Server-Log oben, lokale Dateien links, der Server rechts, die Warteschlange "
+                "unten.",
+        "cols": ("Name", "Größe", "Geändert"),
+        "log": "SERVER-LOG",
+        "raw": "F4  Raw-Befehle",
+        "local": "LOKAL",
+        "server": "SERVER",
+        "queue": "WARTESCHLANGE",
+        "queue_hint": "F8  ein/aus     F9  starten",
+        "queue_hint_card": "3 von 8 gleichzeitig     F9  starten",
+        "done": "fertig",
+        "waiting": "wartet",
+        "keys": "F5 Aktualisieren   ·   F6 Fokus wechseln   ·   F7 Befehle   ·   F12 Verbinden",
+        "keys_card": "F5 Aktualisieren  ·  F6 Fokus  ·  F12 Verbinden",
+        "connection": "SFTP  ·  8 gleichzeitig",
+        "home": "~/Projekte/website",
+        "home_dir": "~/Projekte/website/",
+        "tree_local": [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True),
+                       (3, "website", True), (3, "archiv", False), (2, "Bilder", False),
+                       (2, "Musik", False)],
+        "files_local": [("index.html", "4,2 KB", "11.09. 16:41", False),
+                        ("stil.css", "18 KB", "11.09. 16:38", False),
+                        ("skript.js", "7,1 KB", "10.09. 22:04", False),
+                        ("impressum.html", "3,4 KB", "10.09. 21:50", False),
+                        ("favicon.ico", "15 KB", "02.08. 11:07", False),
+                        ("liesmich.md", "1,9 KB", "28.07. 14:22", False),
+                        ("bilder", "—", "09.09. 19:12", True),
+                        ("schriften", "—", "09.09. 19:12", True),
+                        ("entwuerfe", "—", "14.07. 08:55", True)],
+        "files_remote": [("index.html", "3,9 KB", "11.09. 09:20", False),
+                         ("stil.css", "17 KB", "09.09. 22:14", False),
+                         ("skript.js", "7,1 KB", "10.09. 22:04", False),
+                         (".htaccess", "612 B", "02.08. 11:07", False),
+                         ("robots.txt", "104 B", "02.08. 11:07", False),
+                         ("bilder", "—", "09.09. 19:12", True),
+                         ("alt", "—", "14.07. 08:55", True),
+                         ("logs", "—", "11.09. 17:00", True),
+                         ("tmp", "—", "11.09. 16:59", True)],
+        "sheet": "stil.css",
+        "script": "skript.js",
+        "logo": "bilder/logo.svg",
+        "hero": "bilder/hero.jpg",
+        "images_dir": "/var/www/html/bilder/",
+    },
+    "en": {
+        "title": "AmberBeam — window layout",
+        "alt": "AmberBeam window layout: server log on top, local files with folder tree on "
+               "the left, the server on the right, transfer queue at the bottom, dark and "
+               "light side by side",
+        "desc": "Server log on top, local files on the left, the server on the right, the "
+                "transfer queue at the bottom.",
+        "cols": ("Name", "Size", "Modified"),
+        "log": "SERVER LOG",
+        "raw": "F4  raw commands",
+        "local": "LOCAL",
+        "server": "SERVER",
+        "queue": "QUEUE",
+        "queue_hint": "F8  show / hide     F9  start",
+        "queue_hint_card": "3 of 8 at once     F9  start",
+        "done": "done",
+        "waiting": "waiting",
+        "keys": "F5 Refresh   ·   F6 Switch focus   ·   F7 Commands   ·   F12 Connect",
+        "keys_card": "F5 Refresh  ·  F6 Focus  ·  F12 Connect",
+        "connection": "SFTP  ·  8 at once",
+        "home": "~/Projects/website",
+        "home_dir": "~/Projects/website/",
+        "tree_local": [(0, "Users", True), (1, "dennis", True), (2, "Projects", True),
+                       (3, "website", True), (3, "archive", False), (2, "Pictures", False),
+                       (2, "Music", False)],
+        "files_local": [("index.html", "4.2 KB", "11 Sep 16:41", False),
+                        ("style.css", "18 KB", "11 Sep 16:38", False),
+                        ("script.js", "7.1 KB", "10 Sep 22:04", False),
+                        ("about.html", "3.4 KB", "10 Sep 21:50", False),
+                        ("favicon.ico", "15 KB", "2 Aug 11:07", False),
+                        ("readme.md", "1.9 KB", "28 Jul 14:22", False),
+                        ("images", "—", "9 Sep 19:12", True),
+                        ("fonts", "—", "9 Sep 19:12", True),
+                        ("drafts", "—", "14 Jul 08:55", True)],
+        "files_remote": [("index.html", "3.9 KB", "11 Sep 09:20", False),
+                         ("style.css", "17 KB", "9 Sep 22:14", False),
+                         ("script.js", "7.1 KB", "10 Sep 22:04", False),
+                         (".htaccess", "612 B", "2 Aug 11:07", False),
+                         ("robots.txt", "104 B", "2 Aug 11:07", False),
+                         ("images", "—", "9 Sep 19:12", True),
+                         ("old", "—", "14 Jul 08:55", True),
+                         ("logs", "—", "11 Sep 17:00", True),
+                         ("tmp", "—", "11 Sep 16:59", True)],
+        "sheet": "style.css",
+        "script": "script.js",
+        "logo": "images/logo.svg",
+        "hero": "images/hero.jpg",
+        "images_dir": "/var/www/html/images/",
+    },
+}
+
+TREE_REMOTE = [(0, "/", True), (1, "etc", False), (1, "srv", False), (1, "var", True),
+               (2, "log", False), (2, "www", True), (3, "html", True)]
+
+
 def text(x, y, value, fill=TEXT, size=12.5, weight=None, anchor=None, family=None, opacity=None):
     parts = [f'<text x="{x}" y="{y}" fill="{fill}" font-size="{size}"']
     if weight:
@@ -119,7 +227,7 @@ def file_icon(x, y, colour):
     )
 
 
-def pane(x, y, w, h, title, place, tree, rows, active_row=None, accent_title=False):
+def pane(x, y, w, h, title, place, tree, rows, cols, active_row=None, accent_title=False):
     """One file region: path bar on top, tree on the left, list on the right."""
     tree_w = 168
     out = [rect(x, y, w, h, PANEL)]
@@ -151,8 +259,8 @@ def pane(x, y, w, h, title, place, tree, rows, active_row=None, accent_title=Fal
     list_w = w - tree_w
     out.append(rect(list_x, body_y, list_w, 24, PANEL_2))
     out.append(line(list_x, body_y + 24, x + w, body_y + 24))
-    for label, offset, anchor in (("Name", 14, None), ("Größe", list_w - 118, "end"),
-                                  ("Geändert", list_w - 14, "end")):
+    for label, offset, anchor in ((cols[0], 14, None), (cols[1], list_w - 118, "end"),
+                                  (cols[2], list_w - 14, "end")):
         out.append(text(list_x + offset, body_y + 16, label, FAINT, 9.5, "600", anchor))
 
     ry = body_y + 24
@@ -174,27 +282,22 @@ def pane(x, y, w, h, title, place, tree, rows, active_row=None, accent_title=Fal
     return "".join(out)
 
 
-def layout():
+def layout(lang):
     """The whole window: log on top, two panes, queue at the bottom."""
-    out = [head(
-        "AmberBeam window with the server log on top, two file panes in the middle and the "
-        "transfer queue at the bottom, dark and light side by side",
-        "AmberBeam — Fensterlayout",
-        "Server log on top, local files on the left, the server on the right, the transfer "
-        "queue at the bottom.",
-    )]
+    S = STRINGS[lang]
+    out = [head(S["alt"], S["title"], S["desc"])]
     out.append(titlebar("beispiel.de · SFTP"))
 
     # server log
     log_y = 44
     log_h = 116
     out.append(rect(0, log_y, W, log_h, PANEL))
-    out.append(section_bar(0, log_y, W, "SERVER-LOG", "F4  Raw-Befehle"))
+    out.append(section_bar(0, log_y, W, S["log"], S["raw"]))
     log_lines = [
         ("17:02:11", "&#8594;", "MLSD /var/www/html", MUTED),
         ("17:02:11", "&#8592;", "150 Opening BINARY mode data connection", FAINT),
         ("17:02:12", "&#8592;", "226 Directory send OK", OK),
-        ("17:02:19", "&#8594;", "STOR /var/www/html/stil.css", MUTED),
+        ("17:02:19", "&#8594;", f"STOR /var/www/html/{S['sheet']}", MUTED),
     ]
     ly = log_y + 44
     for stamp, arrow, message, colour in log_lines:
@@ -207,51 +310,29 @@ def layout():
     # two panes
     pane_y = log_y + log_h
     pane_h = 384
-    out.append(pane(
-        0, pane_y, 600, pane_h, "LOKAL", "~/Projekte/website",
-        [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True), (3, "website", True),
-         (3, "archiv", False), (2, "Bilder", False), (2, "Musik", False)],
-        [("index.html", "4,2 KB", "11.09. 16:41", False),
-         ("stil.css", "18 KB", "11.09. 16:38", False),
-         ("skript.js", "7,1 KB", "10.09. 22:04", False),
-         ("impressum.html", "3,4 KB", "10.09. 21:50", False),
-         ("favicon.ico", "15 KB", "02.08. 11:07", False),
-         ("liesmich.md", "1,9 KB", "28.07. 14:22", False),
-         ("bilder", "—", "09.09. 19:12", True),
-         ("schriften", "—", "09.09. 19:12", True),
-         ("entwuerfe", "—", "14.07. 08:55", True)],
-        active_row=1,
-    ))
+    out.append(pane(0, pane_y, 600, pane_h, S["local"], S["home"],
+                    S["tree_local"], S["files_local"], S["cols"], active_row=1))
     out.append(line(600, pane_y, 600, pane_y + pane_h, BORDER_STRONG))
-    out.append(pane(
-        600, pane_y, 600, pane_h, "SERVER", "/var/www/html",
-        [(0, "/", True), (1, "etc", False), (1, "srv", False), (1, "var", True),
-         (2, "log", False), (2, "www", True), (3, "html", True)],
-        [("index.html", "3,9 KB", "11.09. 09:20", False),
-         ("stil.css", "17 KB", "09.09. 22:14", False),
-         ("skript.js", "7,1 KB", "10.09. 22:04", False),
-         (".htaccess", "612 B", "02.08. 11:07", False),
-         ("robots.txt", "104 B", "02.08. 11:07", False),
-         ("bilder", "—", "09.09. 19:12", True),
-         ("alt", "—", "14.07. 08:55", True),
-         ("logs", "—", "11.09. 17:00", True),
-         ("tmp", "—", "11.09. 16:59", True)],
-        accent_title=True,
-    ))
+    out.append(pane(600, pane_y, 600, pane_h, S["server"], "/var/www/html",
+                    TREE_REMOTE, S["files_remote"], S["cols"], accent_title=True))
     out.append(line(0, pane_y + pane_h, W, pane_y + pane_h))
 
-    # queue
+    # queue: several files moving at the same time, which is the point of the
+    # per-server concurrency setting
     q_y = pane_y + pane_h
     q_h = H - q_y - 26
     out.append(rect(0, q_y, W, q_h, PANEL))
-    out.append(section_bar(0, q_y, W, "WARTESCHLANGE", "F8  ein/aus     F9  starten"))
+    out.append(section_bar(0, q_y, W, S["queue"], S["queue_hint"]))
     jobs = [
-        ("&#8593;", "stil.css", "/var/www/html/", 1.0, "fertig", OK),
-        ("&#8593;", "bilder/logo.svg", "/var/www/html/bilder/", 0.62, "62 %  ·  1,8 MB/s", ACCENT),
-        ("&#8595;", "logs/error.log", "~/Projekte/website/", 0.0, "wartet", FAINT),
+        ("&#8593;", S["sheet"], "/var/www/html/", 1.0, S["done"], OK),
+        ("&#8593;", S["logo"], S["images_dir"], 0.62, "1,8 MB/s", ACCENT),
+        ("&#8593;", S["hero"], S["images_dir"], 0.41, "2,1 MB/s", ACCENT),
+        ("&#8595;", "logs/error.log", S["home_dir"], 0.0, S["waiting"], FAINT),
     ]
-    jy = q_y + 38
+    jy = q_y + 34
     for arrow, name, target, done, note, colour in jobs:
+        if lang == "en":
+            note = note.replace(",", ".")
         out.append(text(16, jy + 13, arrow, colour, 12, "600", family=MONO))
         out.append(text(38, jy + 13, name, TEXT if done else MUTED, 11.5))
         out.append(text(200, jy + 13, target, FAINT, 11, family=MONO))
@@ -260,14 +341,13 @@ def layout():
             out.append(rect(470, jy + 5, int(560 * done), 8, colour, 4))
         out.append(text(W - 16, jy + 13, note, colour if done else FAINT, 10.5,
                         family=MONO, anchor="end"))
-        jy += 30
+        jy += 28
 
     # status bar
     out.append(rect(0, H - 26, W, 26, PANEL_2))
     out.append(line(0, H - 26, W, H - 26))
-    keys = "F5 Aktualisieren   ·   F6 Fokus wechseln   ·   F7 Befehle   ·   F12 Verbinden"
-    out.append(text(14, H - 9, keys, FAINT, 10.5, family=MONO))
-    out.append(text(W - 14, H - 9, "SFTP  ·  8 gleichzeitig", OK, 10.5, family=MONO, anchor="end"))
+    out.append(text(14, H - 9, S["keys"], FAINT, 10.5, family=MONO))
+    out.append(text(W - 14, H - 9, S["connection"], OK, 10.5, family=MONO, anchor="end"))
 
     out.append(tail())
     return "".join(out)
@@ -339,7 +419,8 @@ OUT = Path("assets/screenshots")
 
 def main():
     SRC.mkdir(parents=True, exist_ok=True)
-    (SRC / "layout.svg").write_text(layout())
+    (SRC / "layout.svg").write_text(layout("en"))
+    (SRC / "layout.de.svg").write_text(layout("de"))
     for source in sorted(SRC.glob("*.svg")):
         (OUT / source.name).write_text(split(source.read_text()))
     Path("assets/social-preview.svg").write_text(social())
@@ -382,7 +463,7 @@ def mini_row(x, w, y, name, size, is_dir, selected=False):
     return "".join(out)
 
 
-def social():
+def social(lang="en"):
     """The 1280x640 card GitHub shows wherever the repository is shared.
 
     The window is drawn large and flush with the right edge, and the text
@@ -391,28 +472,16 @@ def social():
     a file transfer client has to show both panes with their trees, or it
     advertises a different program.
     """
-    left_tree = [(0, "Benutzer", True), (1, "dennis", True), (2, "Projekte", True),
-                 (3, "website", True), (3, "archiv", False), (2, "Bilder", False)]
+    S = STRINGS[lang]
+    left_tree = S["tree_local"][:6]
     right_tree = [(0, "/", True), (1, "etc", False), (1, "var", True),
                   (2, "log", False), (2, "www", True), (3, "html", True)]
-    left_rows = [
-        ("index.html", "4,2 KB", False, False),
-        ("stil.css", "18 KB", False, True),
-        ("skript.js", "7,1 KB", False, False),
-        ("impressum.html", "3,4 KB", False, False),
-        ("favicon.ico", "15 KB", False, False),
-        ("bilder", "—", True, False),
-        ("schriften", "—", True, False),
-    ]
-    right_rows = [
-        ("index.html", "3,9 KB", False, False),
-        ("stil.css", "17 KB", False, False),
-        ("skript.js", "7,1 KB", False, False),
-        (".htaccess", "612 B", False, False),
-        ("robots.txt", "104 B", False, False),
-        ("bilder", "—", True, False),
-        ("alt", "—", True, False),
-    ]
+    def rows(entries, selected):
+        return [(name, size, is_dir, name == selected)
+                for name, size, _when, is_dir in entries]
+
+    left_rows = rows(S["files_local"][:5] + S["files_local"][6:8], S["sheet"])
+    right_rows = rows(S["files_remote"][:7], None)
 
     out = []
     out.append(
@@ -474,13 +543,13 @@ def social():
     # server log
     log_y = wy + 44
     out.append(rect(wx, log_y, ww, 84, "#12151d"))
-    out.append(text(wx + 16, log_y + 17, "SERVER-LOG", FAINT, 9.5, "600"))
-    out.append(text(wx + ww - 16, log_y + 17, "F4  Raw-Befehle", FAINT, 9.5,
+    out.append(text(wx + 16, log_y + 17, S["log"], FAINT, 9.5, "600"))
+    out.append(text(wx + ww - 16, log_y + 17, S["raw"], FAINT, 9.5,
                     family=MONO, anchor="end"))
     for index, (stamp, arrow, message, colour) in enumerate((
         ("17:02:11", "&#8594;", "MLSD /var/www/html", MUTED),
         ("17:02:12", "&#8592;", "226 Directory send OK", OK),
-        ("17:02:19", "&#8594;", "STOR /var/www/html/stil.css", MUTED),
+        ("17:02:19", "&#8594;", f"STOR /var/www/html/{S['sheet']}", MUTED),
     )):
         ly = log_y + 38 + index * 18
         out.append(text(wx + 16, ly, stamp, FAINT, 10.5, family=MONO))
@@ -492,8 +561,8 @@ def social():
     # two panes, each with its own folder tree
     pane_h = 222
     for index, (label, place, tree, rows) in enumerate(
-        (("LOKAL", "~/Projekte/website", left_tree, left_rows),
-         ("SERVER", "/var/www/html", right_tree, right_rows))
+        ((S["local"], S["home"], left_tree, left_rows),
+         (S["server"], "/var/www/html", right_tree, right_rows))
     ):
         px = wx + index * half
         out.append(rect(px, pane_y, half, 22, PANEL_2))
@@ -522,16 +591,16 @@ def social():
 
     # queue
     out.append(rect(wx, queue_y, ww, 22, PANEL_2))
-    out.append(text(wx + 14, queue_y + 15, "WARTESCHLANGE", FAINT, 9.5, "600"))
-    out.append(text(wx + ww - 12, queue_y + 15, "3 von 8 gleichzeitig     F9  starten",
+    out.append(text(wx + 14, queue_y + 15, S["queue"], FAINT, 9.5, "600"))
+    out.append(text(wx + ww - 12, queue_y + 15, S["queue_hint_card"],
                     ACCENT, 9.5, family=MONO, anchor="end"))
     out.append(line(wx, queue_y + 22, wx + ww, queue_y + 22))
     for index, (arrow, name, target, done, note, colour) in enumerate((
-        ("&#8593;", "stil.css", "/var/www/html/", 1.0, "fertig", OK),
-        ("&#8593;", "bilder/logo.svg", "/var/www/html/bilder/", 0.62, "1,8 MB/s", ACCENT),
-        ("&#8593;", "bilder/hero.jpg", "/var/www/html/bilder/", 0.41, "2,1 MB/s", ACCENT),
-        ("&#8593;", "skript.js", "/var/www/html/", 0.78, "1,4 MB/s", ACCENT),
-        ("&#8595;", "logs/error.log", "~/Projekte/website/", 0.0, "wartet", FAINT),
+        ("&#8593;", S["sheet"], "/var/www/html/", 1.0, S["done"], OK),
+        ("&#8593;", S["logo"], S["images_dir"], 0.62, "1.8 MB/s", ACCENT),
+        ("&#8593;", S["hero"], S["images_dir"], 0.41, "2.1 MB/s", ACCENT),
+        ("&#8593;", S["script"], "/var/www/html/", 0.78, "1.4 MB/s", ACCENT),
+        ("&#8595;", "logs/error.log", S["home_dir"], 0.0, S["waiting"], FAINT),
     )):
         jy = queue_y + 30 + index * 28
         out.append(text(wx + 160, jy + 12, arrow, colour, 12, "600", family=MONO))
@@ -546,9 +615,8 @@ def social():
     status_y = wy + wh - 30
     out.append(rect(wx, status_y, ww, 30, PANEL_2))
     out.append(line(wx, status_y, wx + ww, status_y))
-    out.append(text(wx + 14, status_y + 19, "F5 Aktualisieren  ·  F6 Fokus  ·  F12 Verbinden",
-                    FAINT, 10, family=MONO))
-    out.append(text(wx + ww - 12, status_y + 19, "SFTP  ·  8 gleichzeitig", OK, 10,
+    out.append(text(wx + 14, status_y + 19, S["keys_card"], FAINT, 10, family=MONO))
+    out.append(text(wx + ww - 12, status_y + 19, S["connection"], OK, 10,
                     family=MONO, anchor="end"))
 
     # ---- the scrim, and the text column on top of it

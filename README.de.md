@@ -56,7 +56,7 @@ gelernt hat, seit Jahren stillstehen.
 
 <div align="center">
 
-<img src="assets/screenshots/layout.svg" width="880" alt="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
+<img src="assets/screenshots/layout.de.svg" width="880" alt="Fensterlayout von AmberBeam: Server-Log oben, lokale Dateien mit Ordnerbaum links, Server rechts, Warteschlange unten, dunkel und hell nebeneinander">
 
 <em><strong>Das geplante Fenster</strong>, dunkel und hell in der Mitte
 auseinandergerissen. Gezeichnet, nicht fotografiert: Die Bereiche listen noch
@@ -183,6 +183,10 @@ dev/render-png.py assets/social-preview.svg assets/social-preview.png 1280 640
 dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
 ```
+
+`make-screenshots.py` zeichnet das Fenster je Sprache einmal — Beschriftungen,
+Dateinamen, Datumsangaben und Größen stammen aus einer Tabelle am Kopf des
+Skripts, damit auf einer englischen Seite nie ein deutsches Fenster steht.
 
 `render-png.py` nutzt QuickLook und `sips` und braucht daher einen Mac. Die SVGs
 selbst sind die Quelle und überall lesbar.
