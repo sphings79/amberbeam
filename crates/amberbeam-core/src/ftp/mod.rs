@@ -106,6 +106,35 @@ impl Abilities {
     }
 }
 
+/// What the server answered a hand-typed command.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawReply {
+    pub code: u32,
+    pub text: String,
+    /// Whether this command wanted a data connection, and the control
+    /// connection was therefore thrown away afterwards.
+    pub connection_dropped: bool,
+}
+
+/// Whether a command expects a second connection to be opened for it.
+///
+/// These are the ones that leave a control connection mid-sentence when they
+/// are sent by hand: the server announces a transfer and waits for somebody to
+/// take it, and every later reply is then an answer to the wrong question. The
+/// listing commands belong here too — they are transfers that happen to carry
+/// file names.
+///
+/// `PASV` and its relatives are in the list for the same reason from the other
+/// end: they leave a socket open that the next real transfer would walk into.
+pub fn wants_data_channel(command: &str) -> bool {
+    const VERBS: [&str; 11] = [
+        "RETR", "STOR", "STOU", "APPE", "LIST", "NLST", "MLSD", "PASV", "EPSV", "PORT", "EPRT",
+    ];
+    let verb = command.split_whitespace().next().unwrap_or_default();
+    VERBS.iter().any(|known| verb.eq_ignore_ascii_case(known))
+}
+
 /// One pooled control connection.
 struct Connection {
     stream: AsyncRustlsFtpStream,
@@ -825,6 +854,61 @@ impl FtpSession {
         Ok(())
     }
 
+    /// Sends one command exactly as typed, and hands back what came back.
+    ///
+    /// Nothing is refused. The window warns about the commands that open a data
+    /// connection, and somebody who reads the warning and sends `RETR` anyway
+    /// has their reasons — this is a raw command mode, and one that quietly
+    /// declines half the protocol is not one.
+    ///
+    /// What makes that safe is what happens afterwards: a connection used for
+    /// such a command is **closed rather than returned to the pool**. It is
+    /// mid-sentence, and reusing it would mean every later reply belongs to the
+    /// previous question. Logging in again costs two round trips.
+    pub async fn raw(&self, command: &str) -> Result<RawReply> {
+        let command = command.trim();
+        if command.is_empty() {
+            return Err(Error::other("nothing to send"));
+        }
+
+        let mut lease = self.lease().await?;
+        self.events
+            .log(&self.endpoint, LogDirection::Sent, command.to_string());
+
+        // An empty list of expected codes means every reply is "unexpected",
+        // which is exactly right here: a raw command has no code to expect, and
+        // the reply comes back either way.
+        let reply = match lease.stream().custom_command(command, &[]).await {
+            Ok(response) => response,
+            Err(FtpError::UnexpectedResponse(response)) => response,
+            Err(source) => return Err(ftp_error(command, source)),
+        };
+
+        let text = String::from_utf8_lossy(&reply.body).trim().to_string();
+        self.events.log(
+            &self.endpoint,
+            LogDirection::Received,
+            format!("{} {}", reply.status.code(), text),
+        );
+
+        let dropped = wants_data_channel(command);
+        if dropped {
+            self.events.log(
+                &self.endpoint,
+                LogDirection::Note,
+                "this command opened a data connection; the control connection was closed rather than reused",
+            );
+        } else {
+            lease.release();
+        }
+
+        Ok(RawReply {
+            code: reply.status.code(),
+            text,
+            connection_dropped: dropped,
+        })
+    }
+
     /// Turns what the server sent into text.
     ///
     /// suppaftp hands over a String already; where the server is not speaking
@@ -1040,5 +1124,52 @@ fn ftp_error(path: &str, source: FtpError) -> Error {
     Error::Path {
         path: path.to_string(),
         reason,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_commands_that_open_a_second_connection_are_known() {
+        // These are the ones that leave a control connection mid-sentence when
+        // they are sent by hand. Getting the list wrong in the generous
+        // direction costs a login; getting it wrong the other way costs every
+        // later reply belonging to the previous question.
+        for command in [
+            "RETR datei.txt",
+            "retr datei.txt",
+            "  STOR neu.bin",
+            "LIST",
+            "NLST /var/www",
+            "MLSD",
+            "PASV",
+            "EPSV",
+            "APPE log.txt",
+        ] {
+            assert!(wants_data_channel(command), "{command}");
+        }
+
+        for command in [
+            "PWD",
+            "NOOP",
+            "SITE CHMOD 644 x",
+            "MDTM a",
+            "SIZE a",
+            "FEAT",
+            "TYPE I",
+        ] {
+            assert!(!wants_data_channel(command), "{command}");
+        }
+    }
+
+    #[test]
+    fn a_verb_that_merely_starts_like_one_is_not_one() {
+        // RETRY is not RETR, and a list that matched prefixes would throw away
+        // a connection for no reason.
+        assert!(!wants_data_channel("RETRY"));
+        assert!(!wants_data_channel("LISTEN now"));
+        assert!(!wants_data_channel(""));
     }
 }

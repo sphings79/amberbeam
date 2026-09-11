@@ -384,6 +384,17 @@ export interface BundlePreview {
   entries: BundleRow[];
 }
 
+/** What the server answered a hand-typed command. */
+export interface RawReply {
+  code: number;
+  text: string;
+  /**
+   * Whether the command opened a data connection, and the control connection
+   * was therefore closed rather than reused.
+   */
+  connectionDropped: boolean;
+}
+
 /** Which secret of an entry is meant. */
 export type SecretKind = "password" | "passphrase";
 
@@ -551,6 +562,13 @@ export interface AmberBeamApi {
     chosen: number[],
     into: string,
   ): Promise<number>;
+
+  /**
+   * Sends one command exactly as typed.
+   *
+   * Only FTP has such a thing; anything else refuses and says why.
+   */
+  rawCommand(endpoint: string, command: string): Promise<RawReply>;
 
   // --- The keyboard ---
 

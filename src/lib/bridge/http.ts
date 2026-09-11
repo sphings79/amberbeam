@@ -28,6 +28,7 @@ import type {
   ImportPreview,
   ImportSource,
   OpenSide,
+  RawReply,
   Release,
   SecretKind,
   Site,
@@ -196,6 +197,9 @@ export const api: AmberBeamApi = {
     takePasswords: boolean,
     into: string,
   ) => call<number>("import-apply", { source, path, chosen, expected, takePasswords, into }),
+
+  rawCommand: (endpoint: string, command: string) =>
+    call<RawReply>("raw-command", { endpoint, command }),
 
   async openSystemKeyboard(): Promise<void> {
     // A browser has no system settings to open, and the container build runs

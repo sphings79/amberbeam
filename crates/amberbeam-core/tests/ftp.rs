@@ -545,3 +545,53 @@ async fn implicit_ftps_on_a_plain_port_gives_up_instead_of_hanging() {
         Err(_) => panic!("implicit FTPS hung instead of reporting a failure"),
     }
 }
+
+/// Hand-typed commands, and what happens to the connection afterwards.
+///
+/// The second half is the point. A command that opens a data connection leaves
+/// the control connection mid-sentence, and the rule is that such a connection
+/// is closed rather than put back in the pool. What this proves is that the
+/// next command still gets an answer to its own question — which is exactly
+/// what would stop being true if the rule were dropped.
+#[tokio::test]
+async fn a_raw_command_answers_and_does_not_poison_the_next_one() {
+    let (host, port) = server_or_skip!("a_raw_command");
+    let events = Events::new();
+    let session = FtpSession::connect(
+        &params(&host, port, Encryption::None),
+        &EndpointId::new("ftp"),
+        &events,
+    )
+    .await
+    .expect("connect");
+
+    // An ordinary command: answered, and the connection goes back to the pool.
+    let feat = session.raw("FEAT").await.expect("FEAT");
+    assert_eq!(feat.code, 211, "FEAT answers 211 with the feature list");
+    assert!(!feat.connection_dropped);
+    assert!(feat.text.to_uppercase().contains("MLSD"), "{}", feat.text);
+
+    // A command the server refuses is still an answer, not a failure of ours.
+    let nonsense = session.raw("XYZZY").await.expect("a reply, not an error");
+    assert!(
+        nonsense.code >= 500,
+        "an unknown command answers in the 500s, got {}",
+        nonsense.code
+    );
+
+    // And one that opens a data connection: sent, answered, and the connection
+    // thrown away rather than reused.
+    let listing = session.raw("PASV").await.expect("PASV");
+    assert!(
+        listing.connection_dropped,
+        "a data-channel command must not leave its connection in the pool"
+    );
+
+    // The question this test exists for: does the next command get its own
+    // answer? If the poisoned connection had been reused, this would come back
+    // with whatever was left over from the one before.
+    let home = session.home().await.expect("PWD after a data command");
+    assert!(home.starts_with('/'), "got {home:?}");
+    let again = session.raw("FEAT").await.expect("FEAT again");
+    assert_eq!(again.code, 211);
+}

@@ -341,8 +341,8 @@
   "setup.drawing.key-F3": "Mission Control",
   "setup.drawing.key-F4": "Spotlight / Launchpad",
   "setup.drawing.key-F11": "Schreibtisch zeigen",
-  "scheme.classic": "Wie gewohnt",
-  "scheme.classic.what": "Die Belegung von drüben, unverändert.",
+  "scheme.classic": "Windows-Stil",
+  "scheme.classic.what": "Die Funktionstasten wie auf einem PC.",
   "scheme.mac": "Mac-freundlich",
   "scheme.mac.what": "Gar keine Funktionstaste, alles auf ⌘.",
   "scheme.mixed": "Gemischt",
@@ -371,5 +371,9 @@
   "keys.import": "Importieren…",
   "keys.exported": "Geschrieben.",
   "keys.imported": "Eingelesen.",
-  "keys.import.failed": "Diese Datei ist kein Tastenschema oder stammt aus einer neueren Fassung. Nichts geändert."
+  "keys.import.failed": "Diese Datei ist kein Tastenschema oder stammt aus einer neueren Fassung. Nichts geändert.",
+  "raw.placeholder": "FEAT, PWD, SITE CHMOD 644 index.html …",
+  "raw.send": "Senden",
+  "raw.not-here": "Raw-Befehle gibt es nur über FTP. SSH trägt ein Dateiübertragungsprotokoll mit festen Operationen, kein Gespräch in Textform — hier ist nichts, worein man tippen könnte.",
+  "raw.data-warning": "Dieser Befehl öffnet einen Datenkanal. Er wird gesendet, und die Steuerverbindung danach geschlossen statt weiterverwendet — sie bliebe sonst mitten im Satz stehen, und jede spätere Antwort gehörte zur vorigen Frage. Der nächste Befehl meldet sich neu an."
 }

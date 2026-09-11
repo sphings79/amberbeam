@@ -144,6 +144,9 @@
         <button type="button" class="scheme" onclick={() => choose(name)}>
           <span class="name">{t(`scheme.${name}`)}</span>
           <span class="what">{t(`scheme.${name}.what`)}</span>
+          <!-- The last two lines sit at the bottom of every card, whatever the
+               description above them runs to. Three cards whose facts start at
+               three different heights read as three different kinds of thing. -->
           <span class="cost">
             {COST[name].settings === 0
               ? t("setup.cost.none")
@@ -306,13 +309,16 @@
     font-weight: 600;
   }
 
-  .scheme .what,
-  .scheme .cost {
+  .scheme .what {
     font-size: 0.76rem;
     color: var(--text-muted);
+    /* Takes whatever room is left, which is what pushes the two lines below
+       it to the bottom edge. */
+    flex: 1;
   }
 
   .scheme .cost {
+    font-size: 0.76rem;
     color: var(--text-faint);
   }
 

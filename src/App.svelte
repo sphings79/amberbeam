@@ -115,6 +115,8 @@
   let stateRead = $state(false);
   let setupOpen = $state(false);
   let helpOpen = $state(false);
+  /** The raw command line, which F4 opens and closes. */
+  let rawOpen = $state(false);
   let keysOpen = $state(false);
   /** The queue folded away, which is what F8 does. */
   let queueHidden = $state(false);
@@ -169,11 +171,14 @@
         setTreeVisible("right", saved.showTree.right ?? true);
       }
       restoreKeys(saved?.keys);
-      stateRead = true;
       if (saved?.showHidden) {
         setHiddenVisible("left", saved.showHidden.left ?? true);
         setHiddenVisible("right", saved.showHidden.right ?? true);
       }
+      // Only now may anything be written back. Opening the gate earlier would
+      // let a half-restored state overwrite the whole of it.
+      stateRead = true;
+
       await openSession("left", local, null, null, saved?.leftPath ?? null);
       await openSession("right", local, null, null, null);
     })();
@@ -192,8 +197,18 @@
     return () => unsubscribe?.();
   });
 
-  /** Saved on every change, so a crash does not lose the layout. */
+  /**
+   * Saved on every change, so a crash does not lose the layout.
+   *
+   * Two guards, and both were learned the hard way. Nothing is written before
+   * the saved state has been read, or the defaults this window starts with
+   * overwrite what was there. And nothing is written from the site manager at
+   * all: it is the same bundle in a second window, with its own copy of every
+   * value here — pane sizes it never shows, a keyboard scheme it never loaded —
+   * and opening it once was enough to put all of that over the real thing.
+   */
   $effect(() => {
+    if (isSiteManager || !stateRead) return;
     const state = {
       logHeight,
       queueHeight,
@@ -522,6 +537,9 @@
       case "help":
         helpOpen = true;
         break;
+      case "raw":
+        rawOpen = !rawOpen;
+        break;
       case "fullscreen":
         await api.toggleFullscreen().catch(() => undefined);
         break;
@@ -559,7 +577,14 @@
 <div class="window">
   {#each topRegions as region (region)}
     {#if region === "log"}
-      <div class="region log" style:height="{logHeight}px"><ServerLog /></div>
+      <div class="region log" style:height="{logHeight}px">
+        <ServerLog
+          endpoint={pane(focusedSide()).endpoint}
+          protocol={pane(focusedSide()).protocol}
+          raw={rawOpen}
+          onclose={() => (rawOpen = false)}
+        />
+      </div>
       <Splitter
         direction="horizontal"
         label={t("splitter.log")}
@@ -604,7 +629,14 @@
         label={t("splitter.log")}
         onmove={(d) => (logHeight = Math.min(400, Math.max(60, logHeight - d)))}
       />
-      <div class="region log" style:height="{logHeight}px"><ServerLog /></div>
+      <div class="region log" style:height="{logHeight}px">
+        <ServerLog
+          endpoint={pane(focusedSide()).endpoint}
+          protocol={pane(focusedSide()).protocol}
+          raw={rawOpen}
+          onclose={() => (rawOpen = false)}
+        />
+      </div>
     {:else}
       <Splitter
         direction="horizontal"

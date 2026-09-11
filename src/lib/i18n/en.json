@@ -341,8 +341,8 @@
   "setup.drawing.key-F3": "Mission Control",
   "setup.drawing.key-F4": "Spotlight / Launchpad",
   "setup.drawing.key-F11": "Show Desktop",
-  "scheme.classic": "As you know it",
-  "scheme.classic.what": "The layout from the other side, unchanged.",
+  "scheme.classic": "Windows style",
+  "scheme.classic.what": "The function keys as they are on a PC.",
   "scheme.mac": "Mac-friendly",
   "scheme.mac.what": "No function key at all, everything on ⌘.",
   "scheme.mixed": "Mixed",
@@ -371,5 +371,9 @@
   "keys.import": "Import…",
   "keys.exported": "Written.",
   "keys.imported": "Read.",
-  "keys.import.failed": "That file is not a key scheme, or comes from a newer version. Nothing was changed."
+  "keys.import.failed": "That file is not a key scheme, or comes from a newer version. Nothing was changed.",
+  "raw.placeholder": "FEAT, PWD, SITE CHMOD 644 index.html …",
+  "raw.send": "Send",
+  "raw.not-here": "Raw commands exist only over FTP. SSH carries a file transfer protocol with typed operations, not a conversation in text — there is nothing here to type into.",
+  "raw.data-warning": "This command opens a data connection. It will be sent, and the control connection closed afterwards rather than reused — it would otherwise be left mid-sentence, and every later reply would belong to the previous question. The next command logs in again."
 }

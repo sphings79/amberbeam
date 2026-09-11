@@ -23,6 +23,7 @@ import type {
   ImportPreview,
   ImportSource,
   OpenSide,
+  RawReply,
   Release,
   SecretKind,
   Site,
@@ -135,6 +136,9 @@ export const api: AmberBeamApi = {
     takePasswords: boolean,
     into: string,
   ) => invoke<number>("import_apply", { source, path, chosen, expected, takePasswords, into }),
+
+  rawCommand: (endpoint: string, command: string) =>
+    invoke<RawReply>("raw_command", { endpoint, command }),
 
   openSystemKeyboard: (pane: "function-keys" | "shortcuts") =>
     invoke<void>("open_system_keyboard", { pane }),

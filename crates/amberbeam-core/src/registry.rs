@@ -185,6 +185,11 @@ impl Sessions {
         })
     }
 
+    /// Sends one hand-typed command to an endpoint.
+    pub async fn raw(&self, endpoint: &EndpointId, command: &str) -> Result<crate::ftp::RawReply> {
+        self.find(endpoint).await?.raw(command).await
+    }
+
     pub async fn list_dir(&self, endpoint: &EndpointId, path: &str) -> Result<Listing> {
         let session = self.find(endpoint).await?;
         let listing = session.list_dir(path).await?;

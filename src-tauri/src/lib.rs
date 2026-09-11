@@ -253,6 +253,19 @@ fn open_site(app: tauri::AppHandle, id: String, side: String) -> Result<(), Erro
         .map_err(Error::other)
 }
 
+/// Sends one command exactly as typed, and answers with what came back.
+#[tauri::command]
+async fn raw_command(
+    state: tauri::State<'_, Arc<State>>,
+    endpoint: String,
+    command: String,
+) -> Result<amberbeam_core::ftp::RawReply, Error> {
+    state
+        .sessions
+        .raw(&EndpointId::new(endpoint), &command)
+        .await
+}
+
 // --- Taking the list with you ----------------------------------------------
 
 /// Writes the whole list to one file.
@@ -1131,6 +1144,7 @@ pub fn run() {
             forget_quick_connect,
             save_as_site,
             open_site_manager,
+            raw_command,
             export_sites,
             bundle_preview,
             bundle_apply,

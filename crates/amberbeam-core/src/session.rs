@@ -229,6 +229,21 @@ impl Session {
         }
     }
 
+    /// Sends one command exactly as typed.
+    ///
+    /// Only FTP has such a thing. SSH carries a file transfer protocol with
+    /// typed operations, not a conversation in text — there is no command line
+    /// to type into, and pretending otherwise would be a box that never
+    /// answers.
+    pub async fn raw(&self, command: &str) -> Result<crate::ftp::RawReply> {
+        match self {
+            Session::Ftp(session) => session.raw(command).await,
+            _ => Err(crate::error::Error::other(
+                "raw commands exist only over FTP",
+            )),
+        }
+    }
+
     /// Whether a transfer that stopped can be picked up where it left off.
     ///
     /// A file handle can always be positioned; an FTP server can only do it if
