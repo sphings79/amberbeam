@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # The core is ordinary Rust and has nothing to do with macOS. Running it on
+  # Linux keeps that honest: the day it stops building here, a dependency on the
+  # platform has crept in — and the container build of M7 would be the next
+  # thing to break.
+  core:
+    name: Core (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --package amberbeam-core --check
+      - run: cargo clippy --package amberbeam-core --all-targets -- -D warnings
+      - run: cargo test --package amberbeam-core
+
+  frontend:
+    name: Frontend and seams
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Language files complete
+        run: npm run check:lang
+      - name: No access to Tauri outside the bridge
+        run: npm run check:seams
+      - run: npm run check
+      # Both bridge implementations have to compile, or the second one is
+      # dead weight that nobody notices rotting.
+      - name: Build the desktop shell
+        run: npm run build
+      - name: Build the container shell
+        run: npm run build
+        env:
+          AMBERBEAM_SHELL: web
+
+  app:
+    name: macOS app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+      - run: npm ci
+      - name: Build the app and the disk image
+        run: npm run tauri build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: amberbeam-dmg
+          path: target/release/bundle/dmg/*.dmg
+          if-no-files-found: error

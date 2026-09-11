@@ -1,0 +1,12 @@
+# Build output
+/node_modules/
+/dist/
+/target/
+/src-tauri/gen/schemas/
+
+# The concept paper lives outside the repository on purpose: it is the working
+# document, and it names paths and people that a public repository need not.
+/amberbeam.html
+
+# macOS
+.DS_Store

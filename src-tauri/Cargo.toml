@@ -1,0 +1,24 @@
+[package]
+name = "amberbeam-desktop"
+description = "Desktop shell of AmberBeam. Maps commands onto the core and does nothing else."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+# The `_lib` suffix keeps the library name apart from the binary name, which
+# Windows insists on. See https://github.com/rust-lang/cargo/issues/8519
+name = "amberbeam_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+amberbeam-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
