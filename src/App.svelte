@@ -2,6 +2,7 @@
   import { api, LOCAL, type ConnectRequest, type CoreEvent, type Unsubscribe } from "./lib/bridge";
   import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
+  import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
   import {
     focusedSide,
     goUp,
@@ -19,11 +20,13 @@
     type Side,
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
+  import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
   import { hostKeyQuestion } from "./lib/ui/errors";
   import FilePane from "./lib/ui/FilePane.svelte";
   import HostKeyDialog from "./lib/ui/HostKeyDialog.svelte";
   import QuickConnect from "./lib/ui/QuickConnect.svelte";
   import ServerLog from "./lib/ui/ServerLog.svelte";
+  import TransferQueue from "./lib/ui/TransferQueue.svelte";
   import Splitter from "./lib/ui/Splitter.svelte";
 
   /** Heights, split and where each region sits — all kept across restarts. */
@@ -63,6 +66,14 @@
 
   let hostKey = $derived(hostKeyQuestion(connectFailure));
 
+  /**
+   * The first job waiting for an answer about an existing file.
+   *
+   * One at a time, with "do the same for the others" on the dialog: a queue of
+   * two hundred files must not turn into two hundred questions.
+   */
+  let asking = $derived(queueState().jobs.filter((job) => job.state === "asking"));
+
   // Both panes start on the local file system. Which side later becomes a
   // server is the user's business; nothing here treats one as privileged.
   $effect(() => {
@@ -100,9 +111,14 @@
 
   let unsubscribe: Unsubscribe | null = null;
   $effect(() => {
-    void api.subscribe((event: CoreEvent) => recordEvent(event)).then((stop) => {
-      unsubscribe = stop;
-    });
+    void api
+      .subscribe((event: CoreEvent) => {
+        recordEvent(event);
+        recordQueueEvent(event);
+      })
+      .then((stop) => {
+        unsubscribe = stop;
+      });
     return () => unsubscribe?.();
   });
 
@@ -141,6 +157,75 @@
     if (!pendingRequest) return;
     const { request, historyId, side } = pendingRequest;
     await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side);
+  }
+
+  /** Everything a transfer needs to know about where it is going. */
+  function other(side: Side): Side {
+    return side === "left" ? "right" : "left";
+  }
+
+  /** Puts entries from one pane into the queue, bound for the other. */
+  async function transfer(from: Side, names: string[]): Promise<void> {
+    if (names.length === 0) return;
+    const source = pane(from);
+    const target = pane(other(from));
+    await api.enqueue({
+      sourceEndpoint: source.endpoint,
+      sourceDirectory: source.path,
+      names,
+      targetEndpoint: target.endpoint,
+      targetDirectory: target.path,
+    });
+    await refreshQueue();
+  }
+
+  /**
+   * Files dropped from outside the window.
+   *
+   * They are always local paths, so the source is the local file system —
+   * whichever pane happens to be showing it or not. The pane under the pointer
+   * decides where they go.
+   */
+  let unsubscribeDrop: Unsubscribe | null = null;
+  $effect(() => {
+    void api
+      .onFileDrop(async (paths, position) => {
+        const ratio = window.devicePixelRatio || 1;
+        const element = document.elementFromPoint(position.x / ratio, position.y / ratio);
+        const pane = element?.closest<HTMLElement>("[data-side]");
+        const side = pane?.dataset.side as Side | undefined;
+        if (!side) return;
+        await dropLocalFiles(side, paths);
+      })
+      .then((stop) => {
+        unsubscribeDrop = stop;
+      });
+    return () => unsubscribeDrop?.();
+  });
+
+  async function dropLocalFiles(side: Side, paths: string[]): Promise<void> {
+    if (paths.length === 0) return;
+    const target = pane(side);
+    // Files arrive as whole paths; the queue wants a directory and names.
+    const separator = paths[0]?.includes("\\") ? "\\" : "/";
+    const groups = new Map<string, string[]>();
+    for (const path of paths) {
+      const cut = path.lastIndexOf(separator);
+      if (cut <= 0) continue;
+      const directory = path.slice(0, cut);
+      const name = path.slice(cut + 1);
+      groups.set(directory, [...(groups.get(directory) ?? []), name]);
+    }
+    for (const [directory, names] of groups) {
+      await api.enqueue({
+        sourceEndpoint: LOCAL,
+        sourceDirectory: directory,
+        names,
+        targetEndpoint: target.endpoint,
+        targetDirectory: target.path,
+      });
+    }
+    await refreshQueue();
   }
 
   async function disconnect(side: Side): Promise<void> {
@@ -254,14 +339,7 @@
         onmove={(d) => (logHeight = Math.min(400, Math.max(60, logHeight + d)))}
       />
     {:else}
-      <div class="region queue" style:height="{queueHeight}px">
-        <header>
-          <span class="title">{t("queue.title")}</span>
-          <span class="spacer"></span>
-          <span class="soon">{t("queue.soon")}</span>
-        </header>
-        <p class="empty">{t("queue.empty")}</p>
-      </div>
+      <div class="region queue" style:height="{queueHeight}px"><TransferQueue /></div>
       <Splitter
         direction="horizontal"
         label={t("splitter.queue")}
@@ -276,6 +354,8 @@
         side="left"
         onquickconnect={() => ((quickFor = "left"), (connectFailure = null))}
         ondisconnect={() => disconnect("left")}
+        ontransfer={(names) => transfer("left", names)}
+        onreceive={(from, names) => transfer(from, names)}
       />
     </div>
     <Splitter direction="vertical" label={t("splitter.panes")} onmove={resizeSplit} />
@@ -284,6 +364,8 @@
         side="right"
         onquickconnect={() => ((quickFor = "right"), (connectFailure = null))}
         ondisconnect={() => disconnect("right")}
+        ontransfer={(names) => transfer("right", names)}
+        onreceive={(from, names) => transfer(from, names)}
       />
     </div>
   </div>
@@ -302,20 +384,29 @@
         label={t("splitter.queue")}
         onmove={(d) => (queueHeight = Math.min(400, Math.max(60, queueHeight - d)))}
       />
-      <div class="region queue" style:height="{queueHeight}px">
-        <header>
-          <span class="title">{t("queue.title")}</span>
-          <span class="spacer"></span>
-          <span class="soon">{t("queue.soon")}</span>
-        </header>
-        <p class="empty">{t("queue.empty")}</p>
-      </div>
+      <div class="region queue" style:height="{queueHeight}px"><TransferQueue /></div>
     {/if}
   {/each}
 
   <footer>
     <span class="keys mono">{t("status.keys")}</span>
     <span class="spacer"></span>
+    <button
+      type="button"
+      class="link"
+      onclick={() => api.openUrl("https://github.com/sphings79/amberbeam")}
+      title={t("support.star.hint")}
+    >
+      ★ {t("support.star")}
+    </button>
+    <button
+      type="button"
+      class="link coffee"
+      onclick={() => api.openUrl("https://buymeacoffee.com/sphings")}
+      title={t("support.coffee.hint")}
+    >
+      ☕ {t("support.coffee")}
+    </button>
     <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
       {t("appearance.title")}
     </button>
@@ -374,6 +465,23 @@
   />
 {/if}
 
+{#if asking.length > 0 && asking[0]}
+  <ConflictDialog
+    job={asking[0]}
+    waiting={asking.length}
+    ondecide={async (policy, forAll) => {
+      const id = asking[0]?.id;
+      if (id) await api.queueDecide(id, policy, forAll);
+      await refreshQueue();
+    }}
+    onskipall={async () => {
+      const id = asking[0]?.id;
+      if (id) await api.queueDecide(id, "skip", true);
+      await refreshQueue();
+    }}
+  />
+{/if}
+
 {#if hostKey}
   <HostKeyDialog
     question={hostKey}
@@ -406,46 +514,6 @@
   .half {
     display: flex;
     min-width: 0;
-  }
-
-  .queue {
-    background: var(--surface-1);
-  }
-
-  .queue header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 3px 10px;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .title {
-    font-size: 0.66rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    font-weight: 600;
-  }
-
-  .spacer {
-    flex: 1;
-  }
-
-  .soon {
-    font-size: 0.68rem;
-    color: var(--accent);
-    background: var(--accent-soft);
-    padding: 1px 8px;
-    border-radius: 999px;
-  }
-
-  .queue .empty {
-    margin: 0;
-    padding: 12px;
-    font-size: 0.78rem;
-    color: var(--text-faint);
   }
 
   footer,
@@ -510,5 +578,17 @@
 
   .settings {
     color: var(--text-muted);
+  }
+
+  .link {
+    border: none;
+    background: none;
+    color: var(--text-faint);
+    padding: 2px 8px;
+  }
+
+  .link:hover {
+    background: none;
+    color: var(--accent);
   }
 </style>

@@ -43,14 +43,7 @@ export const COMMANDS: Command[] = [
   { id: "rename", key: "cmd.rename", icon: "rename", inToolbar: true, needsTarget: true, singleOnly: true },
   { id: "permissions", key: "cmd.permissions", icon: "permissions", inToolbar: true, needsTarget: true },
   { id: "delete", key: "cmd.delete", icon: "delete", inToolbar: true, needsTarget: true },
-  {
-    id: "transfer",
-    key: "cmd.transfer",
-    icon: "transfer",
-    inToolbar: true,
-    needsTarget: true,
-    comingIn: "M2",
-  },
+  { id: "transfer", key: "cmd.transfer", icon: "transfer", inToolbar: true, needsTarget: true },
   {
     id: "edit-remote",
     key: "cmd.edit-remote",

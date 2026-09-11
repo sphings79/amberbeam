@@ -62,19 +62,27 @@ pub struct Runner {
 impl Runner {
     pub fn new(sessions: Arc<Sessions>, events: Events, path: PathBuf) -> Arc<Self> {
         let queue = queue::load(&path);
-        let runner = Arc::new(Self {
+        Arc::new(Self {
             sessions,
             events,
             queue: Mutex::new(queue),
             running: Mutex::new(HashMap::new()),
             path,
             wake: tokio::sync::Notify::new(),
-        });
-        Arc::clone(&runner).start_reporting();
-        Arc::clone(&runner).start_scheduling();
+        })
+    }
+
+    /// Starts the two background loops.
+    ///
+    /// Apart from `new` on purpose: spawning needs a runtime, and a shell
+    /// builds its runtime after it builds its state. Calling this from outside
+    /// one panics with a message about a missing reactor that says nothing
+    /// about the real mistake.
+    pub fn start(self: &Arc<Self>) {
+        Arc::clone(self).start_reporting();
+        Arc::clone(self).start_scheduling();
         // Whatever was left over from the last run is waiting to be picked up.
-        runner.wake.notify_one();
-        runner
+        self.wake.notify_one();
     }
 
     /// A copy of the queue, for the window to draw.
@@ -89,6 +97,75 @@ impl Runner {
     pub async fn add(self: &Arc<Self>, job: QueuedJob) {
         self.queue.lock().await.add(job);
         self.after_change().await;
+    }
+
+    /// Puts what was selected into the queue, folders and all.
+    ///
+    /// Directories are resolved now rather than on the way, so the window can
+    /// say how many files are coming and the structure is worked out once.
+    pub async fn enqueue(
+        self: &Arc<Self>,
+        request: &EnqueueRequest,
+    ) -> crate::error::Result<usize> {
+        let mut jobs = Vec::new();
+        let added = now_seconds();
+
+        for name in &request.names {
+            let found = self
+                .sessions
+                .expand(
+                    &request.source_endpoint,
+                    &request.source_directory,
+                    name,
+                    &request.target_directory,
+                )
+                .await?;
+
+            for item in found {
+                let target_path = join_relative(
+                    &self.sessions,
+                    &request.target_endpoint,
+                    &request.target_directory,
+                    &item.relative,
+                )
+                .await?;
+
+                // A folder that holds nothing still has to appear at the other
+                // end, and there is nothing to transfer for it.
+                if item.size.is_none() {
+                    let _ = self
+                        .sessions
+                        .ensure_dir(&request.target_endpoint, &target_path)
+                        .await;
+                    continue;
+                }
+
+                jobs.push(QueuedJob {
+                    id: format!("{}-{}", added, jobs.len()),
+                    source_endpoint: request.source_endpoint.clone(),
+                    source_path: item.source_path,
+                    target_endpoint: request.target_endpoint.clone(),
+                    target_path,
+                    name: item.relative.clone(),
+                    state: JobState::Queued,
+                    conflict_policy: request.conflict_policy,
+                    total_bytes: item.size,
+                    done_bytes: 0,
+                    resume: None,
+                    keep_modified: request.keep_modified,
+                    keep_permissions: request.keep_permissions,
+                    use_temporary_name: request.use_temporary_name,
+                    attempts: 0,
+                    retries: request.retries,
+                    failure: None,
+                    added,
+                });
+            }
+        }
+
+        let count = jobs.len();
+        self.add_all(jobs).await;
+        Ok(count)
     }
 
     pub async fn add_all(self: &Arc<Self>, jobs: Vec<QueuedJob>) {
@@ -258,7 +335,136 @@ impl Runner {
         busy
     }
 
+    /// Works out what to do about a file that is already at the target.
+    ///
+    /// Returns the job as it should now run, or `None` when nothing should
+    /// happen — because the user has to answer first, or because the answer was
+    /// to leave it alone.
+    async fn resolve_conflict(&self, job: &QueuedJob) -> ConflictOutcome {
+        let Ok(target) = self.sessions.find(&job.target_endpoint).await else {
+            return ConflictOutcome::Run(Box::new(job.clone()));
+        };
+        let Ok((existing_size, existing_modified)) = target.stat(&job.target_path).await else {
+            // Nothing there, nothing to decide.
+            return ConflictOutcome::Run(Box::new(job.clone()));
+        };
+
+        match job.conflict_policy {
+            ConflictPolicy::Ask => ConflictOutcome::Ask,
+            ConflictPolicy::Overwrite => ConflictOutcome::Run(Box::new(job.clone())),
+            ConflictPolicy::Skip => ConflictOutcome::Skip,
+            ConflictPolicy::OverwriteIfNewer => {
+                let source_modified = match self.sessions.find(&job.source_endpoint).await {
+                    Ok(session) => session
+                        .stat(&job.source_path)
+                        .await
+                        .ok()
+                        .and_then(|(_, when)| when),
+                    Err(_) => None,
+                };
+                match (source_modified, existing_modified) {
+                    // Without both times there is no "newer", and guessing
+                    // would overwrite something for no reason.
+                    (Some(source), Some(target)) if source > target => {
+                        ConflictOutcome::Run(Box::new(job.clone()))
+                    }
+                    _ => ConflictOutcome::Skip,
+                }
+            }
+            ConflictPolicy::Rename => {
+                let free = self.free_name(job).await;
+                ConflictOutcome::Run(Box::new(QueuedJob {
+                    target_path: free,
+                    ..job.clone()
+                }))
+            }
+            ConflictPolicy::Resume => {
+                // The user asked for this one, so it happens — but the source
+                // was never shown to be unchanged, and the log says so rather
+                // than leaving it to be discovered in a corrupt file.
+                self.events.log(
+                    &job.target_endpoint,
+                    LogDirection::Note,
+                    format!(
+                        "{}: continuing from {existing_size} bytes on request, source not verified",
+                        job.name
+                    ),
+                );
+                let source = self.sessions.find(&job.source_endpoint).await.ok();
+                let (size, modified) = match &source {
+                    Some(session) => session
+                        .stat(&job.source_path)
+                        .await
+                        .unwrap_or((existing_size, None)),
+                    None => (existing_size, None),
+                };
+                ConflictOutcome::Run(Box::new(QueuedJob {
+                    resume: Some(ResumeMarker {
+                        offset: existing_size,
+                        source_size: size,
+                        source_modified: modified,
+                    }),
+                    done_bytes: existing_size,
+                    ..job.clone()
+                }))
+            }
+        }
+    }
+
+    /// A target name nothing is using yet: `name-1`, `name-2`, and so on.
+    async fn free_name(&self, job: &QueuedJob) -> String {
+        let Ok(target) = self.sessions.find(&job.target_endpoint).await else {
+            return job.target_path.clone();
+        };
+        let (stem, extension) = match job.target_path.rsplit_once('.') {
+            // A dot in the directory rather than the name is not an extension.
+            Some((stem, extension)) if !extension.contains('/') && !stem.ends_with('/') => {
+                (stem.to_string(), format!(".{extension}"))
+            }
+            _ => (job.target_path.clone(), String::new()),
+        };
+        for index in 1..1000 {
+            let candidate = format!("{stem}-{index}{extension}");
+            if target.stat(&candidate).await.is_err() {
+                return candidate;
+            }
+        }
+        job.target_path.clone()
+    }
+
     async fn run_one(self: Arc<Self>, job: QueuedJob, progress: Arc<Progress>) {
+        // The directory has to be there before the file is. Doing it here
+        // rather than at enqueue time keeps a queue that waited overnight
+        // working even if somebody tidied up in the meantime.
+        if let Ok(session) = self.sessions.find(&job.target_endpoint).await {
+            if let Some(parent) = session.parent(&job.target_path) {
+                let _ = self
+                    .sessions
+                    .ensure_dir(&job.target_endpoint, &parent)
+                    .await;
+            }
+        }
+
+        let job = match self.resolve_conflict(&job).await {
+            ConflictOutcome::Run(job) => *job,
+            ConflictOutcome::Ask => {
+                self.running.lock().await.remove(&job.id);
+                if let Some(entry) = self.queue.lock().await.get_mut(&job.id) {
+                    entry.state = JobState::Asking;
+                }
+                self.after_change().await;
+                return;
+            }
+            ConflictOutcome::Skip => {
+                self.running.lock().await.remove(&job.id);
+                if let Some(entry) = self.queue.lock().await.get_mut(&job.id) {
+                    entry.state = JobState::Skipped;
+                }
+                self.after_change().await;
+                return;
+            }
+        };
+
         let run = TransferRun {
             source_endpoint: job.source_endpoint.clone(),
             source_path: job.source_path.clone(),
@@ -391,6 +597,51 @@ impl Runner {
             }
         });
     }
+}
+
+/// What to do about a file that is already at the target.
+enum ConflictOutcome {
+    /// Boxed because a job is far larger than the other two answers, and the
+    /// enum would otherwise carry that weight on every decision.
+    Run(Box<QueuedJob>),
+    Ask,
+    Skip,
+}
+
+/// What the window asks for when something is dragged or the button is used.
+#[derive(Debug, Clone)]
+pub struct EnqueueRequest {
+    pub source_endpoint: EndpointId,
+    pub source_directory: String,
+    pub names: Vec<String>,
+    pub target_endpoint: EndpointId,
+    pub target_directory: String,
+    pub conflict_policy: ConflictPolicy,
+    pub keep_modified: bool,
+    pub keep_permissions: bool,
+    pub use_temporary_name: bool,
+    pub retries: Option<u8>,
+}
+
+fn now_seconds() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| since.as_secs() as i64)
+        .unwrap_or_default()
+}
+
+/// Joins a relative path onto a directory, in the target's own notation.
+async fn join_relative(
+    sessions: &Sessions,
+    endpoint: &EndpointId,
+    directory: &str,
+    relative: &str,
+) -> crate::error::Result<String> {
+    let mut path = directory.to_string();
+    for part in relative.split('/').filter(|part| !part.is_empty()) {
+        path = sessions.join(endpoint, &path, part).await?;
+    }
+    Ok(path)
 }
 
 /// How many attempts this job gets. Carried on the job so a queue written by an

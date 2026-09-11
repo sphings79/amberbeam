@@ -163,6 +163,20 @@
               role="option"
               aria-selected={view.selected.has(entry.name)}
               tabindex="-1"
+              draggable="true"
+              ondragstart={(event) => {
+                // What is dragged is what an operation would work on: the
+                // marked rows, or the one under the pointer.
+                if (!view.selected.has(entry.name)) {
+                  setCursor(side, item.index);
+                }
+                const names = view.selected.size > 0 ? [...view.selected] : [entry.name];
+                event.dataTransfer?.setData(
+                  "application/x-amberbeam",
+                  JSON.stringify({ side, names }),
+                );
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
+              }}
               onclick={(event) => onRowClick(item.index, entry, event)}
               ondblclick={() => onenter(entry)}
               oncontextmenu={(event) => onRowContext(item.index, entry, event)}

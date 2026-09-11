@@ -29,9 +29,16 @@
     side: Side;
     onquickconnect: () => void;
     ondisconnect: () => void;
+    /** Sends the named entries to the other pane. */
+    ontransfer: (names: string[]) => Promise<void>;
+    /** Entries dragged here from the other pane. */
+    onreceive: (from: Side, names: string[]) => Promise<void>;
   }
 
-  let { side, onquickconnect, ondisconnect }: Props = $props();
+  let { side, onquickconnect, ondisconnect, ontransfer, onreceive }: Props = $props();
+
+  /** Set while something is being dragged over this pane. */
+  let dropTarget = $state(false);
 
   let view = $derived(pane(side));
   let active = $derived(focusedSide() === side);
@@ -170,6 +177,9 @@
       case "delete":
         await askDelete();
         break;
+      case "transfer":
+        await ontransfer(chosen.map((entry) => entry.name));
+        break;
       default:
         // transfer and remote editing arrive with the transfer engine.
         break;
@@ -185,7 +195,36 @@
 <section
   class="pane"
   class:active
+  class:dropTarget
   onpointerdown={() => focusPane(side)}
+  ondragover={(event) => {
+    // Both kinds of drag land here: rows from the other pane, and files from
+    // the Finder. Which one it is only matters on drop.
+    event.preventDefault();
+    dropTarget = true;
+  }}
+  ondragleave={(event) => {
+    if (event.target === event.currentTarget) dropTarget = false;
+  }}
+  ondrop={async (event) => {
+    event.preventDefault();
+    dropTarget = false;
+    // A drag from the other pane carries which pane it came from and what was
+    // held. A drag from outside the window never reaches here — the desktop
+    // shell takes those so it can hand over real paths.
+    const payload = event.dataTransfer?.getData("application/x-amberbeam");
+    if (!payload) return;
+    try {
+      const { side: from, names } = JSON.parse(payload) as { side: Side; names: string[] };
+      if (from !== side) {
+        await onreceive(from, names);
+      }
+    } catch {
+      // Something else was dropped. Nothing to do, and nothing to complain
+      // about either.
+    }
+  }}
+  data-side={side}
   aria-label={remote ? t("pane.server") : t("pane.local")}
 >
   <header>
@@ -301,6 +340,10 @@
 
   .pane.active {
     border-top-color: var(--accent);
+  }
+
+  .pane.dropTarget {
+    box-shadow: inset 0 0 0 2px var(--accent);
   }
 
   header,

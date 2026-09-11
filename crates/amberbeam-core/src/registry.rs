@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 
 use crate::endpoint::{EndpointId, Protocol};
 use crate::engine::{self, Progress, ResumeVerdict};
-use crate::error::{Error, Result};
+use crate::error::{Error, PathProblem, Result};
 use crate::events::{Events, LogDirection};
 use crate::fs::Listing;
 use crate::local::LocalSession;
@@ -42,6 +42,16 @@ pub struct TransferRun {
     pub use_temporary_name: bool,
     /// The source's bits, when they are to be carried across.
     pub source_permissions: Option<u32>,
+}
+
+/// One file found while resolving what was selected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Expanded {
+    pub source_path: String,
+    /// Path relative to what was selected, so the structure is kept at the
+    /// other end. `None` size means a directory that exists only to be created.
+    pub relative: String,
+    pub size: Option<u64>,
 }
 
 /// How a transfer ended.
@@ -288,6 +298,98 @@ impl Sessions {
             self.events
                 .log(endpoint, LogDirection::Note, "disconnected");
         }
+    }
+
+    /// Creates a directory and everything above it that is missing.
+    ///
+    /// A queue that keeps the structure of what was dragged has to put the
+    /// folders there first, and the file being transferred is no place to find
+    /// out that its directory does not exist.
+    pub async fn ensure_dir(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
+        let session = self.find(endpoint).await?;
+        if session.list_dir(path).await.is_ok() {
+            return Ok(());
+        }
+        if let Some(parent) = session.parent(path) {
+            if parent != path {
+                Box::pin(self.ensure_dir(endpoint, &parent)).await?;
+            }
+        }
+        match session.create_dir(path).await {
+            Ok(()) => Ok(()),
+            // Another job in the same queue may have made it in the meantime,
+            // which is a race worth losing quietly.
+            Err(Error::Path {
+                reason: PathProblem::AlreadyExists,
+                ..
+            }) => Ok(()),
+            Err(error) if session.list_dir(path).await.is_ok() => {
+                let _ = error;
+                Ok(())
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Everything below one entry, as files with their paths on both sides.
+    ///
+    /// Directories are resolved here rather than while transferring: the window
+    /// shows how many files are coming, and relative paths are worked out once
+    /// instead of per job.
+    pub async fn expand(
+        &self,
+        endpoint: &EndpointId,
+        directory: &str,
+        name: &str,
+        target_directory: &str,
+    ) -> Result<Vec<Expanded>> {
+        let session = self.find(endpoint).await?;
+        let source = session.join(directory, name);
+
+        let listing = match session.list_dir(&source).await {
+            // Not a directory: one file, and the name is kept as it is.
+            Err(_) => {
+                let (size, _) = session.stat(&source).await.unwrap_or((0, None));
+                return Ok(vec![Expanded {
+                    source_path: source,
+                    relative: name.to_string(),
+                    size: Some(size),
+                }]);
+            }
+            Ok(listing) => listing,
+        };
+
+        let _ = target_directory;
+        let mut out = Vec::new();
+        let mut pending = vec![(source.clone(), name.to_string(), listing)];
+
+        while let Some((directory, relative, listing)) = pending.pop() {
+            // An empty folder is worth carrying across on its own; without this
+            // it would simply vanish from the copy.
+            if listing.entries.is_empty() {
+                out.push(Expanded {
+                    source_path: directory.clone(),
+                    relative: relative.clone(),
+                    size: None,
+                });
+            }
+            for entry in listing.entries {
+                let child = session.join(&directory, &entry.name);
+                let child_relative = format!("{relative}/{}", entry.name);
+                if entry.is_directory() {
+                    if let Ok(inner) = session.list_dir(&child).await {
+                        pending.push((child, child_relative, inner));
+                    }
+                } else {
+                    out.push(Expanded {
+                        source_path: child,
+                        relative: child_relative,
+                        size: entry.size,
+                    });
+                }
+            }
+        }
+        Ok(out)
     }
 
     /// Every endpoint that currently has a session.

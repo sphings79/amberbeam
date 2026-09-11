@@ -94,7 +94,8 @@ impl Queue {
 
     /// Clears out everything that will not run again.
     pub fn clear_finished(&mut self) {
-        self.jobs.retain(|job| job.state != JobState::Done);
+        self.jobs
+            .retain(|job| !matches!(job.state, JobState::Done | JobState::Skipped));
     }
 
     /// Moves a job one place up or down, which is what the buttons do.
@@ -162,6 +163,7 @@ impl Queue {
         for job in &self.jobs {
             match job.state {
                 JobState::Done => totals.done_jobs += 1,
+                JobState::Skipped => totals.skipped_jobs += 1,
                 JobState::Failed => totals.failed_jobs += 1,
                 JobState::Running => totals.running_jobs += 1,
                 JobState::Queued => totals.waiting_jobs += 1,
@@ -186,6 +188,7 @@ pub struct Totals {
     pub running_jobs: u32,
     pub paused_jobs: u32,
     pub done_jobs: u32,
+    pub skipped_jobs: u32,
     pub failed_jobs: u32,
     pub done_bytes: u64,
     pub total_bytes: u64,

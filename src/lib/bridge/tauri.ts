@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 import type {
   AmberBeamApi,
@@ -10,8 +11,12 @@ import type {
   CoreEvent,
   CoreInfo,
   Listing,
+  ConflictPolicy,
+  EnqueueRequest,
   Measurement,
+  Queue,
   QuickConnectEntry,
+  Totals,
   Settings,
   Unsubscribe,
 } from "./types";
@@ -54,6 +59,27 @@ export const api: AmberBeamApi = {
   forgetQuickConnect: (id: string) => invoke<void>("forget_quick_connect", { id }),
   saveAsSite: (id: string) => invoke<string>("save_as_site", { id }),
   rememberPath: (id: string, path: string) => invoke<void>("remember_path", { id, path }),
+
+  async onFileDrop(handler): Promise<Unsubscribe> {
+    return await getCurrentWebview().onDragDropEvent((event) => {
+      if (event.payload.type !== "drop") return;
+      handler(event.payload.paths, event.payload.position);
+    });
+  },
+
+  enqueue: (request: EnqueueRequest) => invoke<number>("enqueue", { request }),
+  queueSnapshot: () => invoke<Queue>("queue_snapshot"),
+  queueTotals: () => invoke<Totals>("queue_totals"),
+  queuePause: (paused: boolean) => invoke<void>("queue_pause", { paused }),
+  queueHold: (id: string) => invoke<void>("queue_hold", { id }),
+  queueResume: (id: string) => invoke<void>("queue_resume", { id }),
+  queueRemove: (id: string) => invoke<void>("queue_remove", { id }),
+  queueClearFinished: () => invoke<void>("queue_clear_finished"),
+  queueMove: (id: string, by?: number, to?: number) => invoke<void>("queue_move", { id, by, to }),
+  queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
+    invoke<void>("queue_decide", { id, policy, forAll }),
+
+  openUrl: (url: string) => invoke<void>("open_url", { url }),
 
   settings: () => invoke<Settings>("settings"),
   setSettings: (value: Settings) => invoke<void>("set_settings", { value }),

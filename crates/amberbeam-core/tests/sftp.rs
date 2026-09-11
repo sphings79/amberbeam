@@ -43,7 +43,7 @@ use amberbeam_core::events::{Event, Events, LogDirection};
 use amberbeam_core::fs::EntryKind;
 use amberbeam_core::queue::QueuedJob;
 use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
-use amberbeam_core::runner::Runner;
+use amberbeam_core::runner::{EnqueueRequest, Runner};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision, SftpSession};
 use amberbeam_core::transfer::ResumeMarker;
 use amberbeam_core::transfer::{ConflictPolicy, JobState};
@@ -1170,6 +1170,9 @@ async fn the_queue_works_through_several_files_and_survives_a_restart() {
         events.clone(),
         queue_file.clone(),
     );
+    // Creating the queue does not start it: spawning needs a runtime, and a
+    // shell builds its state before its runtime.
+    runner.start();
 
     let mut names = Vec::new();
     let mut jobs = Vec::new();
@@ -1271,6 +1274,9 @@ async fn a_held_job_keeps_its_place_and_its_offset() {
         events.clone(),
         queue_file.clone(),
     );
+    // Creating the queue does not start it: spawning needs a runtime, and a
+    // shell builds its state before its runtime.
+    runner.start();
     // Nothing starts while the queue is held, which is what makes the state
     // observable at all.
     runner.set_paused(true).await;
@@ -1314,6 +1320,221 @@ async fn a_held_job_keeps_its_place_and_its_offset() {
     }
 
     sessions.remove(&server, &target).await.expect("clean up");
+    let _ = std::fs::remove_file(&source);
+    let _ = std::fs::remove_file(&queue_file);
+}
+
+#[tokio::test]
+async fn a_folder_travels_with_its_structure() {
+    let (host, port) = server_or_skip!("a_folder_travels");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+    let sessions = std::sync::Arc::new(sessions);
+
+    // A small tree with a folder inside a folder and an empty one.
+    let root = std::env::temp_dir().join("amberbeam-tree-source");
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("site/images")).unwrap();
+    std::fs::create_dir_all(root.join("site/empty")).unwrap();
+    std::fs::write(root.join("site/index.html"), b"<!doctype html>").unwrap();
+    std::fs::write(root.join("site/images/logo.svg"), b"<svg/>").unwrap();
+
+    let queue_file = std::env::temp_dir().join("amberbeam-queue-tree.json");
+    let _ = std::fs::remove_file(&queue_file);
+    let runner = Runner::new(
+        std::sync::Arc::clone(&sessions),
+        events.clone(),
+        queue_file.clone(),
+    );
+    // Creating the queue does not start it: spawning needs a runtime, and a
+    // shell builds its state before its runtime.
+    runner.start();
+
+    let target_root = format!("{}/amberbeam-tree", testdata());
+    let _ = sessions.remove(&server, &target_root).await;
+    sessions
+        .create_dir(&server, &target_root)
+        .await
+        .expect("create the target root");
+
+    let count = runner
+        .enqueue(&EnqueueRequest {
+            source_endpoint: local.clone(),
+            source_directory: root.to_string_lossy().into_owned(),
+            names: vec!["site".into()],
+            target_endpoint: server.clone(),
+            target_directory: target_root.clone(),
+            conflict_policy: ConflictPolicy::Overwrite,
+            keep_modified: true,
+            keep_permissions: false,
+            use_temporary_name: true,
+            retries: Some(3),
+        })
+        .await
+        .expect("enqueue");
+    assert_eq!(
+        count, 2,
+        "two files, and the folders are made rather than queued"
+    );
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while runner.totals().await.done_jobs < 2 {
+        assert!(runner.totals().await.failed_jobs == 0, "a job failed");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the queue did not finish"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    // The structure is there, including the folder that holds nothing.
+    let inside = sessions
+        .list_dir(&server, &format!("{target_root}/site"))
+        .await
+        .expect("list");
+    let names: Vec<&str> = inside.entries.iter().map(|e| e.name.as_str()).collect();
+    assert!(names.contains(&"index.html"), "{names:?}");
+    assert!(names.contains(&"images"), "{names:?}");
+    assert!(
+        names.contains(&"empty"),
+        "an empty folder has to travel too: {names:?}"
+    );
+
+    let images = sessions
+        .list_dir(&server, &format!("{target_root}/site/images"))
+        .await
+        .expect("list");
+    assert_eq!(images.entries.len(), 1);
+    assert_eq!(images.entries[0].name, "logo.svg");
+
+    sessions
+        .remove(&server, &target_root)
+        .await
+        .expect("clean up");
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_file(&queue_file);
+}
+
+#[tokio::test]
+async fn an_existing_file_stops_and_waits_for_an_answer() {
+    let (host, port) = server_or_skip!("an_existing_file_stops");
+    let events = Events::new();
+    let Some((sessions, server)) = two_endpoints(&host, port, &events).await else {
+        panic!("could not open both endpoints");
+    };
+    let local = EndpointId::new(LOCAL);
+    let sessions = std::sync::Arc::new(sessions);
+
+    let queue_file = std::env::temp_dir().join("amberbeam-queue-conflict.json");
+    let _ = std::fs::remove_file(&queue_file);
+    let runner = Runner::new(
+        std::sync::Arc::clone(&sessions),
+        events.clone(),
+        queue_file.clone(),
+    );
+    runner.start();
+
+    let source = scratch_file("conflict.bin", b"new contents");
+    // The queue keeps the name, so the target is the source's own file name in
+    // the target directory — the same thing the window ends up asking for.
+    let file_name = std::path::Path::new(&source)
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let remote = format!("{}/{file_name}", testdata());
+
+    // Something is already there, and it must survive an unanswered question.
+    let session = sessions.find(&server).await.expect("session");
+    let _ = session.remove(&remote).await;
+    session.create_file(&remote).await.expect("create");
+
+    runner
+        .enqueue(&EnqueueRequest {
+            source_endpoint: local.clone(),
+            source_directory: std::path::Path::new(&source)
+                .parent()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            names: vec![file_name.clone()],
+            target_endpoint: server.clone(),
+            target_directory: testdata(),
+            conflict_policy: ConflictPolicy::Ask,
+            keep_modified: false,
+            keep_permissions: false,
+            use_temporary_name: true,
+            retries: Some(1),
+        })
+        .await
+        .expect("enqueue");
+
+    // Rename the job's target onto the existing file: enqueue used the source
+    // file's own name, which is what the window does too.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    loop {
+        let totals = runner.totals().await;
+        if totals.asking_jobs > 0 || totals.done_jobs > 0 {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "nothing happened at all"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    let snapshot = runner.snapshot().await;
+    let job = snapshot
+        .jobs
+        .iter()
+        .find(|job| job.target_path == remote)
+        .expect("the job");
+    assert_eq!(
+        job.state,
+        JobState::Asking,
+        "a file that is already there is not overwritten without a word"
+    );
+    // And nothing was written in the meantime.
+    let (size, _) = session.stat(&remote).await.expect("stat");
+    assert_eq!(
+        size, 0,
+        "the existing file is untouched while the question stands"
+    );
+
+    // Answering with "keep both" leaves the original alone and adds a second.
+    runner.decide(&job.id, ConflictPolicy::Rename, false).await;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while runner.totals().await.done_jobs == 0 {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the answer changed nothing"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+
+    let (size, _) = session.stat(&remote).await.expect("stat");
+    assert_eq!(size, 0, "the original is still the original");
+    let listing = sessions.list_dir(&server, &testdata()).await.expect("list");
+    assert!(
+        listing
+            .entries
+            .iter()
+            .any(|entry| entry.name.contains("-conflict-1")),
+        "the new file arrived beside it: {:?}",
+        listing.entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+    );
+
+    for entry in listing.entries {
+        if entry.name.contains("-conflict") {
+            let _ = sessions
+                .remove(&server, &format!("{}/{}", testdata(), entry.name))
+                .await;
+        }
+    }
     let _ = std::fs::remove_file(&source);
     let _ = std::fs::remove_file(&queue_file);
 }

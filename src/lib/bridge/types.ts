@@ -128,7 +128,9 @@ export type LogDirection = "sent" | "received" | "note";
 export type CoreEvent =
   | { event: "log"; endpoint: string; direction: LogDirection; text: string }
   | ({ event: "connection"; endpoint: string } & ConnectionState)
-  | { event: "listed"; endpoint: string; path: string };
+  | { event: "listed"; endpoint: string; path: string }
+  | { event: "progress"; jobs: JobProgress[] }
+  | { event: "queue" };
 
 export type ConnectionState =
   | { state: "connecting" }
@@ -155,6 +157,68 @@ export interface Measurement {
   bytes: number;
   /** True when counting stopped early, so the window says "more than". */
   truncated: boolean;
+}
+
+export type JobState = "queued" | "running" | "asking" | "paused" | "done" | "failed";
+
+export type ConflictPolicy =
+  | "ask"
+  | "overwrite"
+  | "skip"
+  | "overwrite-if-newer"
+  | "rename"
+  | "resume";
+
+export interface QueuedJob {
+  id: string;
+  sourceEndpoint: string;
+  sourcePath: string;
+  targetEndpoint: string;
+  targetPath: string;
+  /** What the row shows — the path relative to what was selected. */
+  name: string;
+  state: JobState;
+  conflictPolicy: ConflictPolicy;
+  totalBytes: number | null;
+  doneBytes: number;
+  attempts: number;
+  retries: number | null;
+  failure: CoreError | null;
+  added: number;
+}
+
+export interface Queue {
+  jobs: QueuedJob[];
+  /** While true nothing new starts; what is running is left to finish. */
+  paused: boolean;
+}
+
+export interface Totals {
+  waitingJobs: number;
+  askingJobs: number;
+  runningJobs: number;
+  pausedJobs: number;
+  doneJobs: number;
+  failedJobs: number;
+  doneBytes: number;
+  totalBytes: number;
+}
+
+/** How far one running transfer has come. */
+export interface JobProgress {
+  id: string;
+  doneBytes: number;
+  totalBytes: number | null;
+  /** Bytes per second, once there is enough history to say. */
+  rate: number | null;
+}
+
+export interface EnqueueRequest {
+  sourceEndpoint: string;
+  sourceDirectory: string;
+  names: string[];
+  targetEndpoint: string;
+  targetDirectory: string;
 }
 
 /** Stops a subscription. */
@@ -206,6 +270,32 @@ export interface AmberBeamApi {
   /** Writes a site entry and returns where it landed. */
   saveAsSite(id: string): Promise<string>;
   rememberPath(id: string, path: string): Promise<void>;
+
+  /**
+   * Files dropped onto the window from outside it.
+   *
+   * Not an HTML drop event: the desktop shell intercepts those so it can hand
+   * over real paths instead of sandboxed file handles. The position is in
+   * device pixels, so the window can work out which pane was hit.
+   */
+  onFileDrop(
+    handler: (paths: string[], position: { x: number; y: number }) => void,
+  ): Promise<Unsubscribe>;
+
+  /** Puts what was selected into the queue; answers how many files that is. */
+  enqueue(request: EnqueueRequest): Promise<number>;
+  queueSnapshot(): Promise<Queue>;
+  queueTotals(): Promise<Totals>;
+  queuePause(paused: boolean): Promise<void>;
+  queueHold(id: string): Promise<void>;
+  queueResume(id: string): Promise<void>;
+  queueRemove(id: string): Promise<void>;
+  queueClearFinished(): Promise<void>;
+  queueMove(id: string, by?: number, to?: number): Promise<void>;
+  queueDecide(id: string, policy: ConflictPolicy, forAll: boolean): Promise<void>;
+
+  /** Opens a web address in the system's browser. */
+  openUrl(url: string): Promise<void>;
 
   settings(): Promise<Settings>;
   setSettings(value: Settings): Promise<void>;

@@ -18,8 +18,12 @@ import type {
   CoreEvent,
   CoreInfo,
   Listing,
+  ConflictPolicy,
+  EnqueueRequest,
   Measurement,
+  Queue,
   QuickConnectEntry,
+  Totals,
   Settings,
   Unsubscribe,
 } from "./types";
@@ -108,6 +112,32 @@ export const api: AmberBeamApi = {
   forgetQuickConnect: (id: string) => call<void>("forget-quick-connect", { id }),
   saveAsSite: (id: string) => call<string>("save-as-site", { id }),
   rememberPath: (id: string, path: string) => call<void>("remember-path", { id, path }),
+
+  async onFileDrop(): Promise<Unsubscribe> {
+    // A browser never learns the path of a dropped file, only its contents, so
+    // the container build cannot answer this the way the desktop does. Files
+    // dragged into that window will have to be uploaded through the browser —
+    // a different workflow, and part of M7 rather than something to fake here.
+    return () => undefined;
+  },
+
+  enqueue: (request: EnqueueRequest) => call<number>("enqueue", request),
+  queueSnapshot: () => call<Queue>("queue-snapshot"),
+  queueTotals: () => call<Totals>("queue-totals"),
+  queuePause: (paused: boolean) => call<void>("queue-pause", { paused }),
+  queueHold: (id: string) => call<void>("queue-hold", { id }),
+  queueResume: (id: string) => call<void>("queue-resume", { id }),
+  queueRemove: (id: string) => call<void>("queue-remove", { id }),
+  queueClearFinished: () => call<void>("queue-clear-finished"),
+  queueMove: (id: string, by?: number, to?: number) => call<void>("queue-move", { id, by, to }),
+  queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
+    call<void>("queue-decide", { id, policy, forAll }),
+
+  async openUrl(url: string): Promise<void> {
+    // In a browser the window can simply do it, and should: asking the server
+    // to open a link would open it on the server.
+    window.open(url, "_blank", "noreferrer");
+  },
 
   settings: () => call<Settings>("settings"),
   setSettings: (value: Settings) => call<void>("set-settings", { value }),

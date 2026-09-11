@@ -14,8 +14,11 @@ use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
 use amberbeam_core::fs::Listing;
 use amberbeam_core::ops::{is_usable_name, Measurement};
+use amberbeam_core::queue::{Queue, Totals};
 use amberbeam_core::registry::{Connected, Sessions};
+use amberbeam_core::runner::{EnqueueRequest, Runner};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
+use amberbeam_core::transfer::ConflictPolicy;
 use amberbeam_core::{CoreInfo, Events};
 use serde::Deserialize;
 use tauri::Emitter;
@@ -26,8 +29,9 @@ use tauri::Emitter;
 const EVENT_CHANNEL: &str = "amberbeam://event";
 
 struct State {
-    sessions: Sessions,
+    sessions: Arc<Sessions>,
     config: Config,
+    queue: Arc<Runner>,
 }
 
 /// What the window sends to open a connection.
@@ -277,6 +281,108 @@ async fn set_permissions(
         .await
 }
 
+/// What the window sends when something is dragged or the button is used.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EnqueueBody {
+    source_endpoint: String,
+    source_directory: String,
+    names: Vec<String>,
+    target_endpoint: String,
+    target_directory: String,
+}
+
+#[tauri::command]
+async fn enqueue(
+    state: tauri::State<'_, Arc<State>>,
+    request: EnqueueBody,
+) -> Result<usize, Error> {
+    let settings = state.config.settings();
+    state
+        .queue
+        .enqueue(&EnqueueRequest {
+            source_endpoint: EndpointId::new(request.source_endpoint),
+            source_directory: request.source_directory,
+            names: request.names,
+            target_endpoint: EndpointId::new(request.target_endpoint),
+            target_directory: request.target_directory,
+            // Asking is the default: overwriting somebody's file without a word
+            // is the kind of help nobody wants.
+            conflict_policy: ConflictPolicy::Ask,
+            keep_modified: settings.keep_modified,
+            keep_permissions: settings.keep_permissions,
+            use_temporary_name: settings.temporary_name,
+            retries: Some(settings.retries),
+        })
+        .await
+}
+
+#[tauri::command]
+async fn queue_snapshot(state: tauri::State<'_, Arc<State>>) -> Result<Queue, Error> {
+    Ok(state.queue.snapshot().await)
+}
+
+#[tauri::command]
+async fn queue_totals(state: tauri::State<'_, Arc<State>>) -> Result<Totals, Error> {
+    Ok(state.queue.totals().await)
+}
+
+#[tauri::command]
+async fn queue_pause(state: tauri::State<'_, Arc<State>>, paused: bool) -> Result<(), Error> {
+    state.queue.set_paused(paused).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_hold(state: tauri::State<'_, Arc<State>>, id: String) -> Result<(), Error> {
+    state.queue.hold(&id).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_resume(state: tauri::State<'_, Arc<State>>, id: String) -> Result<(), Error> {
+    state.queue.resume(&id).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_remove(state: tauri::State<'_, Arc<State>>, id: String) -> Result<(), Error> {
+    state.queue.remove(&id).await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_clear_finished(state: tauri::State<'_, Arc<State>>) -> Result<(), Error> {
+    state.queue.clear_finished().await;
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_move(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    by: Option<i32>,
+    to: Option<usize>,
+) -> Result<(), Error> {
+    if let Some(index) = to {
+        state.queue.move_to(&id, index).await;
+    } else if let Some(delta) = by {
+        state.queue.move_by(&id, delta as isize).await;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn queue_decide(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    policy: ConflictPolicy,
+    for_all: bool,
+) -> Result<(), Error> {
+    state.queue.decide(&id, policy, for_all).await;
+    Ok(())
+}
+
 #[tauri::command]
 fn quick_connect_history(state: tauri::State<'_, Arc<State>>) -> Vec<QuickConnectEntry> {
     state.config.quick_connect()
@@ -316,6 +422,33 @@ fn remember_path(
     })
 }
 
+/// Opens a web address in whatever the system uses for one.
+///
+/// A link in a webview goes nowhere on its own, and pulling in a plugin for
+/// three lines of `open` would be a dependency for nothing. Only http and
+/// https are accepted: this takes a string and hands it to the shell, and the
+/// day something other than the window's own footer calls it, that check is
+/// what stands between a link and a command line.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), Error> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err(Error::other("only http and https addresses are opened"));
+    }
+
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = {
+        let mut command = std::process::Command::new("cmd");
+        command.args(["/C", "start", ""]);
+        command
+    };
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    command.arg(&url).spawn().map(|_| ()).map_err(Error::other)
+}
+
 #[tauri::command]
 fn settings(state: tauri::State<'_, Arc<State>>) -> Settings {
     state.config.settings()
@@ -350,13 +483,24 @@ fn now() -> i64 {
 pub fn run() {
     let events = Events::new();
     let config = Config::default_location().unwrap_or_else(|_| Config::at("."));
+    let sessions = Arc::new(Sessions::new(events.clone()));
+    let queue_path = config.root().join("queue.json");
     let state = Arc::new(State {
-        sessions: Sessions::new(events.clone()),
+        sessions: Arc::clone(&sessions),
         config,
+        queue: Runner::new(sessions, events.clone(), queue_path),
     });
 
+    let started = Arc::clone(&state);
     tauri::Builder::default()
         .setup(move |app| {
+            // Inside an async block, so the queue's loops are spawned where a
+            // runtime exists.
+            let queue = Arc::clone(&started.queue);
+            tauri::async_runtime::spawn(async move {
+                queue.start();
+            });
+
             // The core's event stream is pumped into the webview here. This is
             // the only place that knows both sides; everything else deals in
             // core events, which is what makes the M7 shell a transport swap.
@@ -409,6 +553,17 @@ pub fn run() {
             set_ui_state,
             settings,
             set_settings,
+            open_url,
+            enqueue,
+            queue_snapshot,
+            queue_totals,
+            queue_pause,
+            queue_hold,
+            queue_resume,
+            queue_remove,
+            queue_clear_finished,
+            queue_move,
+            queue_decide,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

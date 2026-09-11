@@ -53,6 +53,10 @@ pub enum JobState {
     /// job is never silently dropped.
     Paused,
     Done,
+    /// Left alone because something was already there and the answer was to
+    /// skip it. Told apart from Done so the queue does not claim to have
+    /// transferred something it did not.
+    Skipped,
     Failed,
 }
 
