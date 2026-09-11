@@ -232,8 +232,8 @@ themselves are the source of truth and are readable anywhere.
 | **M2** | Transfers: queue, concurrency, resuming, conflicts, progress, drag and drop | **done** |
 | **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback, certificates named by what is wrong with them | **done** |
 | **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | **done** |
-| **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | next |
-| **M6** | Polish: icon, signing and notarisation, help, first release | |
+| **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | **done** |
+| **M6** | Polish: icon, signing and notarisation, help, first release | next |
 | **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |
 
 ## Translating

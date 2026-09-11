@@ -239,8 +239,8 @@ selbst sind die Quelle und überall lesbar.
 | **M2** | Übertragen: Warteschlange, Parallelität, Fortsetzen, Konflikte, Fortschritt, Drag and Drop | **fertig** |
 | **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene, Zertifikate beim Namen genannt statt „Zertifikatsfehler" | **fertig** |
 | **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | **fertig** |
-| **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | als Nächstes |
-| **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | |
+| **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | **fertig** |
+| **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | als Nächstes |
 | **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |
 
 ## Übersetzen

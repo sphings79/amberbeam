@@ -15,9 +15,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:lang": "node scripts/check-lang.mjs",
     "check:seams": "node scripts/check-seams.mjs",
-    "verify": "npm run check:lang && npm run check:seams && npm run check:keys && npm run check",
+    "verify": "npm run check:lang && npm run check:seams && npm run check:keys && npm run check:docs && npm run check",
     "tauri": "tauri",
-    "check:keys": "node scripts/check-keys.mjs"
+    "check:keys": "node scripts/check-keys.mjs",
+    "check:docs": "node scripts/check-docs.mjs"
   },
   "dependencies": {
     "@tanstack/virtual-core": "^3.17.10",
