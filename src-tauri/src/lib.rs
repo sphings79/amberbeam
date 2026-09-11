@@ -13,6 +13,8 @@ use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
 use amberbeam_core::fs::Listing;
+use amberbeam_core::ftp::tls::CertificateDecision;
+use amberbeam_core::ftp::{Encryption, FtpParams};
 use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::queue::{Queue, Totals};
 use amberbeam_core::registry::{Connected, Sessions};
@@ -43,6 +45,10 @@ struct State {
 #[serde(rename_all = "camelCase")]
 struct ConnectRequest {
     endpoint: String,
+    /// Which protocol to speak. Absent means SFTP, which is what every request
+    /// meant before there was a choice.
+    #[serde(default = "sftp")]
+    protocol: amberbeam_core::Protocol,
     host: String,
     port: u16,
     user: String,
@@ -60,6 +66,23 @@ struct ConnectRequest {
     /// Write through a temporary name on this server. Falls back to the
     /// settings.
     temporary_name: Option<bool>,
+    /// FTP only: how the connection is encrypted.
+    #[serde(default)]
+    encryption: Encryption,
+    /// FTP only. Passive is what works behind a router, so it is the default.
+    passive: Option<bool>,
+    /// FTP only: the server does not speak UTF-8.
+    latin1: Option<bool>,
+    /// FTP only: seconds between keep-alive commands on an idle connection.
+    keep_alive: Option<u32>,
+    /// The certificate fingerprint the user was shown and accepted, on a
+    /// second attempt. Belongs to that one certificate, never to the host.
+    accept_certificate: Option<String>,
+}
+
+/// The protocol a request means when it does not say.
+fn sftp() -> amberbeam_core::Protocol {
+    amberbeam_core::Protocol::Sftp
 }
 
 impl ConnectRequest {
@@ -92,6 +115,36 @@ impl ConnectRequest {
             temporary_name: self.temporary_name.unwrap_or(settings.temporary_name),
         }
     }
+
+    fn into_ftp_params(self, settings: &Settings) -> FtpParams {
+        let protocol = self.protocol;
+        FtpParams {
+            host: self.host,
+            port: self.port,
+            user: self.user,
+            password: self.password.unwrap_or_default(),
+            encryption: match protocol {
+                // Plain FTP is plain whatever else the request says; anything
+                // else would encrypt a connection the user asked to be open,
+                // or leave open one they asked to be encrypted.
+                amberbeam_core::Protocol::Ftp => Encryption::None,
+                _ => self.encryption,
+            },
+            passive: self.passive.unwrap_or(true),
+            concurrency: self
+                .concurrency
+                .or(settings.concurrency)
+                .unwrap_or_else(|| protocol.default_concurrency()),
+            retries: self.retries.unwrap_or(settings.retries),
+            temporary_name: self.temporary_name.unwrap_or(settings.temporary_name),
+            keep_alive: self.keep_alive,
+            latin1: self.latin1.unwrap_or(false),
+            certificate: match self.accept_certificate {
+                Some(fingerprint) => CertificateDecision::Trust { fingerprint },
+                None => CertificateDecision::TrustedOnly,
+            },
+        }
+    }
 }
 
 #[tauri::command]
@@ -113,7 +166,7 @@ async fn connect(
     let settings = state.config.settings();
     let history = QuickConnectEntry {
         id: QuickConnectEntry::id_for(&request.user, &request.host, request.port),
-        protocol: amberbeam_core::Protocol::Sftp,
+        protocol: request.protocol,
         host: request.host.clone(),
         port: request.port,
         user: request.user.clone(),
@@ -127,10 +180,22 @@ async fn connect(
         temporary_name: request.temporary_name,
     };
 
-    let connected = state
-        .sessions
-        .connect_sftp(&endpoint, &request.into_params(&settings))
-        .await?;
+    let connected = match request.protocol {
+        amberbeam_core::Protocol::Ftp | amberbeam_core::Protocol::Ftps => {
+            state
+                .sessions
+                .connect_ftp(&endpoint, &request.into_ftp_params(&settings))
+                .await?
+        }
+        // Local needs no connecting, and asking for it here is a mistake worth
+        // failing on rather than quietly turning into something else.
+        _ => {
+            state
+                .sessions
+                .connect_sftp(&endpoint, &request.into_params(&settings))
+                .await?
+        }
+    };
 
     // Only a connection that worked is worth remembering. A typo in the host
     // name should not end up in the list the user picks from.

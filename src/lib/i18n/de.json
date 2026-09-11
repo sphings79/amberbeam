@@ -220,5 +220,13 @@
   "update.available": "Fassung {version}",
   "update.hint": "Fassung {version} ist erschienen. Öffnet die Versionshinweise.",
   "settings.check-updates": "Auf neue Fassungen prüfen",
-  "settings.check-updates.hint": "Fragt GitHub einmal kurz nach dem Start nach der neuesten Fassung. Über dich wird nichts gesendet — keine Version, keine Kennung, keine Zählung. Es ist die einzige Anfrage, die AmberBeam von sich aus stellt."
+  "settings.check-updates.hint": "Fragt GitHub einmal kurz nach dem Start nach der neuesten Fassung. Über dich wird nichts gesendet — keine Version, keine Kennung, keine Zählung. Es ist die einzige Anfrage, die AmberBeam von sich aus stellt.",
+  "quick.protocol": "Protokoll",
+  "protocol.sftp": "SFTP",
+  "protocol.ftps-explicit": "FTPS (explizit)",
+  "protocol.ftps-implicit": "FTPS (implizit)",
+  "protocol.ftp": "FTP",
+  "protocol.ftp.warning": "Reines FTP überträgt Passwort und jede Datei im Klartext. Nur benutzen, wo nichts anderes geht.",
+  "quick.passive": "Passiver Modus",
+  "quick.latin1": "Server spricht kein UTF-8"
 }

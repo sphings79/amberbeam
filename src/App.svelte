@@ -26,8 +26,9 @@
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
-  import { hostKeyQuestion } from "./lib/ui/errors";
+  import { certificateQuestion, hostKeyQuestion } from "./lib/ui/errors";
   import FilePane from "./lib/ui/FilePane.svelte";
+  import CertificateDialog from "./lib/ui/CertificateDialog.svelte";
   import HostKeyDialog from "./lib/ui/HostKeyDialog.svelte";
   import QuickConnect from "./lib/ui/QuickConnect.svelte";
   import ServerLog from "./lib/ui/ServerLog.svelte";
@@ -71,6 +72,7 @@
   let pendingRequest = $state<{ request: ConnectRequest; historyId: string; side: Side } | null>(null);
 
   let hostKey = $derived(hostKeyQuestion(connectFailure));
+  let certificate = $derived(certificateQuestion(connectFailure));
 
   /**
    * The first job waiting for an answer about an existing file.
@@ -148,7 +150,15 @@
     connectFailure = null;
     try {
       const session = await api.connect(request);
-      await openSession(side, session, `${request.user}@${request.host}`, historyId);
+      await openSession(
+        side,
+        session,
+        `${request.user}@${request.host}`,
+        historyId,
+        null,
+        // Carried into the pane so the exception stays visible while it holds.
+        request.acceptCertificate !== undefined,
+      );
       quickFor = null;
       pendingRequest = null;
     } catch (failure) {
@@ -163,6 +173,12 @@
     if (!pendingRequest) return;
     const { request, historyId, side } = pendingRequest;
     await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side);
+  }
+
+  async function acceptCertificate(fingerprint: string): Promise<void> {
+    if (!pendingRequest) return;
+    const { request, historyId, side } = pendingRequest;
+    await attempt({ ...request, acceptCertificate: fingerprint }, historyId, side);
   }
 
   /** Everything a transfer needs to know about where it is going. */
@@ -279,7 +295,7 @@
   async function onKey(event: KeyboardEvent): Promise<void> {
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-    if (quickFor || hostKey) return;
+    if (quickFor || hostKey || certificate) return;
 
     const side = focusedSide();
     const rows = visibleEntries(side);
@@ -521,7 +537,7 @@
   <QuickConnect
     endpoint={quickFor === "left" ? "left-remote" : "right-remote"}
     busy={connecting}
-    failure={hostKey ? null : connectFailure}
+    failure={hostKey || certificate ? null : connectFailure}
     onconnect={(request, historyId) => attempt(request, historyId, quickFor ?? "left")}
     onclose={() => ((quickFor = null), (connectFailure = null), (pendingRequest = null))}
   />
@@ -544,6 +560,17 @@
       const id = asking[0]?.id;
       if (id) await api.queueDecide(id, "skip", true);
       await refreshQueue();
+    }}
+  />
+{/if}
+
+{#if certificate}
+  <CertificateDialog
+    question={certificate}
+    onaccept={acceptCertificate}
+    oncancel={() => {
+      connectFailure = null;
+      pendingRequest = null;
     }}
   />
 {/if}

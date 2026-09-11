@@ -6,7 +6,7 @@
  * it was pointed at, and the transfer engine of M2 will not ask.
  */
 
-import { api, LOCAL, type Connected, type DirEntry, type Listing } from "../bridge";
+import { api, LOCAL, type Connected, type DirEntry, type Listing, type Protocol } from "../bridge";
 
 export type Side = "left" | "right";
 export type SortColumn = "name" | "size" | "modified";
@@ -14,6 +14,14 @@ export type SortColumn = "name" | "size" | "modified";
 export interface PaneState {
   /** Which endpoint this pane reads. */
   endpoint: string;
+  /** What this endpoint speaks, so the pane can say when nothing is encrypted. */
+  protocol: Protocol;
+  /**
+   * Whether this connection stands on a certificate the user accepted by hand
+   * rather than one an authority vouches for. Shown for as long as it holds:
+   * an exception that is invisible is an exception nobody remembers making.
+   */
+  certificateAccepted: boolean;
   /** Label shown in the pane header: host name, or the local machine. */
   title: string | null;
   /** The quick connect entry behind this connection, for remembering paths. */
@@ -45,6 +53,8 @@ export interface PaneState {
 function emptyPane(): PaneState {
   return {
     endpoint: LOCAL,
+    protocol: "local",
+    certificateAccepted: false,
     title: null,
     historyId: null,
     path: "",
@@ -129,6 +139,7 @@ export async function openSession(
   title: string | null,
   historyId: string | null,
   startPath?: string | null,
+  certificateAccepted = false,
 ): Promise<void> {
   const state = panes[side];
   // Endpoint and path change together. Setting the endpoint first and reading
@@ -137,6 +148,8 @@ export async function openSession(
   // from the pane in that moment asks the new server for the old path. That
   // really happened: a freshly connected server was asked for /Users/sphings.
   state.endpoint = session.endpoint;
+  state.protocol = session.protocol;
+  state.certificateAccepted = certificateAccepted;
   state.title = title;
   state.historyId = historyId;
   state.path = "";

@@ -232,6 +232,15 @@
     <span class="where mono" title={view.title ?? ""}>
       {view.title ?? t("pane.this-machine")}
     </span>
+    {#if view.protocol === "ftp"}
+      <span class="mark bad" title={t("connection.unencrypted.title")}>
+        {t("connection.unencrypted")}
+      </span>
+    {:else if view.certificateAccepted}
+      <span class="mark warn" title={t("connection.exception.title")}>
+        {t("connection.exception")}
+      </span>
+    {/if}
     <span class="spacer"></span>
     {#if remote}
       <button type="button" onclick={ondisconnect} title={t("pane.disconnect")}>
@@ -359,6 +368,25 @@
   .tools {
     gap: 2px;
     background: var(--surface-1);
+  }
+
+  .mark {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .mark.bad {
+    color: var(--danger);
+    background: var(--danger-soft);
+  }
+
+  .mark.warn {
+    color: var(--warn);
+    background: var(--warn-soft);
   }
 
   .label {

@@ -56,9 +56,14 @@ export interface Connected {
 
 export type AuthKind = "password" | "key-file" | "agent";
 
+/** How an FTP connection is encrypted. Meaningless for the other protocols. */
+export type Encryption = "none" | "explicit" | "implicit";
+
 export interface ConnectRequest {
   /** Which pane this connection belongs to. */
   endpoint: string;
+  /** Absent means SFTP, which is what every request meant before the choice. */
+  protocol?: Protocol;
   host: string;
   port: number;
   user: string;
@@ -73,6 +78,19 @@ export interface ConnectRequest {
   concurrency?: number;
   retries?: number;
   temporaryName?: boolean;
+  /** FTP only. Ignored when the protocol is plain FTP. */
+  encryption?: Encryption;
+  /** FTP only. Passive is what works behind a router. */
+  passive?: boolean;
+  /** FTP only: the server does not speak UTF-8. */
+  latin1?: boolean;
+  /** FTP only: seconds between keep-alive commands on an idle connection. */
+  keepAlive?: number;
+  /**
+   * Set on a second attempt, after the user compared the fingerprint and
+   * accepted it. Applies to that one certificate, never to the host.
+   */
+  acceptCertificate?: string;
 }
 
 export interface QuickConnectEntry {
@@ -112,6 +130,16 @@ export type CoreError =
       fingerprint: string;
       knownFingerprint: string;
     }
+  | {
+      kind: "certificate-untrusted";
+      host: string;
+      fingerprint: string;
+      /** Translation key naming what is wrong with it. */
+      reason: string;
+      /** What the TLS library said, word for word. */
+      detail: string;
+    }
+  | { kind: "encryption-refused"; detail: string }
   | { kind: "path"; path: string; reason: PathProblem }
   | { kind: "source-changed" }
   | { kind: "disconnected" }

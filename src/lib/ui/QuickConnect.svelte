@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { api, type AuthKind, type ConnectRequest, type QuickConnectEntry } from "../bridge";
+  import {
+    api,
+    type AuthKind,
+    type ConnectRequest,
+    type Protocol,
+    type QuickConnectEntry,
+  } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { describe } from "./errors";
 
@@ -15,6 +21,22 @@
 
   let { endpoint, onconnect, onclose, busy, failure }: Props = $props();
 
+  /**
+   * The four a person actually chooses between. FTPS is two entries rather than
+   * one with a switch, because explicit and implicit differ in the port and in
+   * what happens before the first byte — not in a setting one would go looking
+   * for afterwards.
+   */
+  const KINDS = [
+    { id: "sftp", protocol: "sftp", port: 22 },
+    { id: "ftps-explicit", protocol: "ftps", port: 21, encryption: "explicit" },
+    { id: "ftps-implicit", protocol: "ftps", port: 990, encryption: "implicit" },
+    { id: "ftp", protocol: "ftp", port: 21 },
+  ] as const;
+
+  type Kind = (typeof KINDS)[number];
+
+  let kind = $state<Kind>(KINDS[0]);
   let host = $state("");
   let port = $state(22);
   let user = $state("");
@@ -22,6 +44,23 @@
   let password = $state("");
   let keyPath = $state("");
   let passphrase = $state("");
+
+  let passive = $state(true);
+  let latin1 = $state(false);
+
+  /** FTP has no keys and no agent; offering them would be a dead end. */
+  let remote = $derived(kind.protocol !== "sftp");
+
+  /**
+   * Changing the protocol moves the port with it, but only while the port is
+   * still the one the previous choice suggested. A port typed by hand is the
+   * user's, and nothing here overwrites that.
+   */
+  function choose(next: Kind): void {
+    if (port === kind.port) port = next.port;
+    if (next.protocol !== "sftp" && auth !== "password") auth = "password";
+    kind = next;
+  }
 
   /** Per connection, empty meaning "whatever the settings say". */
   let concurrency = $state("");
@@ -56,6 +95,10 @@
         concurrency: numberOrNothing(concurrency),
         retries: numberOrNothing(retries),
         temporaryName: temporaryName ?? undefined,
+        protocol: kind.protocol as Protocol,
+        encryption: "encryption" in kind ? kind.encryption : undefined,
+        passive: remote ? passive : undefined,
+        latin1: remote ? latin1 : undefined,
       },
       idFor(),
     );
@@ -69,6 +112,16 @@
 
   /** Fills the form from a history entry. The password is never there. */
   function fill(entry: QuickConnectEntry): void {
+    // Implicit and explicit share a protocol in the history, so the port is
+    // what tells them apart when one is picked again.
+    kind =
+      KINDS.find(
+        (candidate) =>
+          candidate.protocol === entry.protocol &&
+          (entry.protocol !== "ftps" || candidate.port === entry.port),
+      ) ??
+      KINDS.find((candidate) => candidate.protocol === entry.protocol) ??
+      KINDS[0];
     host = entry.host;
     port = entry.port;
     user = entry.user;
@@ -103,6 +156,25 @@
 
     <div class="body">
       <form onsubmit={submit}>
+        <fieldset>
+          <legend>{t("quick.protocol")}</legend>
+          <div class="choices">
+            {#each KINDS as candidate (candidate.id)}
+              <button
+                type="button"
+                class:active={kind.id === candidate.id}
+                onclick={() => choose(candidate)}
+              >
+                {t(`protocol.${candidate.id}`)}
+              </button>
+            {/each}
+          </div>
+        </fieldset>
+
+        {#if kind.id === "ftp"}
+          <p class="failure">{t("protocol.ftp.warning")}</p>
+        {/if}
+
         <div class="row">
           <label class="grow">
             <span>{t("quick.host")}</span>
@@ -119,20 +191,22 @@
           <input bind:value={user} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" required />
         </label>
 
-        <fieldset>
-          <legend>{t("quick.auth")}</legend>
-          <div class="choices">
-            {#each ["password", "key-file", "agent"] as const as kind (kind)}
-              <button
-                type="button"
-                class:active={auth === kind}
-                onclick={() => (auth = kind)}
-              >
-                {t(`auth.${kind}`)}
-              </button>
-            {/each}
-          </div>
-        </fieldset>
+        {#if !remote}
+          <fieldset>
+            <legend>{t("quick.auth")}</legend>
+            <div class="choices">
+              {#each ["password", "key-file", "agent"] as const as method (method)}
+                <button
+                  type="button"
+                  class:active={auth === method}
+                  onclick={() => (auth = method)}
+                >
+                  {t(`auth.${method}`)}
+                </button>
+              {/each}
+            </div>
+          </fieldset>
+        {/if}
 
         {#if auth === "password"}
           <label>
@@ -181,6 +255,16 @@
                 autocomplete="off"
               />
             </label>
+            {#if remote}
+              <label class="check">
+                <input type="checkbox" bind:checked={passive} />
+                <span>{t("quick.passive")}</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" bind:checked={latin1} />
+                <span>{t("quick.latin1")}</span>
+              </label>
+            {/if}
             <div class="tri">
               <span>{t("settings.temporary-name")}</span>
               <div class="choices">
@@ -432,6 +516,23 @@
   }
 
   .narrow,
+  .check {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    grid-column: 1 / -1;
+  }
+
+  .check input {
+    width: auto;
+  }
+
+  .check span {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
   .tri {
     display: flex;
     align-items: center;

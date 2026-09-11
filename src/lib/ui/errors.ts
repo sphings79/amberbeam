@@ -30,6 +30,10 @@ export function describe(failure: unknown): string {
       return t("error.host-key-unknown", { host: error.host });
     case "host-key-changed":
       return t("error.host-key-changed", { host: error.host });
+    case "certificate-untrusted":
+      return t("error.certificate-untrusted", { host: error.host });
+    case "encryption-refused":
+      return t("error.encryption-refused");
     case "path":
       return t(`error.path.${error.reason}`, { path: error.path });
     case "source-changed":
@@ -41,6 +45,15 @@ export function describe(failure: unknown): string {
     default:
       return t("error.other", { detail: JSON.stringify(error) });
   }
+}
+
+/** Whether a failure is the core asking about a server's certificate. */
+export function certificateQuestion(
+  failure: unknown,
+): Extract<CoreError, { kind: "certificate-untrusted" }> | null {
+  const error = failure as CoreError | undefined;
+  if (!error || typeof error !== "object" || !("kind" in error)) return null;
+  return error.kind === "certificate-untrusted" ? error : null;
 }
 
 /** Whether a failure is the core asking about a server key. */

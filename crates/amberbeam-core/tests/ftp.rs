@@ -310,3 +310,35 @@ async fn a_file_travels_up_and_comes_back_the_same() {
     let _ = std::fs::remove_file(&source);
     let _ = std::fs::remove_file(&back);
 }
+
+/// A connection left sitting still is still usable afterwards.
+///
+/// Two seconds is short for a keep-alive and long for a test, which is the
+/// compromise: long enough that the task really runs between the two listings,
+/// short enough that nobody waits for it.
+#[tokio::test]
+async fn an_idle_connection_is_kept_alive() {
+    let (host, port) = server_or_skip!("an_idle_connection");
+    let events = Events::new();
+    let mut settings = params(&host, port, Encryption::None);
+    settings.keep_alive = Some(2);
+
+    let session = FtpSession::connect(&settings, &EndpointId::new("ftp"), &events)
+        .await
+        .expect("connect");
+    let home = session.home().await.expect("pwd");
+    session.list_dir(&home).await.expect("first");
+
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // The connection the keep-alive has been holding is the one this listing
+    // borrows, so a NOOP that left the control channel out of step would show
+    // up here as a listing that answers the wrong question.
+    let listing = session.list_dir(&home).await.expect("after sitting still");
+    assert!(
+        !listing.entries.is_empty(),
+        "the second listing came back empty"
+    );
+
+    session.disconnect().await;
+}

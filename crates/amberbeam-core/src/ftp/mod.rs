@@ -28,12 +28,14 @@ use crate::ops::Measurement;
 use crate::stream::{FtpTransfer, Reader, Writer};
 
 /// How a connection encrypts, and whether it insists on it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Encryption {
     /// Plain FTP. Possible because many old servers speak nothing else, and
     /// marked as such wherever the connection is shown.
     None,
     /// `AUTH TLS` on the ordinary port. The default for new entries.
+    #[default]
     Explicit,
     /// TLS from the first byte, historically on port 990.
     Implicit,
@@ -113,7 +115,12 @@ struct Connection {
 pub struct FtpSession {
     params: FtpParams,
     abilities: Abilities,
-    idle: Mutex<Vec<Connection>>,
+    /// Shared with the keep-alive task, which is the only other thing that
+    /// touches a connection nobody has borrowed.
+    idle: Arc<Mutex<Vec<Connection>>>,
+    /// The task that keeps idle connections from being timed out, where the
+    /// connection asked for one.
+    keeper: Mutex<Option<tokio::task::JoinHandle<()>>>,
     limit: Arc<Semaphore>,
     allowed: Mutex<u32>,
     endpoint: EndpointId,
@@ -219,10 +226,21 @@ impl FtpSession {
         events.connection(endpoint, ConnectionState::Connected { banner: None });
 
         let allowed = params.concurrency.max(1);
+        let idle = Arc::new(Mutex::new(vec![Connection { stream }]));
+        let keeper = params.keep_alive.map(|seconds| {
+            keep_alive(
+                Arc::clone(&idle),
+                seconds.max(1),
+                endpoint.clone(),
+                events.clone(),
+            )
+        });
+
         Ok(Self {
             params: params.clone(),
             abilities,
-            idle: Mutex::new(vec![Connection { stream }]),
+            idle,
+            keeper: Mutex::new(keeper),
             limit: Arc::new(Semaphore::new(allowed as usize)),
             allowed: Mutex::new(u32::from(allowed)),
             endpoint: endpoint.clone(),
@@ -671,6 +689,9 @@ impl FtpSession {
 
     /// Closes every pooled connection.
     pub async fn disconnect(&self) {
+        if let Some(keeper) = self.keeper.lock().await.take() {
+            keeper.abort();
+        }
         let mut idle = self.idle.lock().await;
         for mut connection in idle.drain(..) {
             let _ = connection.stream.quit().await;
@@ -810,6 +831,52 @@ impl FtpSession {
         }
         line.to_string()
     }
+}
+
+/// Keeps idle connections from being timed out by the server.
+///
+/// Only started when a connection asked for it. A `NOOP` every so often is what
+/// stops a server dropping a login that has been sitting still while the queue
+/// works on the other side of a transfer — but it is also traffic nobody asked
+/// for, which is why it is off unless someone turns it on.
+///
+/// A connection that does not answer is dropped rather than put back: it was
+/// already gone, and the pool is better one shorter than one wrong.
+fn keep_alive(
+    idle: Arc<Mutex<Vec<Connection>>>,
+    seconds: u32,
+    endpoint: EndpointId,
+    events: Events,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let period = std::time::Duration::from_secs(u64::from(seconds));
+        loop {
+            tokio::time::sleep(period).await;
+
+            // Taken out of the pool for the moment, so a caller asking for a
+            // connection never waits behind a keep-alive and never borrows one
+            // mid-NOOP.
+            let mut taken = {
+                let mut pool = idle.lock().await;
+                std::mem::take(&mut *pool)
+            };
+            let before = taken.len();
+            let mut alive = Vec::with_capacity(before);
+            for mut connection in taken.drain(..) {
+                if connection.stream.noop().await.is_ok() {
+                    alive.push(connection);
+                }
+            }
+            if alive.len() < before {
+                events.log(
+                    &endpoint,
+                    LogDirection::Note,
+                    format!("{} idle connections had been closed", before - alive.len()),
+                );
+            }
+            idle.lock().await.append(&mut alive);
+        }
+    })
 }
 
 fn yes_no(value: bool) -> &'static str {
