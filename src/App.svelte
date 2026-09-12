@@ -73,6 +73,7 @@
   import ServiceDialog from "./lib/ui/ServiceDialog.svelte";
   import SignIn from "./lib/ui/SignIn.svelte";
   import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
+  import CompareDialog from "./lib/ui/CompareDialog.svelte";
   import Editor from "./lib/ui/Editor.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
@@ -137,6 +138,47 @@
     if (!(await api.openEditor(started.id, started.name))) {
       editingHere = started.id;
     }
+  }
+
+  /** Whether the comparison window is open, and which way round it starts. */
+  let comparing = $state<Side | null>(null);
+
+  /**
+   * Puts what a comparison found into the queue.
+   *
+   * Held, always. A comparison can turn out to mean four hundred files, and
+   * setting that going the instant somebody presses a button is not a
+   * decision they made — they can see the list and start it.
+   */
+  async function sendComparison(
+    from: Side,
+    jobs: { directory: string; names: string[] }[],
+    into: string,
+  ): Promise<void> {
+    const source = pane(from);
+    const target = pane(from === "left" ? "right" : "left");
+    for (const job of jobs) {
+      const directory = job.directory === "" ? source.path : await below(source.endpoint, source.path, job.directory);
+      const landing = job.directory === "" ? into : await below(target.endpoint, into, job.directory);
+      await api.enqueue({
+        sourceEndpoint: source.endpoint,
+        sourceDirectory: directory,
+        names: job.names,
+        targetEndpoint: target.endpoint,
+        targetDirectory: landing,
+        held: true,
+      });
+    }
+    await refreshQueue();
+  }
+
+  /** A relative path joined onto a root, in that endpoint's own notation. */
+  async function below(endpoint: string, root: string, relative: string): Promise<string> {
+    let path = root;
+    for (const part of relative.split("/").filter((one) => one !== "")) {
+      path = await api.joinPath(endpoint, path, part);
+    }
+    return path;
   }
 
   /**
@@ -1072,6 +1114,9 @@
     <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
       {t("settings.title")}
     </button>
+    <button type="button" class="settings" onclick={() => (comparing = focusedSide())}>
+      {t("compare.title")}
+    </button>
     <button type="button" class="settings" onclick={() => (helpOpen = true)}>
       {t("help.title")}
     </button>
@@ -1372,6 +1417,14 @@
     question={hostKey}
     onaccept={acceptHostKey}
     oncancel={() => ((connectFailure = null), (pendingRequest = null))}
+  />
+{/if}
+
+{#if comparing}
+  <CompareDialog
+    from={comparing}
+    onclose={() => (comparing = null)}
+    onsend={(jobs, into) => sendComparison(comparing ?? "left", jobs, into)}
   />
 {/if}
 
