@@ -7,6 +7,52 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.3
+
+Getting to a saved server, which until now meant knowing where to look.
+
+### Changed
+
+- **Connect offers the servers you have.** Pressing it used to open a form for
+  typing a host into, which is the one thing somebody with a saved server does
+  not want to do — their own servers were not reachable from the button whose
+  entire purpose is connecting. It now opens a menu: saved servers first,
+  grouped by folder, with quick connect and the server list below them. The key
+  and the button open the same menu in the same place.
+- **The server list has a button where a main button belongs** — in each pane's
+  header, and labelled in a new bar along the top. It used to sit in the footer
+  between appearance and help, among the things nobody opens twice a week.
+  Appearance, settings and keys move up beside it, on the right.
+- **The password field in a server's settings is always there.** It only
+  appeared once "remember" was ticked, which reads as a bug: a box that arrives
+  unannounced explains nothing about why it was not there before. The tick now
+  decides how long a password is kept, not whether one can be given at all.
+
+  Without it, the password is held for this run of the program and no further —
+  in memory, never written anywhere — and the field says which of the two
+  promises is being made. Keeping one for good clears the copy that was only
+  for this run.
+- **Taking a one-off connection into the server list** was a star with a
+  tooltip. Nobody hovers a symbol to find out whether it is the one they want,
+  so it says what it does.
+
+### Added
+
+- **The update check reports where it stands.** It used to speak up only when
+  there was news, so silence meant three different things: not asked yet,
+  nothing newer, or GitHub could not be reached. Claiming to be up to date
+  because the request failed is a guess wearing the clothes of an answer, so
+  "could not check" is a state of its own and pressing the button tries again.
+  Pressing it asks even when the automatic check at start is switched off —
+  that setting is about asking unprompted, which a press is not.
+
+### Fixed
+
+- The hint under the quick connect password named the macOS keychain, which is
+  not what the credential store is called on Windows or Linux, and called the
+  server list the site manager, which is not what this program calls it
+  anywhere else.
+
 ## 0.1.2
 
 Windows and Linux were still unusable in 0.1.1. The explanation given there was

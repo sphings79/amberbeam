@@ -7,6 +7,57 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.3
+
+Der Weg zu einem gespeicherten Server, der bisher voraussetzte, dass man weiß,
+wo man suchen muss.
+
+### Geändert
+
+- **Verbinden bietet die Server an, die du hast.** Bisher öffnete der Knopf ein
+  Formular zum Eintippen einer Adresse — das Einzige, was jemand mit einem
+  gespeicherten Server gerade nicht will. Die eigenen Server waren vom Knopf,
+  dessen ganzer Zweck das Verbinden ist, nicht erreichbar. Jetzt öffnet er ein
+  Menü: die gespeicherten Server zuerst, nach Ordner gruppiert, darunter
+  Schnellverbindung und Serverliste. Taste und Knopf öffnen dasselbe Menü an
+  derselben Stelle.
+- **Die Serverliste hat einen Knopf, wo ein Hauptknopf hingehört** — in der
+  Kopfzeile jeder Seite und beschriftet in einer neuen Leiste oben. Bisher saß
+  er in der Fußzeile zwischen Darstellung und Hilfe, zwischen lauter Dingen,
+  die niemand zweimal die Woche öffnet. Darstellung, Einstellungen und Tasten
+  wandern mit nach oben, nach rechts.
+- **Das Passwortfeld in den Servereinstellungen ist immer da.** Es erschien
+  erst, wenn „merken" angehakt war, und las sich damit wie ein Fehler: Ein
+  Feld, das unangekündigt auftaucht, erklärt nicht, warum es vorher nicht da
+  war. Der Haken entscheidet jetzt, wie lange ein Passwort gilt, nicht ob man
+  überhaupt eines angeben kann.
+
+  Ohne Haken bleibt es für diesen Programmlauf und keinen Moment länger — im
+  Arbeitsspeicher, nirgends abgelegt — und das Feld sagt, welche der beiden
+  Zusagen gerade gilt. Dauerhaft speichern löscht die Kopie, die nur für diesen
+  Lauf gedacht war.
+- **Eine einmalige Verbindung in die Serverliste zu übernehmen** war ein Stern
+  mit Tooltip. Niemand fährt über ein Symbol, um herauszufinden, ob es das
+  gesuchte ist — jetzt steht dran, was es tut.
+
+### Neu
+
+- **Die Update-Prüfung sagt, woran sie ist.** Bisher meldete sie sich nur bei
+  Neuigkeiten, Stille bedeutete also dreierlei: noch nicht gefragt, nichts
+  Neues, oder GitHub nicht erreichbar. „Aktuell" zu behaupten, weil die Abfrage
+  scheiterte, ist eine Vermutung im Gewand einer Antwort — deshalb ist
+  „Prüfung fehlgeschlagen" ein eigener Zustand, und ein Klick versucht es
+  erneut. Der Klick fragt auch dann, wenn die automatische Prüfung beim Start
+  abgeschaltet ist: Diese Einstellung regelt das ungefragte Nachsehen, und ein
+  Klick ist nicht ungefragt.
+
+### Behoben
+
+- Der Hinweis unter dem Passwort der Schnellverbindung nannte den
+  Schlüsselbund, so heißt der Zugangsdatenspeicher aber nur auf dem Mac, und
+  sprach vom „Site Manager", obwohl das Fenster in diesem Programm überall
+  „Server" heißt.
+
 ## 0.1.2
 
 Unter Windows und Linux war auch 0.1.1 unbenutzbar. Die dort gegebene Erklärung
