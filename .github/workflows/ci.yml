@@ -19,6 +19,8 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-${{ runner.arch }}
       - run: cargo fmt --package amberbeam-core --check
       - run: cargo clippy --package amberbeam-core --all-targets -- -D warnings
       - run: cargo test --package amberbeam-core
@@ -125,9 +127,16 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        # The architecture belongs in the key, not only the runner label.
+        # `target/` holds build scripts, which are binaries for the machine
+        # that compiled them: restore a cache written on a different
+        # architecture and the build dies with "cannot execute binary file",
+        # which is what happened once and says nothing about the code. Runner
+        # images change underneath a label, so the label alone is not a
+        # promise about the machine.
         with:
           workspaces: . -> target
-          key: ${{ matrix.os }}
+          key: ${{ matrix.os }}-${{ runner.arch }}
       # Tauri draws its window with the system webview. macOS and Windows carry
       # one; on Linux it has to be installed.
       - name: System libraries for the webview

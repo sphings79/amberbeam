@@ -7,7 +7,7 @@
     type Site,
     type Unsubscribe,
   } from "./lib/bridge";
-  import { locale, LOCALES, setLocale, t } from "./lib/i18n/index.svelte";
+  import { t } from "./lib/i18n/index.svelte";
   import {
     actionOf,
     hasAnswered,
@@ -45,13 +45,13 @@
     enter,
     type Side,
   } from "./lib/state/panes.svelte";
-  import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
   import { tips } from "./lib/ui/tips";
   import { trap } from "./lib/ui/trap";
   import KeyboardHelp from "./lib/ui/KeyboardHelp.svelte";
   import KeyboardSettings from "./lib/ui/KeyboardSettings.svelte";
   import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
+  import AppearanceDialog from "./lib/ui/AppearanceDialog.svelte";
   import ConnectMenu from "./lib/ui/ConnectMenu.svelte";
   import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
@@ -796,49 +796,17 @@
     </div>
   </footer>
 
-  {#if settingsOpen}
-    <div class="settings-bar">
-      <span class="label">{t("layout.log")}</span>
-      {#each ["top", "bottom"] as const as where (where)}
-        <button type="button" class:active={logPosition === where} onclick={() => (logPosition = where)}>
-          {t(`layout.${where}`)}
-        </button>
-      {/each}
-      <span class="label">{t("layout.queue")}</span>
-      {#each ["top", "bottom"] as const as where (where)}
-        <button type="button" class:active={queuePosition === where} onclick={() => (queuePosition = where)}>
-          {t(`layout.${where}`)}
-        </button>
-      {/each}
-    </div>
-    <div class="settings-bar">
-      <span class="label">{t("appearance.theme")}</span>
-      {#each THEMES as candidate (candidate)}
-        <button type="button" class:active={currentTheme() === candidate} onclick={() => setTheme(candidate)}>
-          {t(`theme.${candidate}`)}
-        </button>
-      {/each}
-      <span class="label">{t("appearance.accent")}</span>
-      {#each ACCENTS as candidate (candidate)}
-        <button
-          type="button"
-          class="swatch"
-          class:active={currentAccent() === candidate}
-          data-accent={candidate}
-          title={t(`accent.${candidate}`)}
-          aria-label={t(`accent.${candidate}`)}
-          onclick={() => setAccent(candidate)}
-        ></button>
-      {/each}
-      <span class="label">{t("language.title")}</span>
-      {#each LOCALES as candidate (candidate)}
-        <button type="button" class:active={locale() === candidate} onclick={() => setLocale(candidate)}>
-          {t(`language.${candidate}`)}
-        </button>
-      {/each}
-    </div>
-  {/if}
 </div>
+
+{#if settingsOpen}
+  <AppearanceDialog
+    {logPosition}
+    {queuePosition}
+    onlog={(where) => (logPosition = where)}
+    onqueue={(where) => (queuePosition = where)}
+    onclose={() => (settingsOpen = false)}
+  />
+{/if}
 
 {#if updateOpen && newer}
   <UpdateDialog release={newer} onclose={() => (updateOpen = false)} />
@@ -1141,8 +1109,7 @@
     min-width: 0;
   }
 
-  footer,
-  .settings-bar {
+  footer {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1173,14 +1140,6 @@
     white-space: nowrap;
   }
 
-  .settings-bar .label {
-    font-size: 0.64rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-    margin-left: 6px;
-  }
-
   button {
     font: inherit;
     font-size: 0.74rem;
@@ -1194,26 +1153,6 @@
 
   button:hover {
     background: var(--surface-3);
-  }
-
-  button.active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-
-  button.swatch {
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border-radius: 999px;
-    background: var(--accent);
-    border: 2px solid transparent;
-    box-shadow: 0 0 0 1px var(--border-strong);
-  }
-
-  button.swatch.active {
-    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .settings {

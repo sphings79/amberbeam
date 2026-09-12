@@ -415,5 +415,6 @@
   "update.dialog.restart": "Jetzt neu starten",
   "update.dialog.retry": "Erneut versuchen",
   "splitter.tree": "Breite des Ordnerbaums ändern",
-  "pane.path.placeholder": "Pfad"
+  "pane.path.placeholder": "Pfad",
+  "layout.hint": "Wo Server-Log und Warteschlange sitzen, über oder unter den Seiten."
 }

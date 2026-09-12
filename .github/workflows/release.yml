@@ -66,9 +66,16 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        # The architecture belongs in the key, not only the runner label.
+        # `target/` holds build scripts, which are binaries for the machine
+        # that compiled them: restore a cache written on a different
+        # architecture and the build dies with "cannot execute binary file",
+        # which is what happened once and says nothing about the code. Runner
+        # images change underneath a label, so the label alone is not a
+        # promise about the machine.
         with:
           workspaces: . -> target
-          key: release-${{ matrix.os }}
+          key: release-${{ matrix.os }}-${{ runner.arch }}
       - name: System libraries for the webview
         if: runner.os == 'Linux'
         run: |
