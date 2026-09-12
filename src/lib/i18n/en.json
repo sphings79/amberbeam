@@ -34,7 +34,7 @@
   "quick.user": "User",
   "quick.auth": "Authentication",
   "quick.password": "Password",
-  "quick.password.hint": "Kept in memory for this session only — never written to disk. The system credential store arrives with the site manager.",
+  "quick.password.hint": "Kept in memory for this session only — never written to disk. To keep one for good, save the connection as a server.",
   "quick.key-path": "Key file",
   "quick.passphrase": "Passphrase",
   "quick.agent.hint": "Uses whatever your running ssh-agent holds, including keys on a hardware token.",

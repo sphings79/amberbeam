@@ -34,7 +34,7 @@
   "quick.user": "Benutzer",
   "quick.auth": "Anmeldung",
   "quick.password": "Passwort",
-  "quick.password.hint": "Bleibt nur für diese Sitzung im Speicher und wird nirgends abgelegt. Der Schlüsselbund kommt mit dem Site Manager.",
+  "quick.password.hint": "Bleibt nur für diese Sitzung im Speicher und wird nirgends abgelegt. Dauerhaft merken geht, wenn du die Verbindung als Server speicherst.",
   "quick.key-path": "Schlüsseldatei",
   "quick.passphrase": "Passphrase",
   "quick.agent.hint": "Nutzt, was dein laufender ssh-agent hält — auch Schlüssel auf einem Hardware-Token.",

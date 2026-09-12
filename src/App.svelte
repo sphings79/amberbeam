@@ -105,6 +105,20 @@
   let connectMenu = $state<{ side: Side; x: number; y: number } | null>(null);
 
   /**
+   * Closes the menu and then does the thing it was opened for.
+   *
+   * In that order, and the side read out first: closing tears down the block
+   * the menu's own state lives in, so anything still reading from it
+   * afterwards is reading something that has been taken away. That is not a
+   * subtle failure — the menu shut and nothing happened at all.
+   */
+  function closeMenu(then: (side: Side) => void): void {
+    const side = connectMenu?.side;
+    connectMenu = null;
+    if (side) then(side);
+  }
+
+  /**
    * Opens the menu where the button for that side is.
    *
    * The key and the button have to arrive at the same place, so the position
@@ -800,9 +814,9 @@
   <ConnectMenu
     x={menu.x}
     y={menu.y}
-    onpick={(id) => ((connectMenu = null), void openSite(id, menu.side))}
-    onquick={() => ((connectMenu = null), (quickFor = menu.side), (connectFailure = null))}
-    onmanage={() => ((connectMenu = null), void api.openSiteManager())}
+    onpick={(id) => closeMenu((side) => void openSite(id, side))}
+    onquick={() => closeMenu((side) => ((quickFor = side), (connectFailure = null)))}
+    onmanage={() => closeMenu(() => void api.openSiteManager())}
     onclose={() => (connectMenu = null)}
   />
 {/if}
