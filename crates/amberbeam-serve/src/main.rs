@@ -21,6 +21,22 @@
 //! | `AMBERBEAM_ADDRESS` | where to listen | `0.0.0.0:2122` |
 //! | `AMBERBEAM_CONFIG` | where the site list and settings live | `/config` |
 //! | `AMBERBEAM_WEB` | the built interface to serve | `/web` |
+//! | `AMBERBEAM_BEHIND_TLS` | a proxy in front terminates TLS | assumed not |
+//! | `AMBERBEAM_SECRET_PASSPHRASE` | opens the password file | no saved passwords |
+//! | `AMBERBEAM_SECRET_PASSPHRASE_FILE` | a file holding it | — |
+//!
+//! ## Why it does not speak TLS itself
+//!
+//! Because a reverse proxy does it better. It renews certificates, which a
+//! container cannot; it speaks HTTP/2; and it is the piece already standing in
+//! front of everything else on the machine. Terminating TLS here would mean
+//! two more dependencies to do a worse job twice.
+//!
+//! `AMBERBEAM_BEHIND_TLS` is how it is told that a proxy is doing it, and the
+//! only thing that changes is the session cookie: marked `Secure`, a browser
+//! will not send it back over plain HTTP. Setting it wrongly either way gives
+//! a login that appears to work and then does not, which is why it is asked
+//! rather than guessed.
 //!
 //! The local side starts wherever `HOME` points, which the image sets to
 //! `/data`. That is a starting point and not a fence — see the container page
@@ -36,7 +52,7 @@ use amberbeam_core::config::Config;
 use amberbeam_core::events::RecvError;
 use amberbeam_core::registry::Sessions;
 use amberbeam_core::runner::Runner;
-use amberbeam_core::secrets::MemoryStore;
+use amberbeam_core::secrets::{FileStore, MemoryStore, SecretStore};
 use amberbeam_core::Events;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Path, State};
@@ -54,10 +70,11 @@ struct Shell {
     service: Arc<Service>,
     door: Doorway,
     events: Events,
-    /// Whether the service is behind TLS, which decides whether the session
-    /// cookie may be marked `Secure`. Marking it so on plain HTTP would mean a
-    /// cookie the browser never sends back, and a login that appears to work
-    /// and then does not.
+    /// Whether something in front of this is terminating TLS, which decides
+    /// whether the session cookie may be marked `Secure`. Marked so on plain
+    /// HTTP it is a cookie the browser never sends back; left off behind a
+    /// proxy it is a cookie that would travel in the clear if anybody ever
+    /// reached the service directly.
     secure: bool,
 }
 
@@ -81,6 +98,55 @@ fn password() -> Option<String> {
         }
     }
     env("AMBERBEAM_PASSWORD")
+}
+
+/// The passphrase the password file is kept under.
+///
+/// Same two ways as the login password, and for the same reason: a file for a
+/// docker secret, a variable for somebody who would rather not bother.
+fn passphrase() -> Option<String> {
+    if let Some(path) = env("AMBERBEAM_SECRET_PASSPHRASE_FILE") {
+        match std::fs::read_to_string(&path) {
+            Ok(text) => return Some(text.trim().to_string()).filter(|word| !word.is_empty()),
+            Err(why) => {
+                eprintln!(
+                    "AMBERBEAM_SECRET_PASSPHRASE_FILE points at {path}, which cannot be read: {why}"
+                );
+                return None;
+            }
+        }
+    }
+    env("AMBERBEAM_SECRET_PASSPHRASE")
+}
+
+/// Where saved passwords go, and what to say when they cannot go anywhere.
+///
+/// A container has no credential store, so there are two honest answers and no
+/// third: an encrypted file under a passphrase, or nothing saved at all. What
+/// it must never be is a store that quietly forgets — somebody ticking
+/// "remember" and finding out at the next restart that it did not.
+fn secrets(root: &std::path::Path) -> Box<dyn SecretStore> {
+    let Some(passphrase) = passphrase() else {
+        eprintln!(
+            "No AMBERBEAM_SECRET_PASSPHRASE, so no password can be saved. Connections still \
+             work; you will be asked each time."
+        );
+        return Box::new(MemoryStore::default());
+    };
+
+    match FileStore::open(root.join("secrets.sealed"), &passphrase) {
+        Ok(store) => {
+            println!("password file open, holding {}", store.count());
+            Box::new(store)
+        }
+        Err(why) => {
+            // Deliberately fatal. Carrying on with an empty store would mean
+            // the first saved password overwrites every password in the file,
+            // so a mistyped passphrase would destroy what it failed to read.
+            eprintln!("{why}");
+            std::process::exit(1);
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -110,15 +176,12 @@ async fn main() {
     let config = Config::at(env("AMBERBEAM_CONFIG").unwrap_or_else(|| "/config".into()));
     let sessions = Arc::new(Sessions::new(events.clone()));
     let queue_path = config.root().join("queue.json");
+    let secrets = secrets(config.root());
     let service = Arc::new(Service {
         sessions: Arc::clone(&sessions),
         config,
         queue: Runner::new(sessions, events.clone(), queue_path),
-        // The credential store of this machine, which a container has none of.
-        // A passphrase-backed file takes this place next; until then the
-        // service says so at startup rather than letting somebody tick
-        // "remember" and find out later.
-        secrets: Box::new(MemoryStore::default()),
+        secrets,
         session: MemoryStore::default(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
@@ -135,7 +198,12 @@ async fn main() {
         service: Arc::clone(&service),
         door,
         events: events.clone(),
-        secure: false,
+        secure: env("AMBERBEAM_BEHIND_TLS").is_some_and(|value| {
+            matches!(
+                value.to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        }),
     });
 
     service.queue.start();

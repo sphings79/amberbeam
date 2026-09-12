@@ -7,14 +7,15 @@
 //! fetched from the system's own store when a connection is opened.
 //!
 //! The store is behind a trait for one specific reason. The desktop has a
-//! keychain; the container build of milestone M7 has no such thing and will
-//! need an encrypted file with a master key. That is the same "build the door
-//! now, walk through it later" pattern as the endpoints in [`crate::endpoint`]
-//! — and it has a second use today, because a Linux build machine has no
-//! keychain either, so the tests would otherwise have to be skipped exactly
-//! where they matter.
+//! keychain; a container has no such thing, so it gets [`FileStore`] — one
+//! encrypted file under a passphrase, using exactly the sealing an export
+//! already uses. That is the same "build the door now, walk through it later"
+//! pattern as the endpoints in [`crate::endpoint`] — and the trait has a
+//! second use today, because a Linux build machine has no keychain either, so
+//! the tests would otherwise have to be skipped exactly where they matter.
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::error::{Error, Result};
@@ -165,6 +166,98 @@ impl SecretStore for MemoryStore {
 mod tests {
     use super::*;
 
+    /// A temporary directory that goes when the test does.
+    fn somewhere(name: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("amberbeam-secrets-{name}"));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    #[test]
+    fn a_file_store_keeps_what_it_was_given_across_being_reopened() {
+        let home = somewhere("roundtrip");
+        let path = home.join("secrets.sealed");
+
+        let store = FileStore::open(&path, "tannenbaum").unwrap();
+        store.set("site-1", Secret::Password, "eichhorn").unwrap();
+        store
+            .set("site-1", Secret::Passphrase, "mondschein")
+            .unwrap();
+        drop(store);
+
+        let again = FileStore::open(&path, "tannenbaum").unwrap();
+        assert_eq!(
+            again.get("site-1", Secret::Password).unwrap().as_deref(),
+            Some("eichhorn")
+        );
+        assert_eq!(
+            again.get("site-1", Secret::Passphrase).unwrap().as_deref(),
+            Some("mondschein")
+        );
+        assert_eq!(again.count(), 2);
+    }
+
+    /// The file on disk must not be readable. Obvious, and exactly the sort of
+    /// obvious thing that is worth a test: a change to how it is written could
+    /// leave the passwords in plain sight and nothing else would notice.
+    #[test]
+    fn what_lands_on_disk_is_not_the_password() {
+        let home = somewhere("opaque");
+        let path = home.join("secrets.sealed");
+        let store = FileStore::open(&path, "tannenbaum").unwrap();
+        store.set("site-1", Secret::Password, "eichhorn").unwrap();
+
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(
+            !String::from_utf8_lossy(&bytes).contains("eichhorn"),
+            "the password is sitting in the file in the open"
+        );
+        assert!(crate::sealed::is_sealed(&bytes));
+    }
+
+    /// A wrong passphrase must fail loudly. Opening empty and carrying on
+    /// would mean the next saved password overwrites everything that was in
+    /// the file — a typo destroying exactly what it failed to read.
+    #[test]
+    fn a_wrong_passphrase_refuses_rather_than_starting_empty() {
+        let home = somewhere("wrong");
+        let path = home.join("secrets.sealed");
+        FileStore::open(&path, "tannenbaum")
+            .unwrap()
+            .set("site-1", Secret::Password, "eichhorn")
+            .unwrap();
+
+        assert!(FileStore::open(&path, "something else").is_err());
+        assert!(FileStore::open(&path, "").is_err());
+
+        // And the file is still there, still holding what it held.
+        let again = FileStore::open(&path, "tannenbaum").unwrap();
+        assert_eq!(
+            again.get("site-1", Secret::Password).unwrap().as_deref(),
+            Some("eichhorn")
+        );
+    }
+
+    #[test]
+    fn forgetting_one_leaves_the_others() {
+        let home = somewhere("forget");
+        let path = home.join("secrets.sealed");
+        let store = FileStore::open(&path, "tannenbaum").unwrap();
+        store.set("site-1", Secret::Password, "eichhorn").unwrap();
+        store.set("site-2", Secret::Password, "mondschein").unwrap();
+        store.forget("site-1", Secret::Password).unwrap();
+        // Forgetting what was never there is not an error and writes nothing.
+        store.forget("site-9", Secret::Password).unwrap();
+
+        let again = FileStore::open(&path, "tannenbaum").unwrap();
+        assert!(again.get("site-1", Secret::Password).unwrap().is_none());
+        assert_eq!(
+            again.get("site-2", Secret::Password).unwrap().as_deref(),
+            Some("mondschein")
+        );
+    }
+
     #[test]
     fn the_two_secrets_of_one_entry_do_not_collide() {
         let store = MemoryStore::default();
@@ -219,5 +312,118 @@ mod tests {
             account("abc123", Secret::Password),
             account("abc123", Secret::Passphrase)
         );
+    }
+}
+
+/// One encrypted file, for a machine with no credential store of its own.
+///
+/// The container has no keychain, no Credential Manager and no Secret Service.
+/// The honest alternatives were "no saved passwords at all" or "a file only a
+/// passphrase opens", and this is the second.
+///
+/// The encryption is the one already in this program: PBKDF2-HMAC-SHA256 at
+/// 600,000 rounds and ChaCha20-Poly1305, the same as a sealed export. Nothing
+/// new was invented for it, which is the point — a second encryption scheme
+/// would be a second thing to get wrong.
+///
+/// The whole file is rewritten on every change. It holds a handful of
+/// passwords, not a database, and rewriting it whole means there is never a
+/// half-written one to read back.
+#[derive(Debug)]
+pub struct FileStore {
+    path: PathBuf,
+    passphrase: String,
+    held: Mutex<HashMap<String, String>>,
+}
+
+impl FileStore {
+    /// Opens the file, or starts an empty one where there is none yet.
+    ///
+    /// A file that will not open is an error and never an empty store. Going
+    /// on as if it were empty would mean the first saved password overwrites
+    /// every password that was in it — a mistyped passphrase would destroy
+    /// exactly what it failed to read.
+    pub fn open(path: impl AsRef<Path>, passphrase: &str) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if passphrase.is_empty() {
+            return Err(Error::other(
+                "a passphrase is needed to open the password file",
+            ));
+        }
+
+        let held = match std::fs::read(&path) {
+            Ok(bytes) => {
+                let plain = crate::sealed::open(&bytes, passphrase).map_err(|_| {
+                    Error::other(
+                        "the password file will not open with this passphrase; \
+                         nothing has been changed",
+                    )
+                })?;
+                serde_json::from_slice(&plain)
+                    .map_err(|why| Error::other(format!("the password file is damaged: {why}")))?
+            }
+            Err(why) if why.kind() == std::io::ErrorKind::NotFound => HashMap::new(),
+            Err(why) => return Err(Error::from(why)),
+        };
+
+        Ok(Self {
+            path,
+            passphrase: passphrase.to_string(),
+            held: Mutex::new(held),
+        })
+    }
+
+    /// How many secrets it holds, for a service that wants to say so at start.
+    pub fn count(&self) -> usize {
+        self.held.lock().map(|held| held.len()).unwrap_or_default()
+    }
+
+    fn write(&self, held: &HashMap<String, String>) -> Result<()> {
+        let plain = serde_json::to_vec(held).map_err(Error::other)?;
+        let sealed = crate::sealed::seal(&plain, &self.passphrase)?;
+
+        if let Some(parent) = self.path.parent() {
+            std::fs::create_dir_all(parent).map_err(Error::from)?;
+        }
+        // Beside it first, then moved into place. A crash halfway through a
+        // write would otherwise leave a file that opens with no passphrase at
+        // all, because it is no longer a sealed file.
+        let beside = self.path.with_extension("writing");
+        std::fs::write(&beside, sealed).map_err(Error::from)?;
+        std::fs::rename(&beside, &self.path).map_err(Error::from)
+    }
+}
+
+impl SecretStore for FileStore {
+    fn get(&self, site_id: &str, secret: Secret) -> Result<Option<String>> {
+        Ok(self
+            .held
+            .lock()
+            .map_err(|_| Error::other("the password file was poisoned"))?
+            .get(&account(site_id, secret))
+            .cloned())
+    }
+
+    fn set(&self, site_id: &str, secret: Secret, value: &str) -> Result<()> {
+        let mut held = self
+            .held
+            .lock()
+            .map_err(|_| Error::other("the password file was poisoned"))?;
+        held.insert(account(site_id, secret), value.to_string());
+        self.write(&held)
+    }
+
+    fn forget(&self, site_id: &str, secret: Secret) -> Result<()> {
+        let mut held = self
+            .held
+            .lock()
+            .map_err(|_| Error::other("the password file was poisoned"))?;
+        if held.remove(&account(site_id, secret)).is_none() {
+            // Nothing was there, so nothing has to be written. Rewriting the
+            // file anyway would mean forgetting something twice costs two
+            // writes of everything else.
+            return Ok(());
+        }
+        self.write(&held)
     }
 }
