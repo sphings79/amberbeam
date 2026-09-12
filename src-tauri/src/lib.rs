@@ -211,8 +211,16 @@ impl ConnectRequest {
 /// Its own window because somebody with thirty servers wants the list beside
 /// the panes, not instead of them. Same bundle, a different view — so there is
 /// one interface to maintain, not two.
+///
+/// Deliberately `async`, and that is the whole of why it works on Windows.
+/// Tauri says so itself: building a webview from a synchronous command
+/// deadlocks there, because WebView2 wants the main thread and the command is
+/// already holding it. The window that came up frozen, and then blank, was
+/// never a page that failed to load — it was a page that was never given the
+/// chance to start. Nothing in it could report the fault, including the
+/// reporter written for exactly that purpose.
 #[tauri::command]
-fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
+async fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
 
     if let Some(existing) = app.get_webview_window(SITES_WINDOW) {
@@ -229,12 +237,11 @@ fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
     // gets decided from the window's label instead, which is not a path and
     // cannot be mangled by one.
     WebviewWindowBuilder::new(&app, SITES_WINDOW, WebviewUrl::App("index.html".into()))
-        // The window says what it is before the page loads, rather than the
-        // page asking Tauri afterwards. Asking meant a call into Tauri while
-        // the module was still initialising, and a window whose internals are
-        // not injected yet answers that by throwing — which means nothing
-        // mounts and the window stays white. A variable that is simply there
-        // cannot be too early.
+        // The window says what it is before the page loads, so nothing has to
+        // call into Tauri at module scope to find out. Not the cure for the
+        // blank window — that was the deadlock above — but one less thing that
+        // has to have finished initialising before the first line of the view
+        // can run.
         .initialization_script("window.__AMBERBEAM_VIEW__ = 'sites';")
         .title("AmberBeam")
         .inner_size(980.0, 660.0)
