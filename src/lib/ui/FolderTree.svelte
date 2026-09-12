@@ -2,6 +2,7 @@
   import { api, type DirEntry } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { isDirectory, navigate, pane, type Side } from "../state/panes.svelte";
+  import Icon from "./Icon.svelte";
 
   interface Props {
     side: Side;
@@ -174,7 +175,8 @@
         {row.expanded ? "▾" : "▸"}
       </button>
       <button type="button" class="name" onclick={() => navigate(side, row.path)} title={row.path}>
-        {row.name}
+        <Icon name="folder" size={13} />
+        <span class="what">{row.name}</span>
       </button>
     </div>
   {/each}
@@ -225,8 +227,16 @@
   .name {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 0.8rem;
     text-align: left;
+  }
+
+  /* The name shortens, the folder in front of it does not. */
+  .what {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

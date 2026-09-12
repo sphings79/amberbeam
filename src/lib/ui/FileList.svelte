@@ -20,6 +20,7 @@
     type SortColumn,
   } from "../state/panes.svelte";
   import { formatDate, formatPermissions, formatSize } from "./format";
+  import Icon from "./Icon.svelte";
 
   interface Props {
     side: Side;
@@ -233,8 +234,15 @@
               onkeydown={() => {}}
             >
               <span class="name" title={entry.linkTarget ?? entry.name}>
-                <span class="glyph" aria-hidden="true">
-                  {isDirectory(entry) ? "▸" : entry.kind === "symlink" ? "↗" : "·"}
+                <span
+                  class="glyph"
+                  class:folder={isDirectory(entry)}
+                  aria-hidden="true"
+                >
+                  <Icon
+                    name={isDirectory(entry) ? "folder" : entry.kind === "symlink" ? "symlink" : "file"}
+                    size={13}
+                  />
                 </span>
                 {#if renaming(side) === entry.name}
                   <!-- svelte-ignore a11y_autofocus -->
@@ -385,8 +393,16 @@
   }
 
   .glyph {
-    display: inline-block;
-    width: 12px;
+    display: inline-flex;
+    align-items: center;
+    width: 14px;
+    flex: none;
+    /* Files stay quiet and folders carry the accent, so the shape of a
+       directory listing can be read without reading any of the names. */
+    color: var(--text-faint);
+  }
+
+  .glyph.folder {
     color: var(--accent);
   }
 

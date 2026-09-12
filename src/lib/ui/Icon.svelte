@@ -24,6 +24,15 @@
     transfer: ["M2.5 6h9L9 3.5", "M13.5 10h-9L7 12.5"],
     "edit-remote": ["M8.5 2.5H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V7", "M6 10.5 13 3.5l1.5 1.5L7.5 12H6z"],
     folder: ["M2 12.5v-9A1 1 0 0 1 3 2.5h3l1.6 2H13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z"],
+    // A page with the corner turned down, which is what a file has looked like
+    // since before any of this. The fold is its own path so it reads at 13px.
+    file: ["M4 1.5h5l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z", "M9 1.5v3h3"],
+    // The same page, with the arrow that says it points somewhere else.
+    symlink: [
+      "M4 1.5h5l3 3v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1z",
+      "M9 1.5v3h3",
+      "M5.5 11.5 10 7M7 7h3v3",
+    ],
     sites: ["M2.5 2.5h11v4h-11zM2.5 9.5h11v4h-11z", "M4.5 4.5h.01M4.5 11.5h.01"],
     tree: ["M2 3.5h4v3H2zM10 2.5h4v3h-4zM10 10.5h4v3h-4z", "M4 6.5v5h6M4 4.5h6"],
     hidden: ["M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z", "M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"],
