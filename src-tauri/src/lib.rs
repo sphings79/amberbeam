@@ -549,6 +549,7 @@ pub fn run() {
         session: MemoryStore::default(),
         edits: Edits::beneath_temp(),
         events: events.clone(),
+        watches: amberbeam_core::watch::Watches::new(),
         // The version of the program somebody is running, which is this crate
         // and not the shared one.
         version: env!("CARGO_PKG_VERSION").to_string(),

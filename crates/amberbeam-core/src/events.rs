@@ -79,6 +79,8 @@ pub enum Event {
     /// life. Sent as it goes, so a window can show what it is doing rather
     /// than appearing to have stopped.
     Comparing { directories: usize, rows: usize },
+    /// A watched directory changed and something went up because of it.
+    Watched { id: String, sent: usize },
     /// Something happened to a file that is open for editing.
     ///
     /// Its own event because nobody is looking: the file is open in another

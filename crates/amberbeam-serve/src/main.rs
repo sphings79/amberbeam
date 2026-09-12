@@ -209,6 +209,7 @@ async fn main() {
         session: MemoryStore::default(),
         edits: Edits::beneath_temp(),
         events: events.clone(),
+        watches: amberbeam_core::watch::Watches::new(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 

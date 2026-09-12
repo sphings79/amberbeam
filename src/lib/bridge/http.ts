@@ -45,6 +45,7 @@ import type {
   Totals,
   Settings,
   Unsubscribe,
+  Watch,
 } from "./types";
 
 /**
@@ -180,6 +181,15 @@ export function makeApi(target: Target): AmberBeamApi {
       how: How;
       excludes: string[];
     }) => call<Comparison>("compare", it),
+    startWatch: (it: {
+      root: string;
+      targetEndpoint: string;
+      targetRoot: string;
+      targetTitle: string | null;
+      excludes: string[];
+    }) => call<Watch>("start_watch", it),
+    stopWatch: (id: string) => call<Watch | null>("stop_watch", { id }),
+    watches: () => call<Watch[]>("watches"),
     startEdit: (endpoint: string, path: string) =>
       call<Edit>("start_edit", { endpoint, path }),
     howToEdit: (name: string) => call<EditRule | null>("how_to_edit", { name }),

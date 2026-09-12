@@ -10,6 +10,7 @@
     type CoreEvent,
     type Site,
     type Unsubscribe,
+    type Watch,
   } from "./lib/bridge";
   import { resetLocale, t } from "./lib/i18n/index.svelte";
   import {
@@ -74,6 +75,7 @@
   import SignIn from "./lib/ui/SignIn.svelte";
   import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
   import CompareDialog from "./lib/ui/CompareDialog.svelte";
+  import Watching from "./lib/ui/Watching.svelte";
   import Editor from "./lib/ui/Editor.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
@@ -142,6 +144,51 @@
 
   /** Whether the comparison window is open, and which way round it starts. */
   let comparing = $state<Side | null>(null);
+
+  /** The directories being watched, as the strip above the panes shows them. */
+  let watches = $state<Watch[]>([]);
+
+  /**
+   * Whether watching makes sense from where the focus is.
+   *
+   * The watched side has to be this machine — nothing else can be watched —
+   * and the other side has to be somewhere else, or this would be copying a
+   * directory onto itself.
+   */
+  function canWatch(): boolean {
+    const here = pane(focusedSide());
+    const there = pane(focusedSide() === "left" ? "right" : "left");
+    return (
+      here.endpoint === LOCAL &&
+      there.endpoint !== LOCAL &&
+      here.path !== "" &&
+      !watches.some((watch) => watch.root === here.path)
+    );
+  }
+
+  async function refreshWatches(): Promise<void> {
+    watches = await api.watches().catch(() => []);
+  }
+
+  /**
+   * Starts watching the local side and sending what changes to the other.
+   *
+   * Only from a local pane to a far one. The other direction cannot be watched
+   * at all — no server can say "something changed" — and watching one local
+   * directory to copy into another is a job for something else entirely.
+   */
+  async function startWatching(from: Side): Promise<void> {
+    const source = pane(from);
+    const target = pane(from === "left" ? "right" : "left");
+    await api.startWatch({
+      root: source.path,
+      targetEndpoint: target.endpoint,
+      targetRoot: target.path,
+      targetTitle: target.title,
+      excludes: [],
+    });
+    await refreshWatches();
+  }
 
   /**
    * Puts what a comparison found into the queue.
@@ -509,6 +556,11 @@
       await openSession("left", local, null, null, saved?.leftPath ?? null);
       await openSession("right", local, null, null, null);
     }
+
+    // A watch outlives the window that started it — in a browser it outlives
+    // the tab entirely — so the strip asks what is running rather than only
+    // knowing about what it started itself.
+    await refreshWatches();
   }
 
   /**
@@ -598,6 +650,11 @@
    * window of ours to ask in — the file is open somewhere else entirely.
    */
   function recordEditEvent(event: CoreEvent): void {
+    // What a watch has sent, so the strip can count without asking on a timer.
+    if (event.event === "watched") {
+      void refreshWatches();
+      return;
+    }
     if (event.event !== "edited") return;
     if (event.what === "changed") {
       editChanged = { id: event.id, name: event.name, path: event.path };
@@ -1146,10 +1203,27 @@
     <button type="button" class="settings" onclick={() => (comparing = focusedSide())}>
       {t("compare.title")}
     </button>
+    <!-- Only one way round, and the button says so rather than failing when
+         pressed: the far side cannot be watched at all, because no server can
+         say that something changed. -->
+    <button
+      type="button"
+      class="settings"
+      disabled={!canWatch()}
+      title={canWatch() ? t("watch.hint") : t("watch.only-local")}
+      onclick={() => void startWatching(focusedSide())}
+    >
+      {t("watch.title")}
+    </button>
     <button type="button" class="settings" onclick={() => (helpOpen = true)}>
       {t("help.title")}
     </button>
   </div>
+
+  <Watching
+    {watches}
+    onstop={(id) => void api.stopWatch(id).then(refreshWatches)}
+  />
 
   {#each topRegions as region (region)}
     {#if region === "log"}

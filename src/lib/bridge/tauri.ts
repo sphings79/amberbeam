@@ -36,6 +36,7 @@ import type {
   Totals,
   Settings,
   Unsubscribe,
+  Watch,
 } from "./types";
 
 /** Matches EVENT_CHANNEL in the desktop shell. */
@@ -121,6 +122,15 @@ export const api: AmberBeamApi = {
     how: How;
     excludes: string[];
   }) => send<Comparison>("compare", it),
+  startWatch: (it: {
+    root: string;
+    targetEndpoint: string;
+    targetRoot: string;
+    targetTitle: string | null;
+    excludes: string[];
+  }) => send<Watch>("start_watch", it),
+  stopWatch: (id: string) => send<Watch | null>("stop_watch", { id }),
+  watches: () => send<Watch[]>("watches"),
   startEdit: (endpoint: string, path: string) => send<Edit>("start_edit", { endpoint, path }),
   howToEdit: (name: string) => send<EditRule | null>("how_to_edit", { name }),
   openEdits: () => send<Edit[]>("open_edits"),

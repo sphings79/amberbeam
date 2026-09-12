@@ -21,6 +21,10 @@ ring.workspace = true
 rustls-native-certs.workspace = true
 sha2.workspace = true
 suppaftp.workspace = true
+# Watching a local directory. Its default feature set is exactly the one
+# backend this needs per platform — FSEvents on macOS, inotify on Linux,
+# ReadDirectoryChangesW on Windows — so there is nothing to turn off.
+notify = "8.2"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt", "macros"] }

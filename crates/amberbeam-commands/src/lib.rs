@@ -42,6 +42,7 @@ use amberbeam_core::secrets::{MemoryStore, Secret, SecretStore};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
 use amberbeam_core::sites::Site;
 use amberbeam_core::transfer::ConflictPolicy;
+use amberbeam_core::watch::Watches;
 use amberbeam_core::CoreInfo;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -64,6 +65,8 @@ pub struct Service {
     /// The files taken off a server to be worked on, and the copies they
     /// were taken into.
     pub edits: Edits,
+    /// The directories being watched, and what they send up.
+    pub watches: Watches,
     /// The stream everything the core wants to say goes down.
     ///
     /// Held here rather than passed around: the sessions and the queue were
@@ -407,6 +410,18 @@ struct Comparing {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct Watching {
+    root: String,
+    target_endpoint: String,
+    target_root: String,
+    #[serde(default)]
+    target_title: Option<String>,
+    #[serde(default)]
+    excludes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Named {
     name: String,
 }
@@ -537,6 +552,9 @@ pub const COMMANDS: &[&str] = &[
     "queue_move",
     "queue_decide",
     "compare",
+    "start_watch",
+    "stop_watch",
+    "watches",
     "start_edit",
     "how_to_edit",
     "open_edits",
@@ -881,6 +899,27 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
             )
             .await?)
         }
+
+        "start_watch" => {
+            let it: Watching = taking(command, args)?;
+            out(service
+                .watches
+                .start(
+                    &service.queue,
+                    service.events.clone(),
+                    it.root,
+                    it.target_endpoint,
+                    it.target_root,
+                    it.target_title,
+                    it.excludes,
+                )
+                .await?)
+        }
+        "stop_watch" => {
+            let it: ById = taking(command, args)?;
+            out(service.watches.stop(&it.id).await)
+        }
+        "watches" => out(service.watches.list().await),
 
         "open_edits" => out(service.edits.list().await),
         "how_to_edit" => {
@@ -1346,6 +1385,7 @@ mod tests {
             session: MemoryStore::default(),
             edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
             events: amberbeam_core::Events::new(),
+            watches: Watches::new(),
             version: "0.0.0".into(),
         });
 
@@ -1376,6 +1416,7 @@ mod tests {
             session: MemoryStore::default(),
             edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
             events: amberbeam_core::Events::new(),
+            watches: Watches::new(),
             version: "0.0.0".into(),
         });
 

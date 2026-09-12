@@ -38,6 +38,7 @@ pub mod stream;
 pub mod system;
 pub mod transfer;
 pub mod update;
+pub mod watch;
 
 pub use compare::{Comparison, Difference, How};
 pub use config::{AuthKind, Config, QuickConnectEntry, Settings};
@@ -53,3 +54,4 @@ pub use session::Session;
 pub use sites::{Filed, Site, Sites};
 pub use system::CoreInfo;
 pub use transfer::{ConflictPolicy, JobState, ResumeMarker, TransferJob, TransferSide};
+pub use watch::{Watch, Watches};

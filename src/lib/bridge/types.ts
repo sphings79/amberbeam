@@ -183,6 +183,7 @@ export type LogDirection = "sent" | "received" | "note";
 export type CoreEvent =
   | { event: "log"; endpoint: string; direction: LogDirection; text: string }
   | { event: "comparing"; directories: number; rows: number }
+  | { event: "watched"; id: string; sent: number }
   | {
       event: "edited";
       id: string;
@@ -438,6 +439,26 @@ export interface Comparison {
   cutShort: boolean;
 }
 
+/**
+ * One directory on this machine being watched, and where what changes goes.
+ *
+ * Only ever the local side. Neither FTP nor SFTP has any way to say "something
+ * changed", so watching a server would mean listing it over and over — a
+ * standing load on somebody else's machine rather than a background service.
+ */
+export interface Watch {
+  id: string;
+  endpoint: string;
+  root: string;
+  targetEndpoint: string;
+  targetRoot: string;
+  /** What the far side is called, as the pane shows it. */
+  targetTitle: string | null;
+  /** Files sent since this started. */
+  sent: number;
+  started: number;
+}
+
 /** What opens a file of a given kind. */
 export type OpenWith = "own" | "system" | "program";
 
@@ -657,6 +678,23 @@ export interface AmberBeamApi {
     how: How;
     excludes: string[];
   }): Promise<Comparison>;
+
+  /**
+   * Watches a directory on this machine and sends up what changes in it.
+   *
+   * Asking twice for the same directory gives back the same watch: two
+   * watchers on one tree would send every change twice, and the second upload
+   * would arrive while the first was still going.
+   */
+  startWatch(it: {
+    root: string;
+    targetEndpoint: string;
+    targetRoot: string;
+    targetTitle: string | null;
+    excludes: string[];
+  }): Promise<Watch>;
+  stopWatch(id: string): Promise<Watch | null>;
+  watches(): Promise<Watch[]>;
 
   startEdit(endpoint: string, path: string): Promise<Edit>;
   /**
