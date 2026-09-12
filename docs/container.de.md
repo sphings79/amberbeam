@@ -54,6 +54,18 @@ Dateien, die du überträgst.
 `/config` enthält die Serverliste, die Einstellungen und die verschlüsselte
 Passwortdatei. Dieses sichern — das ist der Teil, den du vermissen würdest.
 
+## Dateien hinein und heraus
+
+Zieh eine Datei von deinem Rechner auf die linke Seite, und sie wird in das
+Verzeichnis hochgeladen, das dort gerade offen ist. Rechtsklick auf eine Datei
+und **Herunterladen** schickt sie den anderen Weg zurück.
+
+Beides gilt nur für `/data`, also die eigenen Dateien dieser Maschine. Ein
+Browser kann eine Datei nicht direkt auf einen FTP-Server legen, und er sollte
+nicht so tun: Dorthin sind es zwei Schritte, und der zweite ist die
+Warteschlange. Ein Drop auf eine Serverseite sagt das, statt auf halbem Weg zu
+scheitern.
+
 ## Was er nicht tut
 
 **Er spricht selbst kein TLS.** Stell einen Reverse Proxy davor, der auf dieser

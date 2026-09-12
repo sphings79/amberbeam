@@ -558,6 +558,25 @@ export interface AmberBeamApi {
   /** Starts the program again, once an update has been written. */
   restart(): Promise<void>;
 
+  /**
+   * Where a browser can fetch one of this machine's files, or null.
+   *
+   * Null in the desktop program, where the local side already is your disk
+   * and "downloading" it would mean copying a file onto itself. Only this
+   * machine's own files: reading from a server means holding a data
+   * connection open for as long as a browser takes, and moving a file between
+   * a server and here is what the queue is for.
+   */
+  downloadUrl(endpoint: string, path: string): string | null;
+
+  /**
+   * Puts a file from the viewer's own computer into a directory here.
+   *
+   * The container build. In the desktop program the two are the same computer
+   * and this refuses rather than pretending.
+   */
+  uploadInto(endpoint: string, directory: string, file: File): Promise<void>;
+
   setSiteSecret(id: string, kind: SecretKind, value: string): Promise<void>;
   forgetSiteSecret(id: string, kind: SecretKind): Promise<void>;
 

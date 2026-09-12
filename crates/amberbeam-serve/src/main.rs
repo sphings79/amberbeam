@@ -49,6 +49,7 @@ use std::sync::Arc;
 
 use amberbeam_commands::Service;
 use amberbeam_core::config::Config;
+use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::RecvError;
 use amberbeam_core::registry::Sessions;
@@ -61,8 +62,10 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use futures_core::Stream;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::io::AsyncWriteExt;
 use tower_http::services::{ServeDir, ServeFile};
 
 use auth::{Doorway, Refusal};
@@ -235,6 +238,9 @@ async fn main() {
         .route("/api/login", post(login))
         .route("/api/logout", post(logout))
         .route("/api/events", get(events_socket))
+        .route("/api/download", get(download))
+        .route("/api/upload", post(upload))
+        // After the two above, so a command is never mistaken for one of them.
         .route("/api/{command}", post(command))
         // Anything that is not the API is the interface itself. A path the
         // build did not produce falls back to index.html, because the window
@@ -428,4 +434,219 @@ async fn pump(mut socket: WebSocket, shell: Arc<Shell>) {
             Err(_) => break,
         }
     }
+}
+
+/// Which file, and where it is.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileAt {
+    endpoint: String,
+    path: String,
+}
+
+/// Where an arriving file should land.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct FileInto {
+    endpoint: String,
+    directory: String,
+    name: String,
+}
+
+/// Only the machine this service runs on.
+///
+/// Not a shortcut. Reading from or writing to a remote endpoint means holding
+/// an FTP data connection open for as long as a browser takes, and the
+/// server's verdict on that transfer arrives on the control connection
+/// afterwards — a stream that ends when a download is cancelled would leave
+/// the connection in a state nobody asked about. Moving a file between here
+/// and a server is what the queue is for; this is only the last step to the
+/// person looking at it.
+fn only_local(endpoint: &str) -> Result<EndpointId, Box<Response>> {
+    if endpoint != amberbeam_core::registry::LOCAL {
+        return Err(Box::new(
+            (
+                StatusCode::BAD_REQUEST,
+                Json(problem(
+                    "only this machine's own files can be sent this way",
+                )),
+            )
+                .into_response(),
+        ));
+    }
+    Ok(EndpointId::new(endpoint))
+}
+
+/// Hands a file to the browser.
+async fn download(
+    State(shell): State<Arc<Shell>>,
+    headers: HeaderMap,
+    Query(asked): Query<FileAt>,
+) -> Response {
+    if let Some(refusal) = refuse(&shell, &headers) {
+        return refusal;
+    }
+    let endpoint = match only_local(&asked.endpoint) {
+        Ok(endpoint) => endpoint,
+        Err(refusal) => return *refusal,
+    };
+
+    let session = match shell.service.sessions.find(&endpoint).await {
+        Ok(session) => session,
+        Err(why) => return failed(&why),
+    };
+    let (size, _) = match session.stat(&asked.path).await {
+        Ok(found) => found,
+        Err(why) => return failed(&why),
+    };
+    let (reader, hold) = match session.open_read(&asked.path, 0).await {
+        Ok(opened) => opened,
+        Err(why) => return failed(&why),
+    };
+    // A hold means a connection that has to be given back, and nothing here
+    // can give it back once the body is streaming. Local files have none; if
+    // that ever stops being true this refuses rather than leaking one.
+    if hold.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(problem("that file cannot be sent this way")),
+        )
+            .into_response();
+    }
+
+    let name = asked.path.rsplit('/').next().unwrap_or("file").to_string();
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (header::CONTENT_LENGTH, size.to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                // Encoded rather than quoted: a name with a quote, a semicolon
+                // or an umlaut in it would otherwise arrive as something else,
+                // or as a header a browser refuses to read.
+                format!("attachment; filename*=UTF-8''{}", encoded(&name)),
+            ),
+        ],
+        axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(reader)),
+    )
+        .into_response()
+}
+
+/// Takes a file from the browser.
+async fn upload(
+    State(shell): State<Arc<Shell>>,
+    headers: HeaderMap,
+    Query(asked): Query<FileInto>,
+    body: axum::body::Body,
+) -> Response {
+    if let Some(refusal) = refuse(&shell, &headers) {
+        return refusal;
+    }
+    let endpoint = match only_local(&asked.endpoint) {
+        Ok(endpoint) => endpoint,
+        Err(refusal) => return *refusal,
+    };
+
+    // The name comes from somebody else's computer. A name carrying a
+    // separator or `..` would land outside the directory they are looking at,
+    // which is the one thing an upload must never be able to do.
+    if !amberbeam_core::ops::is_usable_name(&asked.name) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(problem("that is not a file name")),
+        )
+            .into_response();
+    }
+
+    let session = match shell.service.sessions.find(&endpoint).await {
+        Ok(session) => session,
+        Err(why) => return failed(&why),
+    };
+    let path = match shell
+        .service
+        .sessions
+        .join(&endpoint, &asked.directory, &asked.name)
+        .await
+    {
+        Ok(path) => path,
+        Err(why) => return failed(&why),
+    };
+    let (mut writer, hold) = match session.open_write(&path, 0).await {
+        Ok(opened) => opened,
+        Err(why) => return failed(&why),
+    };
+    if hold.is_some() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(problem("files cannot be put there this way")),
+        )
+            .into_response();
+    }
+
+    // Chunk by chunk rather than through a pile of combinators. The body may
+    // be a hundred gigabytes, so none of it is ever held whole; and a loop
+    // this short is easier to be sure about than the crate that would shorten
+    // it further.
+    let mut stream = body.into_data_stream();
+    let mut moved: u64 = 0;
+    loop {
+        let next = std::future::poll_fn(|cx| std::pin::Pin::new(&mut stream).poll_next(cx)).await;
+        match next {
+            Some(Ok(bytes)) => {
+                if let Err(why) = writer.write_all(&bytes).await {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(problem(&format!("writing failed: {why}"))),
+                    )
+                        .into_response();
+                }
+                moved += bytes.len() as u64;
+            }
+            Some(Err(why)) => {
+                // The browser stopped sending. What was written stays as it
+                // is: a half file that says so by its size is better than one
+                // this quietly deletes while somebody is still uploading it.
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(problem(&format!("the file did not arrive whole: {why}"))),
+                )
+                    .into_response();
+            }
+            None => break,
+        }
+    }
+
+    if let Err(why) = session.finish_write(writer, None).await {
+        return failed(&why);
+    }
+    (StatusCode::OK, Json(serde_json::json!({ "bytes": moved }))).into_response()
+}
+
+/// Percent-encodes a file name for a header.
+fn encoded(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for byte in name.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                out.push(*byte as char)
+            }
+            other => out.push_str(&format!("%{other:02X}")),
+        }
+    }
+    out
+}
+
+/// The refusal a request gets when it carries no session, or none.
+fn refuse(shell: &Arc<Shell>, headers: &HeaderMap) -> Option<Response> {
+    match token_of(headers) {
+        Some(token) if shell.door.holds(&token) => None,
+        _ => Some((StatusCode::UNAUTHORIZED, Json(problem("not signed in"))).into_response()),
+    }
+}
+
+/// A core failure, in the shape the window already reads.
+fn failed(why: &Error) -> Response {
+    let body = serde_json::to_value(why).unwrap_or_else(|_| problem("something failed"));
+    (StatusCode::BAD_REQUEST, Json(body)).into_response()
 }

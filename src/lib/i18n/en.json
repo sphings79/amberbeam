@@ -439,5 +439,8 @@
   "service.switch": "Machine",
   "signin.what": "This service wants a password before it will answer.",
   "signin.go": "Sign in",
-  "signin.going": "Signing in…"
+  "signin.going": "Signing in…",
+  "upload.local-only": "A browser cannot put a file straight onto a server. Drop it here first, then transfer it.",
+  "upload.arriving": "{count} arriving…",
+  "cmd.download": "Download"
 }

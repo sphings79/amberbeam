@@ -54,6 +54,17 @@ files you transfer to and from live there.
 `/config` holds the server list, the settings, and the encrypted password
 file. Back this one up; it is the part you would miss.
 
+## Getting files in and out
+
+Drag a file from your own computer onto the left-hand pane and it is uploaded
+into whatever directory that pane is showing. Right-click a file there and
+**Download** sends it back the other way.
+
+Both only work on `/data` — this machine's own files. A browser cannot put a
+file straight onto an FTP server, and it should not pretend to: getting one
+there is two steps, and the queue is the second. Dropping onto a server pane
+says so rather than failing halfway.
+
 ## What it does not do
 
 **It does not speak TLS itself.** Put a reverse proxy in front of it, which is

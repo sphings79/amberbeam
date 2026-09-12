@@ -48,6 +48,49 @@
   /** Set while something is being dragged over this pane. */
   let dropTarget = $state(false);
 
+  /** How many of a dropped batch are still on their way, for showing. */
+  let arriving = $state(0);
+
+  /**
+   * Whether the window and the files are on different computers.
+   *
+   * True in a browser looking at a service, false in the desktop program,
+   * where the local side is the very disk the window is drawn on.
+   */
+  let away = $derived(api.shell === "web");
+
+  /**
+   * Files dragged in from the computer the browser is running on.
+   *
+   * Only where that is a different computer from the one holding the files.
+   * In the desktop program the two are the same and a drop is already handled
+   * by the shell, with real paths rather than copies.
+   *
+   * One at a time on purpose. Ten at once would be ten sockets competing for
+   * the same line, and a browser that decides for itself how many of them to
+   * actually start.
+   */
+  async function receiveFiles(files: File[]): Promise<void> {
+    if (remote) {
+      // A server is not somewhere a browser can put a file directly. Getting
+      // it there is two steps and the queue is the second.
+      trouble = { kind: "other", detail: t("upload.local-only") };
+      return;
+    }
+    arriving = files.length;
+    try {
+      for (const file of files) {
+        await api.uploadInto(view.endpoint, view.path, file);
+        arriving -= 1;
+      }
+      await reload(side);
+    } catch (problem) {
+      trouble = problem;
+    } finally {
+      arriving = 0;
+    }
+  }
+
   let filterField = $state<HTMLInputElement | null>(null);
   /**
    * What is in the address field while somebody is editing it.
@@ -125,15 +168,15 @@
   let trouble = $state<unknown>(null);
 
   let menuItems = $derived(
-    menuFor({ remote, targets: chosen }).map((command) => {
-      const { usable, reason } = availability(command, { remote, targets: chosen });
+    menuFor({ remote, targets: chosen, away }).map((command) => {
+      const { usable, reason } = availability(command, { remote, targets: chosen, away });
       return { command, usable, reason };
     }),
   );
 
   let toolbar = $derived(
     COMMANDS.filter((command) => command.inToolbar).map((command) => {
-      const { usable, reason } = availability(command, { remote, targets: chosen });
+      const { usable, reason } = availability(command, { remote, targets: chosen, away });
       return { command, usable, reason };
     }),
   );
@@ -251,6 +294,23 @@
       case "transfer":
         await ontransfer(chosen.map((entry) => entry.name));
         break;
+      case "download":
+        for (const entry of chosen) {
+          if (entry.kind === "directory") continue;
+          const path = await api.joinPath(view.endpoint, view.path, entry.name);
+          const where = api.downloadUrl(view.endpoint, path);
+          // An anchor rather than changing the address: a page that navigates
+          // away to fetch a file is a page that has to come back, and coming
+          // back means signing in and starting over.
+          if (!where) continue;
+          const link = document.createElement("a");
+          link.href = where;
+          link.download = entry.name;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        }
+        break;
       default:
         // transfer and remote editing arrive with the transfer engine.
         break;
@@ -284,7 +344,14 @@
     // held. A drag from outside the window never reaches here — the desktop
     // shell takes those so it can hand over real paths.
     const payload = event.dataTransfer?.getData("application/x-amberbeam");
-    if (!payload) return;
+    if (!payload) {
+      // Files from the viewer's own computer, in a browser. The desktop shell
+      // never sees these — it takes a drag from outside the window itself, so
+      // it can hand over real paths instead of copies.
+      const dropped = [...(event.dataTransfer?.files ?? [])];
+      if (dropped.length > 0) await receiveFiles(dropped);
+      return;
+    }
     try {
       const { side: from, names } = JSON.parse(payload) as { side: Side; names: string[] };
       if (from !== side) {
@@ -468,6 +535,7 @@
       }}
     />
     {#if view.busy}<span class="busy">{t("pane.loading")}</span>{/if}
+    {#if arriving > 0}<span class="busy">{t("upload.arriving", { count: arriving })}</span>{/if}
     <!-- "1 Einträge" is the sort of thing that makes a program feel machine
          translated, and it takes one key to avoid. -->
     <span class="count">

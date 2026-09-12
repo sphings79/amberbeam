@@ -16,6 +16,7 @@ export type CommandId =
   | "permissions"
   | "delete"
   | "transfer"
+  | "download"
   | "edit-remote";
 
 export interface Command {
@@ -30,6 +31,14 @@ export interface Command {
   needsTarget: boolean;
   /** Only offered on a remote pane. */
   remoteOnly?: boolean;
+  /**
+   * Only where the window and the files are on different computers.
+   *
+   * Which is the container build and nothing else. In the desktop program the
+   * local side already is your disk, and offering to download it would be
+   * offering to copy a file onto itself.
+   */
+  awayOnly?: boolean;
   /** Only offered on a single row, not a selection. */
   singleOnly?: boolean;
   /** Not available yet, and says which milestone brings it. */
@@ -45,6 +54,14 @@ export const COMMANDS: Command[] = [
   { id: "delete", key: "cmd.delete", icon: "delete", inToolbar: true, needsTarget: true },
   { id: "transfer", key: "cmd.transfer", icon: "transfer", inToolbar: true, needsTarget: true },
   {
+    id: "download",
+    key: "cmd.download",
+    icon: "update",
+    inToolbar: false,
+    needsTarget: true,
+    awayOnly: true,
+  },
+  {
     id: "edit-remote",
     key: "cmd.edit-remote",
     icon: "edit-remote",
@@ -59,10 +76,11 @@ export const COMMANDS: Command[] = [
 /** Whether a command can be used right now, and why not when it cannot. */
 export function availability(
   command: Command,
-  options: { remote: boolean; targets: DirEntry[] },
+  options: { remote: boolean; targets: DirEntry[]; away?: boolean },
 ): { usable: boolean; reason: "coming" | "needs-target" | "single-only" | "remote-only" | null } {
   if (command.comingIn) return { usable: false, reason: "coming" };
   if (command.remoteOnly && !options.remote) return { usable: false, reason: "remote-only" };
+  if (command.awayOnly && !options.away) return { usable: false, reason: "remote-only" };
   if (command.needsTarget && options.targets.length === 0) {
     return { usable: false, reason: "needs-target" };
   }
@@ -73,6 +91,17 @@ export function availability(
 }
 
 /** The commands a right-click menu shows for this pane. */
-export function menuFor(options: { remote: boolean; targets: DirEntry[] }): Command[] {
-  return COMMANDS.filter((command) => !command.remoteOnly || options.remote);
+export function menuFor(options: {
+  remote: boolean;
+  targets: DirEntry[];
+  away?: boolean;
+}): Command[] {
+  return COMMANDS.filter(
+    (command) =>
+      (!command.remoteOnly || options.remote) &&
+      // Hidden rather than greyed out where it can never apply. A permanently
+      // disabled entry is a question the program keeps asking and answering
+      // itself.
+      (!command.awayOnly || options.away === true),
+  );
 }

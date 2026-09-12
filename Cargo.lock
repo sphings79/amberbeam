@@ -118,10 +118,12 @@ dependencies = [
  "amberbeam-commands",
  "amberbeam-core",
  "axum",
+ "futures-core",
  "ring",
  "serde",
  "serde_json",
  "tokio",
+ "tokio-util",
  "tower-http 0.7.1",
 ]
 

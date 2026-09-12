@@ -439,5 +439,8 @@
   "service.switch": "Maschine",
   "signin.what": "Dieser Dienst will ein Passwort, bevor er antwortet.",
   "signin.go": "Anmelden",
-  "signin.going": "Meldet an…"
+  "signin.going": "Meldet an…",
+  "upload.local-only": "Ein Browser kann eine Datei nicht direkt auf einen Server legen. Erst hierher, dann übertragen.",
+  "upload.arriving": "{count} kommen an…",
+  "cmd.download": "Herunterladen"
 }

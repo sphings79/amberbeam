@@ -162,6 +162,12 @@ export const api: AmberBeamApi = {
 
   restart: () => invoke<void>("restart"),
 
+  // The local side is this computer. There is nowhere to send a file to and
+  // nowhere to fetch it from that is not already open in the other pane.
+  downloadUrl: () => null,
+  uploadInto: () =>
+    Promise.reject(new Error("this window and the files are on the same computer")),
+
   setSiteSecret: (id: string, kind: SecretKind, value: string) =>
     send<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>

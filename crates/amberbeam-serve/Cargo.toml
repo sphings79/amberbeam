@@ -23,3 +23,11 @@ tokio = { workspace = true, features = ["signal"] }
 ring.workspace = true
 axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.7", features = ["fs"] }
+# The two adapters between an HTTP body and the core's readers and writers.
+# Already in the tree through axum, so declaring it costs nothing in the
+# binary and saves writing a stream by hand.
+tokio-util = { version = "0.7", features = ["io"] }
+# For the `Stream` trait alone, to read a request body chunk by chunk. Also
+# already in the tree; the combinator crate on top of it is not, and is not
+# needed for a loop this short.
+futures-core = "0.3"

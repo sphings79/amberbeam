@@ -212,6 +212,31 @@ export function makeApi(target: Target): AmberBeamApi {
     deleteSiteFolder: (folder: string) => call<void>("delete_site_folder", { folder }),
     // A page in a browser cannot replace the program serving it, and should not
     // pretend otherwise. The window offers the download page instead.
+    downloadUrl(endpoint: string, path: string): string {
+      const address = new URL(`${base}/api/download`, window.location.href);
+      address.searchParams.set("endpoint", endpoint);
+      address.searchParams.set("path", path);
+      if (target.token) address.searchParams.set("token", target.token);
+      return address.toString();
+    },
+
+    async uploadInto(endpoint: string, directory: string, file: File): Promise<void> {
+      const address = new URL(`${base}/api/upload`, window.location.href);
+      address.searchParams.set("endpoint", endpoint);
+      address.searchParams.set("directory", directory);
+      address.searchParams.set("name", file.name);
+      // The file itself as the body, not wrapped in a form. A hundred
+      // gigabytes should travel as a hundred gigabytes and not as a part of
+      // something larger that has to be taken apart at the other end.
+      const answer = await fetch(address, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: target.token ? { authorization: `Bearer ${target.token}` } : {},
+        body: file,
+      });
+      if (!answer.ok) throw await answer.json();
+    },
+
     canInstallUpdate: () => Promise.resolve(false),
     installUpdate: () => Promise.reject(new Error("the web shell cannot install updates")),
     restart: () => Promise.reject(new Error("the web shell cannot restart the program")),
