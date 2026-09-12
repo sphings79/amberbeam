@@ -345,6 +345,20 @@ export interface Site {
   auth: AuthKind;
   keyPath: string | null;
   remotePath: string | null;
+  /**
+   * Open where this server was last left instead of at `remotePath`.
+   *
+   * Off by default: somebody who typed a starting directory meant it.
+   */
+  rememberPath: boolean;
+  /**
+   * Where it was last left, when the entry asked for that to be remembered.
+   *
+   * Filled by the core, never by a window, and null when the entry did not ask
+   * or has not been anywhere yet. Whichever of the two paths arrives, opening
+   * is the same journey — the window does not know which rule produced it.
+   */
+  lastPath: string | null;
   localPath: string | null;
   concurrency: number;
   retries: number | null;
@@ -523,7 +537,13 @@ export interface AmberBeamApi {
   forgetQuickConnect(id: string): Promise<void>;
   /** Writes a site entry and returns where it landed. */
   saveAsSite(id: string): Promise<string>;
-  rememberPath(id: string, path: string): Promise<void>;
+  /**
+   * Records where a pane is now.
+   *
+   * A quick connect entry always keeps it; a saved server keeps it only when
+   * it asked to, which is why `siteId` goes along and the core decides.
+   */
+  rememberPath(id: string, path: string, siteId?: string | null): Promise<void>;
 
   /**
    * Files dropped onto the window from outside it.

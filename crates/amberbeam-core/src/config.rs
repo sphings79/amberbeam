@@ -6,11 +6,14 @@
 //! * `quick-connect.json` — the servers reached without a site entry
 //! * `ui-state.json` — window size, pane split, last local directory
 //! * `sites/*.json` — one file per site entry, the format of section 06
+//! * `visited.json` — where each site was last left, for the entries that
+//!   asked to be remembered
 //!
 //! **Never a password.** Those belong in the system's credential store, which
 //! arrives with the site manager in M4; until then they live in memory for the
 //! length of a session and nowhere else.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -242,6 +245,7 @@ impl Config {
             auth: entry.auth,
             key_path: entry.key_path.clone(),
             remote_path: entry.last_path.clone(),
+            remember_path: false,
             local_path: None,
             concurrency: entry
                 .concurrency
@@ -268,6 +272,48 @@ impl Config {
             ..entry
         })?;
         Ok(path)
+    }
+
+    /// Where a site was last left, or `None` if it has not been anywhere.
+    ///
+    /// Its own file rather than a field in the site entry, for two reasons.
+    /// The site manager is a window of its own that writes an entry whole, so
+    /// a directory recorded here every few seconds would be overwritten by its
+    /// next save — or overwrite it. And a site file is meant to be read,
+    /// versioned and edited by hand, which a line that rewrites itself as
+    /// somebody walks about is not.
+    ///
+    /// Whether a site wants this is [`Site::remember_path`], and that question
+    /// is not asked here: this only stores and returns.
+    pub fn visited(&self, id: &str) -> Option<String> {
+        self.visits().remove(id)
+    }
+
+    /// Records where a site is now.
+    pub fn remember_visit(&self, id: &str, path: &str) -> Result<()> {
+        let mut visits = self.visits();
+        if visits.get(id).map(String::as_str) == Some(path) {
+            // Asked on every move of either pane, and most of those moves are
+            // the other pane's. Writing the same line again for each of them
+            // would be a file rewritten for nothing.
+            return Ok(());
+        }
+        visits.insert(id.to_string(), path.to_string());
+        write_json(&self.visited_path(), &visits)
+    }
+
+    /// Drops what was remembered for a site, when it is deleted or when it
+    /// stops asking to be remembered.
+    pub fn forget_visit(&self, id: &str) -> Result<()> {
+        let mut visits = self.visits();
+        if visits.remove(id).is_none() {
+            return Ok(());
+        }
+        write_json(&self.visited_path(), &visits)
+    }
+
+    fn visits(&self) -> BTreeMap<String, String> {
+        read_json(&self.visited_path()).unwrap_or_default()
     }
 
     pub fn settings(&self) -> Settings {
@@ -319,6 +365,10 @@ impl Config {
 
     fn quick_connect_path(&self) -> PathBuf {
         self.root.join("quick-connect.json")
+    }
+
+    fn visited_path(&self) -> PathBuf {
+        self.root.join("visited.json")
     }
 }
 
@@ -572,5 +622,31 @@ mod tests {
             2,
             "the login's own value, not the protocol's"
         );
+    }
+
+    #[test]
+    fn where_a_site_was_left_survives_a_restart_and_can_be_dropped() {
+        let config = scratch("visited");
+        assert_eq!(config.visited("abc"), None, "nowhere yet");
+
+        config.remember_visit("abc", "/var/www").unwrap();
+        config.remember_visit("def", "/srv").unwrap();
+        // Twice in the same place is not a second place.
+        config.remember_visit("abc", "/var/www").unwrap();
+
+        // A second Config over the same directory is the next start.
+        let later = Config::at(config.root());
+        assert_eq!(later.visited("abc").as_deref(), Some("/var/www"));
+        assert_eq!(later.visited("def").as_deref(), Some("/srv"));
+
+        later.forget_visit("abc").unwrap();
+        assert_eq!(Config::at(config.root()).visited("abc"), None);
+        assert_eq!(
+            Config::at(config.root()).visited("def").as_deref(),
+            Some("/srv"),
+            "forgetting one entry is not forgetting the file"
+        );
+        // Forgetting what was never there is not an error.
+        later.forget_visit("abc").unwrap();
     }
 }

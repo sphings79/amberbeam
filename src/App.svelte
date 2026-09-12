@@ -255,6 +255,8 @@
     historyId: string;
     side: Side;
     startPath?: string;
+    siteId?: string;
+    resume?: string;
   } | null>(null);
 
   let hostKey = $derived(hostKeyQuestion(connectFailure));
@@ -481,6 +483,7 @@
     side: Side,
     startPath?: string,
     siteId?: string,
+    resume?: string,
   ): Promise<void> {
     connecting = true;
     connectFailure = null;
@@ -496,12 +499,16 @@
         // in an earlier run counts the same, and the mark has to say so.
         session.certificateAccepted,
         siteId ?? null,
+        resume ?? null,
       );
       quickFor = null;
       pendingRequest = null;
     } catch (failure) {
       connectFailure = failure;
-      pendingRequest = { request, historyId, side, startPath };
+      // Everything the attempt was given, because the second attempt is the
+      // same attempt: a host key accepted must not cost the pane the server it
+      // belongs to, which is what decides whether deleting means deleting.
+      pendingRequest = { request, historyId, side, startPath, siteId, resume };
     } finally {
       connecting = false;
     }
@@ -509,8 +516,15 @@
 
   async function acceptHostKey(fingerprint: string): Promise<void> {
     if (!pendingRequest) return;
-    const { request, historyId, side, startPath } = pendingRequest;
-    await attempt({ ...request, acceptFingerprint: fingerprint }, historyId, side, startPath);
+    const { request, historyId, side, startPath, siteId, resume } = pendingRequest;
+    await attempt(
+      { ...request, acceptFingerprint: fingerprint },
+      historyId,
+      side,
+      startPath,
+      siteId,
+      resume,
+    );
   }
 
   /**
@@ -556,6 +570,9 @@
       side,
       site.remotePath ?? undefined,
       site.id,
+      // Only ever set when the entry asked to be remembered; the core decides
+      // that, so there is nothing to weigh up here.
+      site.lastPath ?? undefined,
     );
   }
 
@@ -567,8 +584,15 @@
 
   async function acceptCertificate(fingerprint: string): Promise<void> {
     if (!pendingRequest) return;
-    const { request, historyId, side, startPath } = pendingRequest;
-    await attempt({ ...request, acceptCertificate: fingerprint }, historyId, side, startPath);
+    const { request, historyId, side, startPath, siteId, resume } = pendingRequest;
+    await attempt(
+      { ...request, acceptCertificate: fingerprint },
+      historyId,
+      side,
+      startPath,
+      siteId,
+      resume,
+    );
   }
 
   /** Everything a transfer needs to know about where it is going. */
@@ -1197,6 +1221,8 @@
               `${waiting.site.user}@${waiting.site.host}`,
               waiting.side,
               waiting.site.remotePath ?? undefined,
+              waiting.site.id,
+              waiting.site.lastPath ?? undefined,
             );
           }}
         >

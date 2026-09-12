@@ -84,7 +84,8 @@ export const api: AmberBeamApi = {
   quickConnectHistory: () => send<QuickConnectEntry[]>("quick_connect_history"),
   forgetQuickConnect: (id: string) => send<void>("forget_quick_connect", { id }),
   saveAsSite: (id: string) => send<string>("save_as_site", { id }),
-  rememberPath: (id: string, path: string) => send<void>("remember_path", { id, path }),
+  rememberPath: (id: string, path: string, siteId?: string | null) =>
+    send<void>("remember_path", { id, path, siteId: siteId ?? null }),
 
   async onFileDrop(handler): Promise<Unsubscribe> {
     return await getCurrentWebview().onDragDropEvent((event) => {

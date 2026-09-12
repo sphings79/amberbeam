@@ -81,6 +81,13 @@ pub struct SiteRow {
     /// because "until you quit" and "until you delete it" are not the same
     /// promise and the window must not blur them.
     pub has_session_password: bool,
+    /// Where this server was last left, and only when the entry asked for that
+    /// to be remembered.
+    ///
+    /// `None` when it did not ask, or when it has not been anywhere yet.
+    /// Either way the window opens at the configured directory, so it never
+    /// has to know the rule — only which of the two it was handed.
+    pub last_path: Option<String>,
 }
 
 /// Which secret of an entry a command means.
@@ -355,6 +362,10 @@ struct Renaming2 {
 struct Remembering {
     id: String,
     path: String,
+    /// The saved server behind this pane, when it came from one. The entry
+    /// decides whether anything is kept; the window only says which entry.
+    #[serde(default)]
+    site_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -630,9 +641,11 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
         "delete_site" => {
             let it: ById = taking(command, args)?;
             service.config.sites().delete(&it.id)?;
-            // The password goes with the entry that explained what it was for.
+            // The password goes with the entry that explained what it was for,
+            // and so does the directory it was last left in.
             let _ = service.secrets.forget_all(&it.id);
             let _ = service.session.forget_all(&it.id);
+            let _ = service.config.forget_visit(&it.id);
             out(())
         }
         "create_site_folder" => {
@@ -686,7 +699,7 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
         }
         "remember_path" => {
             let it: Remembering = taking(command, args)?;
-            out(remember_path(service, it.id, it.path)?)
+            out(remember_path(service, it.id, it.path, it.site_id)?)
         }
 
         // --- Settings and whatever the window keeps ---
@@ -785,6 +798,11 @@ fn sites(service: &Service) -> Vec<SiteRow> {
                 .get(&filed.site.id, Secret::Password)
                 .unwrap_or_default()
                 .is_some(),
+            last_path: filed
+                .site
+                .remember_path
+                .then(|| service.config.visited(&filed.site.id))
+                .flatten(),
             folder: filed.folder,
             site: filed.site,
         })
@@ -807,11 +825,40 @@ fn save_site(service: &Service, folder: String, mut site: Site) -> Result<String
         let _ = service.secrets.forget(&site.id, Secret::Passphrase);
     }
 
+    // And the same for the directory, or switching it off and on again would
+    // bring back somewhere this entry was months ago.
+    if !site.remember_path {
+        let _ = service.config.forget_visit(&site.id);
+    }
+
     service.config.sites().save(&folder, &site)?;
     Ok(site.id)
 }
 
-fn remember_path(service: &Service, id: String, path: String) -> Result<(), Error> {
+/// Records where a pane is, for whatever is entitled to know.
+///
+/// Two things can want it, and they want it on different terms: a quick
+/// connect entry always keeps the directory it was last in, a saved server
+/// keeps one only when it was asked to. Both follow from the same step, so
+/// both happen here — and the entry's own answer is read here rather than sent
+/// by the window, which would have to be told every time somebody changed it.
+fn remember_path(
+    service: &Service,
+    id: String,
+    path: String,
+    site_id: Option<String>,
+) -> Result<(), Error> {
+    if let Some(site_id) = site_id {
+        let asked_for = service
+            .config
+            .sites()
+            .find(&site_id)
+            .is_some_and(|(filed, _)| filed.site.remember_path);
+        if asked_for {
+            service.config.remember_visit(&site_id, &path)?;
+        }
+    }
+
     let Some(entry) = service
         .config
         .quick_connect()

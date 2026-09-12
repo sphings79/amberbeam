@@ -265,6 +265,7 @@ export async function openSession(
   startPath?: string | null,
   certificateAccepted = false,
   siteId: string | null = null,
+  resume?: string | null,
 ): Promise<void> {
   const state = panes[side];
   // Endpoint and path change together. Setting the endpoint first and reading
@@ -290,6 +291,15 @@ export async function openSession(
   // would otherwise drag the second off the directory it is about to open.
   automatic = true;
   try {
+    // Where it was left is tried first and forgiven when it fails: a directory
+    // somebody was in last week may be gone, and an error about it would be a
+    // complaint about a convenience nobody asked to have go wrong. A start
+    // path that is wrong still says so — that one was typed on purpose, and
+    // silently ignoring it would hide a setting that needs fixing.
+    if (resume) {
+      await navigate(side, resume);
+      if (!state.failure) return;
+    }
     await navigate(side, startPath || session.home);
   } finally {
     automatic = false;
@@ -438,8 +448,10 @@ export async function navigate(side: Side, path: string): Promise<void> {
     state.filter = "";
     if (state.historyId) {
       // Remembering where a server was left is what makes reconnecting feel
-      // like coming back rather than starting over.
-      void api.rememberPath(state.historyId, listing.path).catch(() => undefined);
+      // like coming back rather than starting over. The site goes along
+      // because a saved entry keeps this only when it asked to, and that is
+      // the entry's answer to give, not this one's.
+      void api.rememberPath(state.historyId, listing.path, state.siteId).catch(() => undefined);
     }
   } catch (failure) {
     state.failure = failure;

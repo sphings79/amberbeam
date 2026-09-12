@@ -42,6 +42,19 @@ pub struct Site {
     pub key_path: Option<String>,
     /// Directory the server side opens in.
     pub remote_path: Option<String>,
+    /// Open where this server was last left instead of at [`Site::remote_path`].
+    ///
+    /// Off by default. Somebody who typed a starting directory meant it, and a
+    /// program that quietly stops honouring a setting after the first
+    /// connection is a program whose settings nobody can trust.
+    ///
+    /// The path itself is not kept here. It changes with every directory
+    /// somebody walks into, and this file is written whole by a second window
+    /// and read by people in an editor; neither wants a line that rewrites
+    /// itself every few seconds. It lives in `visited.json` instead — see
+    /// [`crate::config::Config::visited`].
+    #[serde(default)]
+    pub remember_path: bool,
     /// Directory the local side opens in.
     pub local_path: Option<String>,
     pub concurrency: u8,
@@ -392,6 +405,7 @@ mod tests {
             auth: AuthKind::Password,
             key_path: None,
             remote_path: Some("/var/www".into()),
+            remember_path: false,
             local_path: None,
             concurrency: 8,
             retries: None,
@@ -513,7 +527,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 20] = [
+        const ALLOWED: [&str; 21] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -526,6 +540,9 @@ mod tests {
             "auth",
             "keyPath",
             "remotePath",
+            // A directory on that same server, and only kept at all when the
+            // entry asked for it.
+            "rememberPath",
             "localPath",
             "concurrency",
             "retries",

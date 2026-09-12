@@ -194,6 +194,7 @@ mod tests {
             auth: AuthKind::Password,
             key_path: None,
             remote_path: None,
+            remember_path: false,
             local_path: None,
             concurrency: 8,
             retries: None,

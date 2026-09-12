@@ -266,6 +266,8 @@
       auth: "password",
       keyPath: null,
       remotePath: null,
+      rememberPath: false,
+      lastPath: null,
       localPath: null,
       concurrency: suggested("sftp") ?? 8,
       retries: null,
@@ -753,6 +755,14 @@
             />
           </label>
         </div>
+
+        <label class="check">
+          <input type="checkbox" bind:checked={draft.rememberPath} />
+          <span>{t("sites.remember-path")}</span>
+        </label>
+        <p class="hint">
+          {draft.rememberPath ? t("sites.remember-path.hint") : t("sites.start-path.hint")}
+        </p>
 
         <div class="row">
           <label class="grow">

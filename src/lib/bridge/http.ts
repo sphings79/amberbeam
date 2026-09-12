@@ -170,7 +170,8 @@ export function makeApi(target: Target): AmberBeamApi {
     quickConnectHistory: () => call<QuickConnectEntry[]>("quick_connect_history"),
     forgetQuickConnect: (id: string) => call<void>("forget_quick_connect", { id }),
     saveAsSite: (id: string) => call<string>("save_as_site", { id }),
-    rememberPath: (id: string, path: string) => call<void>("remember_path", { id, path }),
+    rememberPath: (id: string, path: string, siteId?: string | null) =>
+      call<void>("remember_path", { id, path, siteId: siteId ?? null }),
 
     async onFileDrop(): Promise<Unsubscribe> {
       // A browser never learns the path of a dropped file, only its contents, so

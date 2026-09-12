@@ -288,6 +288,7 @@ fn import_apply(
             auth: entry.auth,
             key_path: entry.key_path.clone(),
             remote_path: entry.remote_path.clone(),
+            remember_path: false,
             local_path: None,
             concurrency: entry.protocol.default_concurrency(),
             retries: None,
