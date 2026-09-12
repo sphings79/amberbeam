@@ -56,7 +56,7 @@ use amberbeam_core::runner::Runner;
 use amberbeam_core::secrets::{FileStore, MemoryStore, SecretStore};
 use amberbeam_core::Events;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -172,6 +172,12 @@ struct Login {
 #[serde(rename_all = "camelCase")]
 struct Welcome {
     token: String,
+}
+
+/// The one thing that may be asked for in an address.
+#[derive(Deserialize)]
+struct SocketQuery {
+    token: Option<String>,
 }
 
 /// What the service says about itself before anybody has logged in.
@@ -367,11 +373,17 @@ async fn command(
 async fn events_socket(
     State(shell): State<Arc<Shell>>,
     headers: HeaderMap,
+    Query(asked): Query<SocketQuery>,
     upgrade: WebSocketUpgrade,
 ) -> Response {
     // Checked before the upgrade, not after. A socket that opens and then
     // refuses to say anything looks like a bug from the other end.
-    let Some(token) = token_of(&headers) else {
+    //
+    // The token may arrive in the address here, which it may nowhere else. A
+    // WebSocket cannot be opened with a header, so a client with no cookie has
+    // nowhere else to put it. A browser on this service's own page sends the
+    // cookie and never uses this.
+    let Some(token) = token_of(&headers).or(asked.token) else {
         return (StatusCode::UNAUTHORIZED, Json(problem("not signed in"))).into_response();
     };
     if !shell.door.holds(&token) {

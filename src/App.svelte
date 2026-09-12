@@ -1,6 +1,10 @@
 <script lang="ts">
   import {
     api,
+    connectedTo,
+    isNotSignedIn,
+    useService,
+    useThisMachine,
     LOCAL,
     type ConnectRequest,
     type CoreEvent,
@@ -17,7 +21,7 @@
     saved as savedKeys,
     setupApplies,
   } from "./lib/keys/index.svelte";
-  import { recordEvent } from "./lib/state/log.svelte";
+  import { clearLog, recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
   import {
     availableUpdate,
@@ -55,6 +59,8 @@
   import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
   import AppearanceDialog from "./lib/ui/AppearanceDialog.svelte";
   import ConnectMenu from "./lib/ui/ConnectMenu.svelte";
+  import ServiceDialog from "./lib/ui/ServiceDialog.svelte";
+  import SignIn from "./lib/ui/SignIn.svelte";
   import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
@@ -284,6 +290,21 @@
   // server is the user's business; nothing here treats one as privileged.
   $effect(() => {
     void (async () => {
+      try {
+        await api.coreInfo();
+      } catch (problem) {
+        if (isNotSignedIn(problem)) {
+          wantsPassword = true;
+          return;
+        }
+      }
+      await begin();
+    })();
+  });
+
+  /** Everything the window does once it is allowed to ask questions. */
+  async function begin(): Promise<void> {
+    {
       const local = await api.localSession();
       const saved = (await api.uiState().catch(() => null)) as
         | {
@@ -327,8 +348,47 @@
 
       await openSession("left", local, null, null, saved?.leftPath ?? null);
       await openSession("right", local, null, null, null);
-    })();
-  });
+    }
+  }
+
+  /**
+   * Which machine's files are on screen, for showing and for nothing else.
+   *
+   * The bridge holds the real answer; this follows it, because the bridge is
+   * not a store and a program that can show two machines must never leave
+   * somebody guessing which one they are looking at.
+   */
+  let service = $state<string | null>(null);
+  let serviceOpen = $state(false);
+  /**
+   * Whether the service wants a password before it will say anything.
+   *
+   * The container build only. Everything behind it needs a session, so there
+   * is nothing worth drawing until there is one.
+   */
+  let wantsPassword = $state(false);
+
+  /**
+   * Starts again on whichever core is now in use.
+   *
+   * Everything is put down first. A pane still listing the last machine, a
+   * queue still holding its jobs, a log still filling up from a socket nobody
+   * closed — each of them would be one machine's answer sitting under
+   * another's, and that is worse than an empty window.
+   */
+  async function startOver(): Promise<void> {
+    unsubscribe?.();
+    unsubscribe = null;
+    clearLog();
+    const local = await api.localSession();
+    await openSession("left", local, null, null, null);
+    await openSession("right", local, null, null, null);
+    await refreshQueue();
+    unsubscribe = await api.subscribe((event: CoreEvent) => {
+      recordEvent(event);
+      recordQueueEvent(event);
+    });
+  }
 
   let unsubscribe: Unsubscribe | null = null;
   $effect(() => {
@@ -726,7 +786,14 @@
 
 <svelte:window onkeydown={onKey} />
 
-{#if isSiteManager}
+{#if wantsPassword}
+  <SignIn
+    onin={() => {
+      wantsPassword = false;
+      void begin();
+    }}
+  />
+{:else if isSiteManager}
   <SiteManager />
 {:else}
 <div class="window" use:tips>
@@ -739,6 +806,25 @@
       {t("sites.title")}
       <span class="shortcut mono">{label("Mod+S")}</span>
     </button>
+
+    <!-- Whose files are on screen. Quiet on this machine, unmistakable when
+         it is not: a program that can show two machines must never leave
+         somebody guessing which one they are looking at.
+
+         Not in the container build. A page served by a service is already on
+         it, and "this machine" would be pointing at the very thing it is
+         distinguishing itself from. -->
+    {#if api.shell !== "web"}
+    <button
+      type="button"
+      class="where"
+      class:elsewhere={service !== null}
+      onclick={() => (serviceOpen = true)}
+      title={t("service.title")}
+    >
+      {service ?? t("service.here")}
+    </button>
+    {/if}
 
     <span class="gap"></span>
 
@@ -878,6 +964,24 @@
   </footer>
 
 </div>
+
+{#if serviceOpen}
+  <ServiceDialog
+    onuse={(address, token) => {
+      serviceOpen = false;
+      useService(address, token);
+      service = connectedTo();
+      void startOver();
+    }}
+    onhere={() => {
+      serviceOpen = false;
+      useThisMachine();
+      service = connectedTo();
+      void startOver();
+    }}
+    onclose={() => (serviceOpen = false)}
+  />
+{/if}
 
 {#if settingsOpen}
   <AppearanceDialog
@@ -1145,6 +1249,30 @@
 
   .bar .gap {
     flex: 1;
+  }
+
+  .bar .where {
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+
+  .bar .where:hover {
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  /* Another machine is not a detail. */
+  .bar .where.elsewhere {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   .bar .update {
