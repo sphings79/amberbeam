@@ -1,6 +1,6 @@
 {
   "name": "amberbeam",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Dual-pane FTP, FTPS and SFTP client for macOS, Windows and Linux \u2014 keyboard-driven, with a persistent transfer queue and mid-file resume.",
   "license": "AGPL-3.0-or-later",
   "repository": {

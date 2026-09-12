@@ -7,6 +7,36 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.6
+
+Three days old and already one of those: the close button.
+
+### Fixed
+
+- **0.1.5 could not be closed by its close button.** A window whose page
+  listens for the close event never closes by itself — Tauri's own runtime
+  holds it back and leaves the closing to the page — and the only thing that
+  ends such a window is a permission the program had not granted itself. The
+  question about files still open for editing got its answer and then nothing
+  happened, and every later press did nothing at all.
+
+  Nothing here presses that button. The checks drive the core, the browser
+  shell and a real FTP server, and none of them is a desktop window with a
+  close box in the corner — so this was found the way it deserved to be, by
+  somebody using it.
+- **"Throw them away" threw nothing away.** The command was sent off rather
+  than waited for, and it was the last thing to happen before the window went.
+  A command still on its way out when that happens never arrives.
+
+### Changed
+
+- **The question asks whether to quit, not whether to keep the copies.**
+  Keeping them was a promise the next start breaks: copies nobody owns are
+  swept when the program starts, and after quitting nobody owns these. So the
+  choice is to throw them away and quit, or not to quit — and a button opens
+  the directory they are in, without answering the question, because somebody
+  looking at the copies is still deciding.
+
 ## 0.1.5
 
 AmberBeam without a window at all, and files edited where they lie.

@@ -7,6 +7,37 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.6
+
+Drei Tage alt und schon so einer: der Schließen-Knopf.
+
+### Behoben
+
+- **0.1.5 ließ sich nicht über den Schließen-Knopf beenden.** Ein Fenster,
+  dessen Seite auf das Schließ-Ereignis hört, schließt sich nie von selbst —
+  Tauris eigene Laufzeit hält es auf und überlässt das Schließen der Seite —,
+  und das Einzige, was so ein Fenster beendet, war ein Recht, das sich das
+  Programm selbst nicht erteilt hatte. Die Frage nach noch offenen Dateien
+  bekam ihre Antwort, und dann passierte nichts, und jeder weitere Klick tat
+  dasselbe Nichts.
+
+  Diesen Knopf drückt hier nichts. Die Prüfungen fahren den Kern, die
+  Browser-Schale und einen echten FTP-Server, und keins davon ist ein
+  Desktop-Fenster mit einem Schließkreuz in der Ecke — gefunden wurde es also
+  so, wie es das verdient hat: beim Benutzen.
+- **„Wegwerfen" warf nichts weg.** Der Befehl wurde losgeschickt statt
+  abgewartet, und er war das Letzte vor dem Verschwinden des Fensters. Ein
+  Befehl, der dann noch unterwegs ist, kommt nie an.
+
+### Geändert
+
+- **Die Frage lautet, ob beendet werden soll, nicht ob die Kopien bleiben.**
+  Sie zu behalten war ein Versprechen, das der nächste Start bricht: Kopien,
+  die niemandem gehören, werden beim Starten weggekehrt, und nach dem Beenden
+  gehören diese niemandem. Also: wegwerfen und beenden, oder nicht beenden —
+  und ein Knopf öffnet das Verzeichnis, in dem sie liegen, ohne die Frage zu
+  beantworten, weil wer sich die Kopien ansieht, noch am Entscheiden ist.
+
 ## 0.1.5
 
 AmberBeam ganz ohne Fenster, und Dateien dort bearbeitet, wo sie liegen.
