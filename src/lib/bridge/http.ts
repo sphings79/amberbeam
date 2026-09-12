@@ -340,6 +340,11 @@ export function makeApi(target: Target): AmberBeamApi {
       // let this page ask a question of its own on the way out anyway.
       return () => undefined;
     },
+    async showEditsFolder(): Promise<boolean> {
+      // The copies are on the machine running the service, and a file manager
+      // opened there would be nowhere anybody can see.
+      return false;
+    },
     async closeThisWindow(): Promise<void> {
       // A browser tab that closed itself would take the whole session with it.
     },

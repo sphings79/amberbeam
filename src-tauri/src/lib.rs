@@ -447,6 +447,33 @@ async fn open_with(
     command.arg(&path).spawn().map(|_| ()).map_err(Error::other)
 }
 
+/// Shows the directory the copies being edited live in.
+///
+/// Takes nothing, on purpose. "Open this folder" with a path in it is a
+/// command that can be pointed anywhere; this one only ever opens the one
+/// directory the core made for itself.
+#[tauri::command]
+async fn show_edits_folder(state: tauri::State<'_, Arc<Service>>) -> Result<(), Error> {
+    let folder = state.edits.root().to_path_buf();
+    // It is made when the first copy is taken, and somebody may look before
+    // that. An empty folder answers the question; an error about a missing one
+    // does not.
+    std::fs::create_dir_all(&folder).map_err(Error::from)?;
+
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = std::process::Command::new("explorer");
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = std::process::Command::new("xdg-open");
+
+    command
+        .arg(&folder)
+        .spawn()
+        .map(|_| ())
+        .map_err(Error::other)
+}
+
 /// Which pane of the system's settings a key scheme needs.
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -610,6 +637,7 @@ pub fn run() {
             import_apply,
             open_url,
             open_with,
+            show_edits_folder,
             open_system_keyboard,
             write_text_file,
             read_text_file,

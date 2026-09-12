@@ -149,17 +149,18 @@
   let editChanged = $state<{ id: string; name: string; path: string } | null>(null);
 
   /**
-   * The copies still lying about as the program closes, and the answer nobody
+   * Files still open for editing as the program closes, and the answer nobody
    * has given yet.
    *
-   * Asked rather than assumed, because the two answers are both reasonable and
-   * only one of them can be taken back. A copy thrown away is gone with
-   * whatever was typed into it and never saved; a copy kept is somebody's file
-   * sitting unencrypted in a temporary directory.
+   * The choice is whether to close at all, not whether to keep the copies.
+   * Keeping them would be a promise the next start breaks — it sweeps the
+   * copies nobody owns, and after quitting nobody owns these. So the honest
+   * pair is "throw them away and quit" or "don't quit", and the second one is
+   * how somebody rescues what is in them.
    */
   let leftBehind = $state<{
     names: string[];
-    answer: (deleteCopies: boolean) => Promise<void>;
+    answer: (quit: boolean) => Promise<void>;
   } | null>(null);
 
   $effect(() => {
@@ -174,14 +175,14 @@
         return await new Promise<boolean>((settle) => {
           leftBehind = {
             names: open.map((edit) => edit.name),
-            answer: async (deleteCopies) => {
+            answer: async (quit) => {
               leftBehind = null;
-              // Awaited, not sent off. Saying yes is the last thing that
-              // happens before the window is destroyed, and a command still on
-              // its way out when that happens is a command that never arrives
-              // -- which would be "throw them away" throwing nothing away.
-              await api.endEdits(deleteCopies).catch(() => undefined);
-              settle(true);
+              // Awaited, not sent off. This is the last thing that happens
+              // before the window is destroyed, and a command still on its way
+              // out when that happens is a command that never arrives — which
+              // would be "throw them away" throwing nothing away.
+              if (quit) await api.endEdits(true).catch(() => undefined);
+              settle(quit);
             },
           };
         });
@@ -1381,10 +1382,18 @@
       <p>{t("editing.left", { names: leftBehind.names.join(", ") })}</p>
       <div class="choices">
         <button type="button" class="primary" onclick={() => void leftBehind?.answer(true)}>
-          {t("editing.left.delete")}
+          {t("editing.left.quit")}
         </button>
+        {#if api.shell === "desktop"}
+          <!-- Deliberately does not answer the question. Somebody looking at
+               the copies is deciding, and a window that quit behind their back
+               while they looked would be answering for them. -->
+          <button type="button" onclick={() => void api.showEditsFolder()}>
+            {t("editing.left.show")}
+          </button>
+        {/if}
         <button type="button" onclick={() => void leftBehind?.answer(false)}>
-          {t("editing.left.keep")}
+          {t("editing.left.stay")}
         </button>
       </div>
     </div>

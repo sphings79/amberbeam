@@ -270,6 +270,10 @@ export const api: AmberBeamApi = {
       if (!(await handler())) event.preventDefault();
     });
   },
+  async showEditsFolder(): Promise<boolean> {
+    await invoke<void>("show_edits_folder");
+    return true;
+  },
   async closeThisWindow(): Promise<void> {
     await getCurrentWindow().close();
   },

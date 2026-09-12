@@ -875,6 +875,14 @@ export interface AmberBeamApi {
    * not what somebody sitting here meant.
    */
   openWith(path: string, program: string | null): Promise<boolean>;
+  /**
+   * Shows the directory the copies being edited live in.
+   *
+   * Takes nothing: the core knows where it put them, and "open this folder"
+   * with a path in it is a call that can be pointed anywhere. False where
+   * there is no file manager of this person's to open it in.
+   */
+  showEditsFolder(): Promise<boolean>;
   /** Asks the main window to open this entry on that side. */
   openSite(id: string, side: OpenSide): Promise<void>;
   /** Heard by the main window when the site manager asks for a connection. */
