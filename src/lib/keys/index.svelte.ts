@@ -19,6 +19,21 @@ import {
   type SchemeName,
 } from "./schemes";
 
+/**
+ * Keys saved before the command modifier had a name of its own.
+ *
+ * Up to 0.1.1 a self-chosen shortcut was written down as `Meta+S`, which meant
+ * Command. It now means the Windows key, so read back unchanged it would be a
+ * shortcut nobody can press. Somebody who once set a key keeps it.
+ */
+function carriedOver(own: Bindings): Bindings {
+  const moved: Bindings = {};
+  for (const [action, keys] of Object.entries(own)) {
+    moved[action as Action] = keys?.map((key) => key.replace(/\bMeta\b/g, "Mod"));
+  }
+  return moved;
+}
+
 let scheme = $state<SchemeName>(FALLBACK);
 let own = $state<Bindings>({});
 /** False until somebody has answered the dialog, which is what opens it. */
@@ -115,7 +130,7 @@ export function restore(state: unknown): void {
   const value = state as Partial<SavedKeys> | null | undefined;
   if (!value) return;
   if (value.scheme && schemeBindings(value.scheme)) scheme = value.scheme;
-  if (value.own && typeof value.own === "object") own = value.own;
+  if (value.own && typeof value.own === "object") own = carriedOver(value.own);
   answered = value.answered === true;
 }
 
@@ -136,7 +151,7 @@ export function fromFile(text: string): boolean {
     if (read.version !== 1) return false;
     if (!read.scheme || !schemeBindings(read.scheme)) return false;
     scheme = read.scheme;
-    own = read.own && typeof read.own === "object" ? read.own : {};
+    own = read.own && typeof read.own === "object" ? carriedOver(read.own) : {};
     answered = true;
     return true;
   } catch {

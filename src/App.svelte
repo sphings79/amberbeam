@@ -11,6 +11,7 @@
   import {
     actionOf,
     hasAnswered,
+    label,
     restore as restoreKeys,
     saved as savedKeys,
   } from "./lib/keys/index.svelte";
@@ -651,7 +652,7 @@
   {/each}
 
   <footer>
-    <span class="keys mono">{t("status.keys")}</span>
+    <span class="keys mono">{t("status.keys", { servers: label("Mod+S") })}</span>
     <div class="actions">
       {#if availableUpdate()}
         {@const release = availableUpdate()}

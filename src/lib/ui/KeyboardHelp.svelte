@@ -42,7 +42,7 @@
         <div class="row" class:unbound={keys.length === 0}>
           <span class="what">{t(`action.${action}`)}</span>
           <span class="keys mono">
-            {keys.length === 0 ? t("help.unbound") : keys.map(label).join("  ")}
+            {keys.length === 0 ? t("help.unbound") : keys.map((binding) => label(binding)).join("  ")}
           </span>
         </div>
       {/each}

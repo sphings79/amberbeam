@@ -57,6 +57,23 @@ export const ACTIONS: Action[] = [
   "fullscreen",
 ];
 
+/** Which keyboard somebody is sitting at, as far as the shortcuts care. */
+export type Platform = "mac" | "other";
+
+/**
+ * Worked out once, from the only thing a plain module can ask.
+ *
+ * Outside a browser — the guard script — this answers "other", and the guard
+ * then checks both on purpose rather than trusting the answer.
+ */
+function detect(): Platform {
+  const nav = (globalThis as { navigator?: { userAgentData?: { platform?: string }; platform?: string; userAgent?: string } }).navigator;
+  const name = nav?.userAgentData?.platform ?? nav?.platform ?? nav?.userAgent ?? "";
+  return /mac/i.test(name) ? "mac" : "other";
+}
+
+export const PLATFORM: Platform = detect();
+
 export type SchemeName = "classic" | "mac" | "mixed";
 
 export const SCHEMES: SchemeName[] = ["classic", "mac", "mixed"];
@@ -87,10 +104,10 @@ const CLASSIC: Bindings = {
   "switch-focus": ["F6", "Tab"],
   "queue-toggle": ["F8"],
   "queue-start": ["F9"],
-  settings: ["F10", "Meta+,"],
+  settings: ["F10", "Mod+,"],
   fullscreen: ["F11"],
   "connect-toggle": ["F12"],
-  sites: ["Meta+S"],
+  sites: ["Mod+S"],
   delete: ["Delete"],
 };
 
@@ -101,19 +118,19 @@ const CLASSIC: Bindings = {
  * costs the habit and works the minute it is chosen.
  */
 const MAC: Bindings = {
-  help: ["Meta+Shift+H"],
-  rename: ["Meta+Shift+R"],
-  search: ["Meta+F"],
-  raw: ["Meta+Shift+K"],
-  refresh: ["Meta+R"],
-  "switch-focus": ["Meta+ArrowRight", "Tab"],
-  "queue-toggle": ["Meta+Shift+U"],
-  "queue-start": ["Meta+Enter"],
-  settings: ["Meta+,"],
-  fullscreen: ["Meta+Control+F"],
-  "connect-toggle": ["Meta+Shift+D"],
-  sites: ["Meta+S"],
-  delete: ["Meta+Backspace"],
+  help: ["Mod+Shift+H"],
+  rename: ["Mod+Shift+R"],
+  search: ["Mod+F"],
+  raw: ["Mod+Shift+K"],
+  refresh: ["Mod+R"],
+  "switch-focus": ["Mod+ArrowRight", "Tab"],
+  "queue-toggle": ["Mod+Shift+U"],
+  "queue-start": ["Mod+Enter"],
+  settings: ["Mod+,"],
+  fullscreen: ["Mod+Control+F"],
+  "connect-toggle": ["Mod+Shift+D"],
+  sites: ["Mod+S"],
+  delete: ["Mod+Backspace"],
 };
 
 /**
@@ -126,9 +143,24 @@ const MAC: Bindings = {
  */
 const MIXED: Bindings = {
   ...CLASSIC,
-  search: ["Meta+F"],
-  raw: ["Meta+Shift+K"],
-  fullscreen: ["Meta+Control+F"],
+  search: ["Mod+F"],
+  raw: ["Mod+Shift+K"],
+  fullscreen: ["Mod+Control+F"],
+};
+
+/**
+ * What the tables look like away from a Mac.
+ *
+ * Only the two places where the Mac answer is unreachable rather than merely
+ * unfamiliar: `Mod+Control+F` asks for the same key twice once Mod *is*
+ * Control, and nothing on Windows has ever deleted a file with Backspace and a
+ * modifier. Everything else carries over untouched — Ctrl+F for searching is,
+ * if anything, more at home there than F3 ever was.
+ */
+const ELSEWHERE: Record<SchemeName, Bindings> = {
+  classic: {},
+  mixed: { fullscreen: ["F11"] },
+  mac: { fullscreen: ["Mod+Shift+F"], delete: ["Delete"] },
 };
 
 const TABLE: Record<SchemeName, Bindings> = {
@@ -140,8 +172,10 @@ const TABLE: Record<SchemeName, Bindings> = {
 /** The scheme somebody gets who has not chosen one. */
 export const FALLBACK: SchemeName = "mixed";
 
-export function schemeBindings(name: SchemeName): Bindings {
-  return TABLE[name] ?? TABLE[FALLBACK];
+export function schemeBindings(name: SchemeName, platform: Platform = PLATFORM): Bindings {
+  const base = TABLE[name] ?? TABLE[FALLBACK];
+  if (platform === "mac") return base;
+  return { ...base, ...(ELSEWHERE[name] ?? {}) };
 }
 
 /**
@@ -150,8 +184,8 @@ export function schemeBindings(name: SchemeName): Bindings {
  * An action set to an empty list is unbound on purpose, which is different from
  * an action the scheme never mentioned — so the override wins either way.
  */
-export function resolve(name: SchemeName, own: Bindings): Bindings {
-  return { ...schemeBindings(name), ...own };
+export function resolve(name: SchemeName, own: Bindings, platform: Platform = PLATFORM): Bindings {
+  return { ...schemeBindings(name, platform), ...own };
 }
 
 /**
@@ -159,19 +193,28 @@ export function resolve(name: SchemeName, own: Bindings): Bindings {
  *
  * Modifiers first, always in the same order, so two spellings of one
  * combination cannot both exist. The key itself is whatever the browser calls
- * it, upper-cased when it is a single character — otherwise `Meta+s` and
- * `Meta+S` would be two different bindings for one key.
+ * it, upper-cased when it is a single character — otherwise `Mod+s` and
+ * `Mod+S` would be two different bindings for one key.
+ *
+ * The command modifier is written `Mod` and never `Meta`, because which
+ * physical key that is depends on the machine: Command on a Mac, Control
+ * everywhere else. Writing `Meta` meant Windows read it as the Windows key —
+ * which opens the Start menu and reaches no program at all.
  */
-export function bindingOf(event: {
-  key: string;
-  metaKey: boolean;
-  ctrlKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-}): string {
+export function bindingOf(
+  event: {
+    key: string;
+    metaKey: boolean;
+    ctrlKey: boolean;
+    altKey: boolean;
+    shiftKey: boolean;
+  },
+  platform: Platform = PLATFORM,
+): string {
+  const mac = platform === "mac";
   const parts: string[] = [];
-  if (event.metaKey) parts.push("Meta");
-  if (event.ctrlKey) parts.push("Control");
+  if (mac ? event.metaKey : event.ctrlKey) parts.push("Mod");
+  if (mac ? event.ctrlKey : event.metaKey) parts.push(mac ? "Control" : "Meta");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
 
@@ -190,28 +233,57 @@ export function actionFor(bindings: Bindings, binding: string): Action | null {
   return null;
 }
 
-/** How a binding is shown: the symbols a Mac keyboard actually has on it. */
-export function label(binding: string): string {
-  const symbols: Record<string, string> = {
-    Meta: "⌘",
-    Control: "⌃",
-    Alt: "⌥",
-    Shift: "⇧",
-    Enter: "↵",
-    Backspace: "⌫",
-    Delete: "⌦",
-    ArrowRight: "→",
-    ArrowLeft: "←",
-    ArrowUp: "↑",
-    ArrowDown: "↓",
-    Space: "␣",
-    Escape: "⎋",
-    Tab: "⇥",
-  };
+/** The symbols a Mac keyboard actually has printed on it. */
+const MAC_KEYS: Record<string, string> = {
+  Mod: "⌘",
+  Meta: "⌘",
+  Control: "⌃",
+  Alt: "⌥",
+  Shift: "⇧",
+  Enter: "↵",
+  Backspace: "⌫",
+  Delete: "⌦",
+  ArrowRight: "→",
+  ArrowLeft: "←",
+  ArrowUp: "↑",
+  ArrowDown: "↓",
+  Space: "␣",
+  Escape: "⎋",
+  Tab: "⇥",
+};
+
+/**
+ * The same keys as Windows and Linux name them.
+ *
+ * Not the Mac symbols with Ctrl swapped in. Outside macOS nobody reads ⇧⌫ as a
+ * key, and a menu that shows it is showing off rather than explaining.
+ */
+const WORD_KEYS: Record<string, string> = {
+  Mod: "Ctrl",
+  Control: "Ctrl",
+  Meta: "Win",
+  Alt: "Alt",
+  Shift: "Shift",
+  Enter: "Enter",
+  Backspace: "Backspace",
+  Delete: "Del",
+  ArrowRight: "Right",
+  ArrowLeft: "Left",
+  ArrowUp: "Up",
+  ArrowDown: "Down",
+  Space: "Space",
+  Escape: "Esc",
+  Tab: "Tab",
+};
+
+/** How a binding is shown, in the words of the keyboard in front of somebody. */
+export function label(binding: string, platform: Platform = PLATFORM): string {
+  const mac = platform === "mac";
+  const keys = mac ? MAC_KEYS : WORD_KEYS;
   return binding
     .split("+")
-    .map((part) => symbols[part] ?? part)
-    .join("");
+    .map((part) => keys[part] ?? part)
+    .join(mac ? "" : "+");
 }
 
 /**
@@ -221,8 +293,14 @@ export function label(binding: string): string {
  * function key reaches the program at all; the second only concerns the three
  * the system keeps for itself.
  */
-export function needs(name: SchemeName): { functionKeys: boolean; shortcuts: boolean } {
-  const bindings = schemeBindings(name);
+export function needs(
+  name: SchemeName,
+  platform: Platform = PLATFORM,
+): { functionKeys: boolean; shortcuts: boolean } {
+  // Both hurdles are macOS's. Elsewhere F1 to F12 are function keys and no
+  // part of the system is waiting behind them.
+  if (platform !== "mac") return { functionKeys: false, shortcuts: false };
+  const bindings = schemeBindings(name, platform);
   const all = Object.values(bindings).flat();
   return {
     functionKeys: all.some((binding) => /^F\d+$/.test(binding)),

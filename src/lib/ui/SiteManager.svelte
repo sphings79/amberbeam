@@ -15,6 +15,7 @@
    */
   import { api, type OpenSide, type ProtocolInfo, type Protocol, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import { label } from "../keys/index.svelte";
   import { trap } from "./trap";
   import { ACCENTS } from "../theme/index.svelte";
   import { describe } from "./errors";
@@ -550,7 +551,12 @@
       {/if}
     </div>
 
-    <p class="keys mono">{t("sites.keys")}</p>
+    <p class="keys mono">{t("sites.keys", {
+        remove: label("Backspace"),
+        search: label("Mod+F"),
+        new: label("Mod+N"),
+        folder: label("Mod+Shift+N"),
+      })}</p>
   </aside>
 
   <section class="detail">

@@ -117,7 +117,7 @@
             {:else if keys.length === 0}
               {t("help.unbound")}
             {:else}
-              {keys.map(label).join("  ")}
+              {keys.map((binding) => label(binding)).join("  ")}
             {/if}
           </button>
           <button
