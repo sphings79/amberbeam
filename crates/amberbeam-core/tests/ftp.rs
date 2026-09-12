@@ -968,3 +968,74 @@ async fn two_directories_are_told_apart() {
     sessions.remove(&remote, &there).await.expect("tidy up");
     let _ = std::fs::remove_dir_all(&here);
 }
+
+/// A folder uploaded into a directory that does not exist yet.
+///
+/// This server answers `MLSD` of a missing directory with a success and no
+/// rows, so "can it be listed" and "is it there" are different questions.
+/// Asking the first one meant creating nothing and then failing every file
+/// that was to go into it, which is what dragging a folder onto such a server
+/// did.
+#[tokio::test]
+async fn a_directory_that_is_not_there_is_made_rather_than_assumed() {
+    use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+
+    let (host, port) = server_or_skip!("a_directory_that_is_not_there");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+    let home = connected.home.trim_end_matches('/').to_string();
+    let deep = format!("{home}/nicht-da/auch-nicht/tiefer");
+    let _ = sessions.remove(&remote, &format!("{home}/nicht-da")).await;
+
+    // The listing lies, which is the whole point of this test.
+    assert!(
+        sessions.list_dir(&remote, &deep).await.is_ok(),
+        "this server lists a directory that does not exist; if that ever \
+         changes, the reason for is_there goes with it"
+    );
+
+    sessions
+        .ensure_dir(&remote, &deep)
+        .await
+        .expect("make the whole chain");
+
+    let source = std::env::temp_dir().join("amberbeam-ensure-test.txt");
+    std::fs::write(&source, b"hinein\n").unwrap();
+    sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: local.clone(),
+                source_path: source.to_string_lossy().into_owned(),
+                target_endpoint: remote.clone(),
+                target_path: format!("{deep}/datei.txt"),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                use_temporary_name: false,
+                source_permissions: None,
+            },
+            &amberbeam_core::engine::Progress::default(),
+        )
+        .await
+        .expect("the file lands in a directory that was actually created");
+
+    // And asking again for a directory that is now there and empty must not
+    // create it a second time or fail.
+    sessions
+        .ensure_dir(&remote, &deep)
+        .await
+        .expect("asking twice is not an error");
+
+    sessions
+        .remove(&remote, &format!("{home}/nicht-da"))
+        .await
+        .expect("tidy up");
+    let _ = std::fs::remove_file(&source);
+}

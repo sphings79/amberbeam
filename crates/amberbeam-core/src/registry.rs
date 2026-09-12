@@ -509,7 +509,7 @@ impl Sessions {
     /// out that its directory does not exist.
     pub async fn ensure_dir(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        if session.list_dir(path).await.is_ok() {
+        if self.is_there(&session, path).await {
             return Ok(());
         }
         if let Some(parent) = session.parent(path) {
@@ -525,11 +525,49 @@ impl Sessions {
                 reason: PathProblem::AlreadyExists,
                 ..
             }) => Ok(()),
-            Err(error) if session.list_dir(path).await.is_ok() => {
+            Err(error) if self.is_there(&session, path).await => {
                 let _ = error;
                 Ok(())
             }
             Err(error) => Err(error),
+        }
+    }
+
+    /// Whether a directory is actually there, which is not the same question
+    /// as whether it can be listed.
+    ///
+    /// Pure-FTPd answers `MLSD` of a directory that does not exist with a
+    /// success and no rows. Taking that for "it is there" meant creating
+    /// nothing and then failing every file that was to go into it — measured
+    /// against the project's own test server, where uploading a folder into a
+    /// directory that did not exist yet produced nothing but "not found".
+    ///
+    /// So a listing with something in it settles it, and an empty one is
+    /// settled by looking for the name in the directory above. The extra
+    /// listing is only paid when a listing came back empty.
+    async fn is_there(&self, session: &Session, path: &str) -> bool {
+        match session.list_dir(path).await {
+            Ok(listing) if !listing.entries.is_empty() => return true,
+            Ok(_) => {}
+            Err(_) => return false,
+        }
+
+        let Some(parent) = session.parent(path) else {
+            // No directory above it: this is the root, and the root is there.
+            return true;
+        };
+        if parent == path {
+            return true;
+        }
+        let name = path[parent.len()..].trim_start_matches(['/', '\\']);
+        match session.list_dir(&parent).await {
+            Ok(listing) => listing
+                .entries
+                .iter()
+                .any(|entry| entry.name == name && entry.is_directory()),
+            // The directory above cannot be read either. Saying "not there"
+            // sends the caller on to create it, which is the only move left.
+            Err(_) => false,
         }
     }
 
