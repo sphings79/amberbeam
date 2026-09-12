@@ -71,6 +71,9 @@ pub enum Error {
     EncryptionRequired { host: String, detail: String },
     /// The wastebasket could not take something, so nothing was deleted.
     WastebasketFailed { detail: String },
+    /// Nothing in the table of file types covers this one, so nothing here
+    /// claims to know what should open it.
+    TypeNotEdited { path: String, extension: String },
     /// The file is not text, so no text editor is going to be handed it.
     NotTextToEdit { path: String },
     /// The file is too large to be edited through this program.
@@ -132,6 +135,7 @@ impl Error {
             Error::EncryptionRefused { .. } => "error.encryption-refused",
             Error::EncryptionRequired { .. } => "error.encryption-required",
             Error::WastebasketFailed { .. } => "error.wastebasket-failed",
+            Error::TypeNotEdited { .. } => "error.type-not-edited",
             Error::NotTextToEdit { .. } => "error.not-text-to-edit",
             Error::TooBigToEdit { .. } => "error.too-big-to-edit",
             Error::EditChangedOnServer { .. } => "error.edit-changed-on-server",

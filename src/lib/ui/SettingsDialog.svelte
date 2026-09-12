@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, type Settings } from "../bridge";
+  import { api, type EditRule, type OpenWith, type Settings } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { trap } from "./trap";
 
@@ -10,6 +10,56 @@
   let { onclose }: Props = $props();
 
   let settings = $state<Settings | null>(null);
+
+  /** Only a window with a file system of the viewer's own can point at one. */
+  const canBrowse = api.shell === "desktop";
+
+  /**
+   * The table of what may be edited.
+   *
+   * Extensions are typed as one line of text rather than as a widget with
+   * chips: it is a list of short words, and a text field is the fastest way in
+   * and out of one. Split on anything that is not part of a name, so commas,
+   * spaces and stray dots all work.
+   */
+  function asLine(rule: EditRule): string {
+    return rule.extensions.join(", ");
+  }
+
+  function fromLine(text: string): string[] {
+    const kinds = text
+      .split(/[^A-Za-z0-9_+-]+/)
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part !== "");
+    // "psd, .PSD" is one kind typed twice. Keeping both would put a line in
+    // the settings file that reads like a mistake, because it is one.
+    return [...new Set(kinds)];
+  }
+
+  async function changeRule(index: number, patch: Partial<EditRule>): Promise<void> {
+    if (!settings) return;
+    const rules = settings.editing.map((rule, at) => (at === index ? { ...rule, ...patch } : rule));
+    await change({ editing: rules });
+  }
+
+  async function addRule(): Promise<void> {
+    if (!settings) return;
+    // At the top, because the first line that matches wins: a line somebody
+    // adds for one extension is meant to beat the long one underneath it.
+    await change({
+      editing: [{ extensions: [], openWith: "own", program: null }, ...settings.editing],
+    });
+  }
+
+  async function removeRule(index: number): Promise<void> {
+    if (!settings) return;
+    await change({ editing: settings.editing.filter((_, at) => at !== index) });
+  }
+
+  async function pickProgram(index: number): Promise<void> {
+    const chosen = await api.chooseFile(t("settings.editing.pick"));
+    if (chosen) await changeRule(index, { openWith: "program", program: chosen });
+  }
 
   $effect(() => {
     void api.settings().then((loaded) => (settings = loaded));
@@ -113,6 +163,63 @@
         </label>
         <p class="hint">{t("settings.check-updates.hint")}</p>
 
+        <h3>{t("settings.editing")}</h3>
+        <p class="hint">{t("settings.editing.hint")}</p>
+
+        <div class="rules">
+          {#each settings.editing as rule, index (index)}
+            <div class="rule">
+              <input
+                class="kinds"
+                value={asLine(rule)}
+                placeholder={t("settings.editing.kinds")}
+                spellcheck="false"
+                autocapitalize="off"
+                autocorrect="off"
+                onchange={(event) =>
+                  changeRule(index, { extensions: fromLine(event.currentTarget.value) })}
+              />
+              <select
+                value={rule.openWith}
+                onchange={(event) =>
+                  changeRule(index, { openWith: event.currentTarget.value as OpenWith })}
+              >
+                <option value="own">{t("settings.editing.own")}</option>
+                <option value="system">{t("settings.editing.system")}</option>
+                <option value="program">{t("settings.editing.program")}</option>
+              </select>
+              <button
+                type="button"
+                class="drop"
+                onclick={() => removeRule(index)}
+                title={t("settings.editing.remove")}
+                aria-label={t("settings.editing.remove")}
+              >×</button>
+
+              {#if rule.openWith === "program"}
+                <div class="program">
+                  <input
+                    value={rule.program ?? ""}
+                    placeholder={t("settings.editing.program.placeholder")}
+                    spellcheck="false"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    onchange={(event) =>
+                      changeRule(index, { program: event.currentTarget.value.trim() || null })}
+                  />
+                  {#if canBrowse}
+                    <button type="button" onclick={() => pickProgram(index)}>
+                      {t("settings.editing.browse")}
+                    </button>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <button type="button" class="add" onclick={addRule}>{t("settings.editing.add")}</button>
+
         <p class="note">{t("settings.per-connection")}</p>
       </div>
     {/if}
@@ -164,6 +271,81 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* The table grows with what somebody puts in it, and a dialog taller than
+       the window is a dialog whose bottom row cannot be reached. */
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+  }
+
+  h3 {
+    margin: 18px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.84rem;
+    font-weight: 600;
+  }
+
+  .rules {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .rule {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rule input,
+  .rule select {
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 4px 7px;
+    border: 1px solid var(--border-strong);
+    border-radius: 0.45rem;
+    background: var(--surface-2);
+    color: var(--text);
+    min-width: 0;
+  }
+
+  .program {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+  }
+
+  .program input {
+    flex: 1;
+  }
+
+  .program button,
+  .add {
+    border: 1px solid var(--border-strong);
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+
+  .add {
+    align-self: flex-start;
+    margin-top: 8px;
+  }
+
+  .drop {
+    border: none;
+    background: none;
+    color: var(--text-faint);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
   }
 
   .row {

@@ -27,7 +27,7 @@
 use std::sync::Arc;
 
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
-use amberbeam_core::editing::Edits;
+use amberbeam_core::editing::{how_to_open, Edits};
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::ftp::tls::{CertificateDecision, Exceptions};
@@ -381,6 +381,12 @@ struct Editing {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct Named {
+    name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Saving2 {
     id: String,
     text: String,
@@ -505,6 +511,7 @@ pub const COMMANDS: &[&str] = &[
     "queue_move",
     "queue_decide",
     "start_edit",
+    "how_to_edit",
     "open_edits",
     "edit_text",
     "save_edit",
@@ -823,10 +830,22 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
             let it: Editing = taking(command, args)?;
             out(service
                 .edits
-                .begin(&service.sessions, &EndpointId::new(it.endpoint), &it.path)
+                .begin(
+                    &service.sessions,
+                    &EndpointId::new(it.endpoint),
+                    &it.path,
+                    &service.config.settings().editing,
+                )
                 .await?)
         }
         "open_edits" => out(service.edits.list().await),
+        "how_to_edit" => {
+            let it: Named = taking(command, args)?;
+            // The same function the refusal above uses. A window that worked
+            // it out for itself would eventually offer a file the core will
+            // not take, or grey out one it would.
+            out(how_to_open(&service.config.settings().editing, &it.name).cloned())
+        }
         "edit_text" => {
             let it: ById = taking(command, args)?;
             out(service.edits.text(&it.id).await?)

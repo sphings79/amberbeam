@@ -24,7 +24,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 use crate::endpoint::EndpointId;
@@ -43,6 +43,121 @@ pub const LARGEST: u64 = 20 * 1024 * 1024;
 const SNIFFED: usize = 8 * 1024;
 
 const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
+
+/// What opens a file of a given kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum OpenWith {
+    /// AmberBeam's own editor.
+    Own,
+    /// Whatever this machine opens that kind of file with.
+    System,
+    /// One named program, in [`EditRule::program`].
+    Program,
+}
+
+/// One line of the table that says what may be edited, and with what.
+///
+/// The same list answers both questions on purpose. "Which files are text" and
+/// "what opens them" are one decision with two halves, and keeping them in two
+/// lists would mean a file that is editable according to one and not according
+/// to the other.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditRule {
+    /// Extensions without the dot, or whole file names for the ones that have
+    /// no extension at all.
+    pub extensions: Vec<String>,
+    pub open_with: OpenWith,
+    /// The program, when that is what this line says. A path on the machine
+    /// the program runs on, which is why it means nothing in a browser.
+    #[serde(default)]
+    pub program: Option<String>,
+}
+
+impl EditRule {
+    /// What a fresh installation starts with.
+    ///
+    /// The files somebody opens a transfer program to fix: what a web server
+    /// serves, what configures it, and what it logs. Everything else is added
+    /// by hand, which is also how anything is taken away.
+    pub fn shipped() -> Vec<Self> {
+        let text = [
+            "php",
+            "phtml",
+            "inc",
+            "html",
+            "htm",
+            "twig",
+            "css",
+            "scss",
+            "less",
+            "js",
+            "mjs",
+            "cjs",
+            "ts",
+            "json",
+            "xml",
+            "yml",
+            "yaml",
+            "toml",
+            "md",
+            "txt",
+            "ini",
+            "conf",
+            "cfg",
+            "env",
+            "sql",
+            "sh",
+            "bash",
+            "py",
+            "rb",
+            "pl",
+            "log",
+            "csv",
+            "svg",
+            "htaccess",
+            "gitignore",
+            "dockerfile",
+            "makefile",
+        ];
+        vec![Self {
+            extensions: text.iter().map(|name| name.to_string()).collect(),
+            open_with: OpenWith::Own,
+            program: None,
+        }]
+    }
+}
+
+/// Which line of the table covers a file, if any.
+///
+/// The first that matches wins, so a line somebody added for one extension
+/// beats the long one underneath it without having to be taken out of it.
+pub fn how_to_open<'a>(rules: &'a [EditRule], name: &str) -> Option<&'a EditRule> {
+    let lower = name.to_lowercase();
+    let extension = extension_of(&lower);
+    rules.iter().find(|rule| {
+        rule.extensions.iter().any(|wanted| {
+            let wanted = wanted.trim().trim_start_matches('.').to_lowercase();
+            !wanted.is_empty() && (Some(wanted.as_str()) == extension.as_deref() || wanted == lower)
+        })
+    })
+}
+
+/// The part of a name that says what kind of file it is.
+///
+/// `.htaccess` counts as `htaccess`. A name that is nothing but a dot and a
+/// word is the oldest kind of configuration file there is, and a program for
+/// web servers that cannot open one would be missing the point.
+fn extension_of(lower: &str) -> Option<String> {
+    let (before, after) = lower.rsplit_once('.')?;
+    if after.is_empty() {
+        return None;
+    }
+    // A leading dot and nothing else before it: the word is the kind.
+    let _ = before;
+    Some(after.to_string())
+}
 
 /// What the bytes of a file turned out to be.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -135,9 +250,22 @@ impl Edits {
         sessions: &Sessions,
         endpoint: &EndpointId,
         path: &str,
+        rules: &[EditRule],
     ) -> Result<Edit> {
         if let Some(already) = self.already(endpoint.as_str(), path).await {
             return Ok(already);
+        }
+
+        // The table decides what may be edited at all. Asked here rather than
+        // in the window, because "what is a text file" must have one answer:
+        // a window that offers a file the core will refuse, or refuses one the
+        // core would take, is a window arguing with the program behind it.
+        let name = leaf(path);
+        if how_to_open(rules, &name).is_none() {
+            return Err(Error::TypeNotEdited {
+                path: path.to_string(),
+                extension: extension_of(&name.to_lowercase()).unwrap_or_default(),
+            });
         }
 
         let taken = sessions.stat_of(endpoint, path).await?;
@@ -149,7 +277,6 @@ impl Edits {
         }
 
         let id = new_id();
-        let name = leaf(path);
         // A directory per copy, and the file keeps the name it had. An editor
         // shows that name in its title bar and decides its highlighting by it,
         // and two files called config.php from two servers must not land on
@@ -593,6 +720,57 @@ mod tests {
         // write-back ask a question nobody can answer.
         assert!(same_file((10, None), (10, Some(6))));
         assert!(same_file((10, Some(5)), (10, None)));
+    }
+
+    #[test]
+    fn the_table_says_what_may_be_edited_and_with_what() {
+        let shipped = EditRule::shipped();
+        assert!(how_to_open(&shipped, "index.php").is_some());
+        assert!(
+            how_to_open(&shipped, "INDEX.PHP").is_some(),
+            "case is not a kind"
+        );
+        assert!(
+            how_to_open(&shipped, ".htaccess").is_some(),
+            "a dot and a word is the oldest configuration file there is"
+        );
+        assert!(
+            how_to_open(&shipped, "Dockerfile").is_some(),
+            "a whole name counts where there is no extension"
+        );
+        assert!(how_to_open(&shipped, "archive.tar.gz").is_none());
+        assert!(how_to_open(&shipped, "photo.jpg").is_none());
+        assert!(
+            how_to_open(&shipped, "README").is_none(),
+            "no kind, no rule"
+        );
+
+        // The first line that matches wins, so one added on top beats the
+        // long one underneath without having to be cut out of it.
+        let mut rules = vec![EditRule {
+            extensions: vec!["php".into()],
+            open_with: OpenWith::Program,
+            program: Some("/Applications/Editor.app".into()),
+        }];
+        rules.extend(shipped);
+        assert_eq!(
+            how_to_open(&rules, "index.php").unwrap().open_with,
+            OpenWith::Program
+        );
+        assert_eq!(
+            how_to_open(&rules, "style.css").unwrap().open_with,
+            OpenWith::Own
+        );
+
+        // A table somebody emptied stays empty, and then nothing is editable.
+        assert!(how_to_open(&[], "index.php").is_none());
+        // A line with a dot typed in front of the kind still works.
+        let dotted = vec![EditRule {
+            extensions: vec![".md".into()],
+            open_with: OpenWith::Own,
+            program: None,
+        }];
+        assert!(how_to_open(&dotted, "notes.md").is_some());
     }
 
     #[test]

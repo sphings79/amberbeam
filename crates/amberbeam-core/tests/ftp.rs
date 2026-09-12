@@ -718,8 +718,9 @@ async fn a_file_is_edited_where_it_lies() {
         .expect("put the file there");
 
     let edits = Edits::at(std::env::temp_dir().join("amberbeam-edit-test/copies"));
+    let rules = amberbeam_core::editing::EditRule::shipped();
     let edit = edits
-        .begin(&sessions, &remote, &there)
+        .begin(&sessions, &remote, &there, &rules)
         .await
         .expect("take a copy");
     assert_eq!(edit.name, "amberbeam-edit.php");
@@ -731,7 +732,10 @@ async fn a_file_is_edited_where_it_lies() {
     assert_eq!(edits.text(&edit.id).await.unwrap(), "<?php\n// Grüße\n");
 
     // Asking again gives the same copy, not a second one racing it.
-    let again = edits.begin(&sessions, &remote, &there).await.unwrap();
+    let again = edits
+        .begin(&sessions, &remote, &there, &rules)
+        .await
+        .unwrap();
     assert_eq!(again.id, edit.id);
     assert_eq!(edits.list().await.len(), 1);
 

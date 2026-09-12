@@ -50,6 +50,8 @@ export function describe(failure: unknown): string {
       // wastebasket is off. The cause is in the failure itself for anyone
       // looking.
       return t("error.wastebasket-failed");
+    case "type-not-edited":
+      return t("error.type-not-edited", { path: error.path, extension: error.extension });
     case "not-text-to-edit":
       return t("error.not-text-to-edit", { path: error.path });
     case "too-big-to-edit":

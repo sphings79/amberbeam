@@ -160,6 +160,7 @@ export type CoreError =
   | { kind: "encryption-refused"; detail: string }
   | { kind: "encryption-required"; host: string; detail: string }
   | { kind: "wastebasket-failed"; detail: string }
+  | { kind: "type-not-edited"; path: string; extension: string }
   | { kind: "not-text-to-edit"; path: string }
   | { kind: "too-big-to-edit"; path: string; megabytes: number }
   | { kind: "edit-changed-on-server"; path: string }
@@ -219,6 +220,13 @@ export interface Settings {
    * somebody wants to know whether the thing they started actually happened.
    */
   clearFinished: boolean;
+  /**
+   * What may be edited where it lies, and what opens it.
+   *
+   * Emptied by hand it stays empty, and then nothing is editable — a setting
+   * somebody made, not a state to be repaired behind their back.
+   */
+  editing: EditRule[];
 }
 
 /** What a recursive delete is about to remove. */
@@ -382,6 +390,25 @@ export interface Site {
   wastebasket: string | null;
   /** One of the interface's accent names, or null for no marking. */
   colour: string | null;
+}
+
+/** What opens a file of a given kind. */
+export type OpenWith = "own" | "system" | "program";
+
+/**
+ * One line of the table that says what may be edited, and with what.
+ *
+ * The same list answers both questions on purpose: "which files are text" and
+ * "what opens them" are one decision with two halves, and two lists would
+ * eventually disagree about the same file.
+ */
+export interface EditRule {
+  /** Extensions without the dot, or whole names for files that have none. */
+  extensions: string[];
+  openWith: OpenWith;
+  /** The program, when the line says `program`. A path on the machine the
+      core runs on, which is why it means nothing in a browser. */
+  program: string | null;
 }
 
 /**
@@ -570,6 +597,13 @@ export interface AmberBeamApi {
    * belongs where it can be applied once, not in each window that asks.
    */
   startEdit(endpoint: string, path: string): Promise<Edit>;
+  /**
+   * Which line of the table covers a file, or null for none.
+   *
+   * Asked rather than worked out here. A window deciding for itself would end
+   * up offering a file the core refuses, or greying out one it would take.
+   */
+  howToEdit(name: string): Promise<EditRule | null>;
   openEdits(): Promise<Edit[]>;
   editText(id: string): Promise<string>;
   /**

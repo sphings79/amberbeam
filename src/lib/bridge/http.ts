@@ -22,6 +22,7 @@ import type {
   CoreEvent,
   CoreInfo,
   Edit,
+  EditRule,
   Listing,
   ConflictPolicy,
   EnqueueRequest,
@@ -170,6 +171,7 @@ export function makeApi(target: Target): AmberBeamApi {
 
     startEdit: (endpoint: string, path: string) =>
       call<Edit>("start_edit", { endpoint, path }),
+    howToEdit: (name: string) => call<EditRule | null>("how_to_edit", { name }),
     openEdits: () => call<Edit[]>("open_edits"),
     editText: (id: string) => call<string>("edit_text", { id }),
     saveEdit: (id: string, text: string) => call<Edit>("save_edit", { id, text }),

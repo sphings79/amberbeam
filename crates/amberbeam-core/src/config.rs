@@ -79,6 +79,14 @@ pub struct Settings {
     /// folder walks is not consent, it is wearing somebody down.
     #[serde(default)]
     pub conflict_policy: Option<crate::transfer::ConflictPolicy>,
+    /// What may be edited where it lies, and what opens it.
+    ///
+    /// One table answering both, because they are one decision: see
+    /// [`crate::editing::EditRule`]. Emptied by hand it stays empty, and then
+    /// nothing is editable — which is a setting somebody made, not a state to
+    /// be repaired behind their back.
+    #[serde(default = "crate::editing::EditRule::shipped")]
+    pub editing: Vec<crate::editing::EditRule>,
     /// Take a finished line out of the queue by itself, after a moment.
     ///
     /// Off by default. A queue that empties itself is tidy right up until
@@ -99,6 +107,7 @@ impl Default for Settings {
             check_for_updates: true,
             conflict_policy: None,
             clear_finished: false,
+            editing: crate::editing::EditRule::shipped(),
         }
     }
 }
