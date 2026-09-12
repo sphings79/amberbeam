@@ -160,6 +160,10 @@ export type CoreError =
   | { kind: "encryption-refused"; detail: string }
   | { kind: "encryption-required"; host: string; detail: string }
   | { kind: "wastebasket-failed"; detail: string }
+  | { kind: "not-text-to-edit"; path: string }
+  | { kind: "too-big-to-edit"; path: string; megabytes: number }
+  | { kind: "edit-changed-on-server"; path: string }
+  | { kind: "text-does-not-fit"; character: string }
   | { kind: "path"; path: string; reason: PathProblem }
   | { kind: "source-changed" }
   | { kind: "disconnected" }
@@ -380,6 +384,31 @@ export interface Site {
   colour: string | null;
 }
 
+/**
+ * One file taken off a server to be worked on.
+ *
+ * The copy on this machine is the thing an editor opens; `remotePath` is where
+ * it came from and where it goes back to. Nothing here says how it is being
+ * edited — that is the window's business, and the core does not need to know.
+ */
+export interface Edit {
+  id: string;
+  endpoint: string;
+  remotePath: string;
+  name: string;
+  /** Where the copy lies on this machine. */
+  localPath: string;
+  /**
+   * What the file turned out to be written in, read off its bytes.
+   *
+   * It is written back the same way. A Latin-1 file read as UTF-8 and saved as
+   * UTF-8 has every umlaut in it rewritten, and nobody notices until later.
+   */
+  encoding: "utf8" | "latin1";
+  /** Seconds since the epoch, for showing the list in the order it grew. */
+  opened: number;
+}
+
 /** Where an importable list came from. */
 export type ImportSource =
   | "ssh-config"
@@ -532,6 +561,28 @@ export interface AmberBeamApi {
     mode: number,
     recursive: boolean,
   ): Promise<void>;
+
+  /**
+   * Takes a copy of a server's file to work on.
+   *
+   * Asking twice for the same file gives back the same copy. The core refuses
+   * what is not text and what is too large — a rule about what may be edited
+   * belongs where it can be applied once, not in each window that asks.
+   */
+  startEdit(endpoint: string, path: string): Promise<Edit>;
+  openEdits(): Promise<Edit[]>;
+  editText(id: string): Promise<string>;
+  /**
+   * Writes the copy and sends it back.
+   *
+   * Fails with `edit-changed-on-server` when the file up there is no longer
+   * the one that was taken. The typing is safe in the copy either way, so the
+   * window can ask and then call `pushEdit` with `anyway`.
+   */
+  saveEdit(id: string, text: string): Promise<Edit>;
+  pushEdit(id: string, anyway: boolean): Promise<Edit>;
+  endEdit(id: string, deleteCopy: boolean): Promise<Edit | null>;
+  endEdits(deleteCopies: boolean): Promise<Edit[]>;
 
   quickConnectHistory(): Promise<QuickConnectEntry[]>;
   forgetQuickConnect(id: string): Promise<void>;

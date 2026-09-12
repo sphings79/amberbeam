@@ -12,6 +12,7 @@ import type {
   ConnectRequest,
   CoreEvent,
   CoreInfo,
+  Edit,
   Listing,
   ConflictPolicy,
   EnqueueRequest,
@@ -106,6 +107,15 @@ export const api: AmberBeamApi = {
   queueMove: (id: string, by?: number, to?: number) => send<void>("queue_move", { id, by, to }),
   queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
     send<void>("queue_decide", { id, policy, forAll }),
+
+
+  startEdit: (endpoint: string, path: string) => send<Edit>("start_edit", { endpoint, path }),
+  openEdits: () => send<Edit[]>("open_edits"),
+  editText: (id: string) => send<string>("edit_text", { id }),
+  saveEdit: (id: string, text: string) => send<Edit>("save_edit", { id, text }),
+  pushEdit: (id: string, anyway: boolean) => send<Edit>("push_edit", { id, anyway }),
+  endEdit: (id: string, deleteCopy: boolean) => send<Edit | null>("end_edit", { id, deleteCopy }),
+  endEdits: (deleteCopies: boolean) => send<Edit[]>("end_edits", { deleteCopies }),
 
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   updateSource: () => send<string>("update_source"),

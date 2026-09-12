@@ -71,6 +71,15 @@ pub enum Error {
     EncryptionRequired { host: String, detail: String },
     /// The wastebasket could not take something, so nothing was deleted.
     WastebasketFailed { detail: String },
+    /// The file is not text, so no text editor is going to be handed it.
+    NotTextToEdit { path: String },
+    /// The file is too large to be edited through this program.
+    TooBigToEdit { path: String, megabytes: u64 },
+    /// The server's copy is no longer the one that was taken, so writing back
+    /// would erase whatever happened in between. The window has to ask.
+    EditChangedOnServer { path: String },
+    /// The file's own encoding has no room for a character somebody typed.
+    TextDoesNotFit { character: String },
     /// A path could not be listed, read or written.
     Path { path: String, reason: PathProblem },
     /// The source changed since the transfer broke off, so continuing would
@@ -123,6 +132,10 @@ impl Error {
             Error::EncryptionRefused { .. } => "error.encryption-refused",
             Error::EncryptionRequired { .. } => "error.encryption-required",
             Error::WastebasketFailed { .. } => "error.wastebasket-failed",
+            Error::NotTextToEdit { .. } => "error.not-text-to-edit",
+            Error::TooBigToEdit { .. } => "error.too-big-to-edit",
+            Error::EditChangedOnServer { .. } => "error.edit-changed-on-server",
+            Error::TextDoesNotFit { .. } => "error.text-does-not-fit",
             Error::Path { .. } => "error.path",
             Error::SourceChanged => "error.source-changed",
             Error::Disconnected => "error.disconnected",

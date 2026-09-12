@@ -15,6 +15,7 @@
 
 pub mod bundle;
 pub mod config;
+pub mod editing;
 pub mod endpoint;
 pub mod engine;
 pub mod error;
@@ -38,6 +39,7 @@ pub mod transfer;
 pub mod update;
 
 pub use config::{AuthKind, Config, QuickConnectEntry, Settings};
+pub use editing::{Edit, Edits, Encoding};
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};
 pub use error::{Error, PathProblem, Result};
 pub use events::{ConnectionState, Event, Events, LogDirection};

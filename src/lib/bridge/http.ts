@@ -21,6 +21,7 @@ import type {
   ConnectRequest,
   CoreEvent,
   CoreInfo,
+  Edit,
   Listing,
   ConflictPolicy,
   EnqueueRequest,
@@ -166,6 +167,16 @@ export function makeApi(target: Target): AmberBeamApi {
       call<Removed>("remove_entry", { endpoint, path, siteId: siteId ?? null }),
     setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
       call<void>("set_permissions", { endpoint, path, mode, recursive }),
+
+    startEdit: (endpoint: string, path: string) =>
+      call<Edit>("start_edit", { endpoint, path }),
+    openEdits: () => call<Edit[]>("open_edits"),
+    editText: (id: string) => call<string>("edit_text", { id }),
+    saveEdit: (id: string, text: string) => call<Edit>("save_edit", { id, text }),
+    pushEdit: (id: string, anyway: boolean) => call<Edit>("push_edit", { id, anyway }),
+    endEdit: (id: string, deleteCopy: boolean) =>
+      call<Edit | null>("end_edit", { id, deleteCopy }),
+    endEdits: (deleteCopies: boolean) => call<Edit[]>("end_edits", { deleteCopies }),
 
     quickConnectHistory: () => call<QuickConnectEntry[]>("quick_connect_history"),
     forgetQuickConnect: (id: string) => call<void>("forget_quick_connect", { id }),

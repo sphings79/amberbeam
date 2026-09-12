@@ -349,6 +349,16 @@ impl Sessions {
         session.set_permissions(path, mode, recursive).await
     }
 
+    /// Size and modification time of one thing, as far as the endpoint says.
+    ///
+    /// The transfer engine asks the same question of a session it already
+    /// holds; this is the way in from outside, for anything that needs to know
+    /// whether a file is still the file it was.
+    pub async fn stat_of(&self, endpoint: &EndpointId, path: &str) -> Result<(u64, Option<i64>)> {
+        let session = self.find(endpoint).await?;
+        session.stat(path).await
+    }
+
     /// Moves one file from one endpoint to another.
     ///
     /// Neither side is privileged: a download, an upload and a copy between two

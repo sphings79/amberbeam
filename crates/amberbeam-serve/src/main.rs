@@ -49,6 +49,7 @@ use std::sync::Arc;
 
 use amberbeam_commands::Service;
 use amberbeam_core::config::Config;
+use amberbeam_core::editing::Edits;
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::RecvError;
@@ -206,6 +207,7 @@ async fn main() {
         queue: Runner::new(sessions, events.clone(), queue_path),
         secrets,
         session: MemoryStore::default(),
+        edits: Edits::beneath_temp(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 

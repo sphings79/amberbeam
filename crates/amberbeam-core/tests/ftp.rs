@@ -662,3 +662,161 @@ async fn a_search_walks_the_tree_and_says_what_it_cost() {
     // like "there is nothing there".
     assert!(sessions.search(&remote, &root, "   ", 10).await.is_err());
 }
+
+/// A file edited where it lies: taken, changed, written back.
+///
+/// The part worth a real server is the last third. Whether a write-back is
+/// refused depends on what the server says a file's size and time are, and
+/// `MDTM` answers differently from one server to the next — a unit test with
+/// numbers in it would prove nothing about the case this guard exists for.
+#[tokio::test]
+async fn a_file_is_edited_where_it_lies() {
+    use amberbeam_core::editing::{Edits, Encoding};
+    use amberbeam_core::error::Error;
+    use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+
+    let (host, port) = server_or_skip!("a_file_is_edited_where_it_lies");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+    let home = connected.home.trim_end_matches('/').to_string();
+
+    // Latin-1 on purpose: it is the case that goes wrong silently.
+    let put = |name: &str, bytes: &[u8]| {
+        let dir = std::env::temp_dir().join("amberbeam-edit-test");
+        std::fs::create_dir_all(&dir).expect("scratch directory");
+        let path = dir.join(name);
+        std::fs::write(&path, bytes).expect("write the source");
+        path.to_string_lossy().into_owned()
+    };
+    let upload = |from: String, to: String| TransferRun {
+        source_endpoint: local.clone(),
+        source_path: from,
+        target_endpoint: remote.clone(),
+        target_path: to,
+        resume: None,
+        keep_modified: false,
+        keep_permissions: false,
+        use_temporary_name: false,
+        source_permissions: None,
+    };
+
+    let there = format!("{home}/amberbeam-edit.php");
+    let source = put("amberbeam-edit.php", b"<?php\n// Gr\xfc\xdfe\n");
+    sessions
+        .transfer(
+            &upload(source.clone(), there.clone()),
+            &amberbeam_core::engine::Progress::default(),
+        )
+        .await
+        .expect("put the file there");
+
+    let edits = Edits::at(std::env::temp_dir().join("amberbeam-edit-test/copies"));
+    let edit = edits
+        .begin(&sessions, &remote, &there)
+        .await
+        .expect("take a copy");
+    assert_eq!(edit.name, "amberbeam-edit.php");
+    assert_eq!(
+        edit.encoding,
+        Encoding::Latin1,
+        "a file that is not UTF-8 must not be read as though it were"
+    );
+    assert_eq!(edits.text(&edit.id).await.unwrap(), "<?php\n// Grüße\n");
+
+    // Asking again gives the same copy, not a second one racing it.
+    let again = edits.begin(&sessions, &remote, &there).await.unwrap();
+    assert_eq!(again.id, edit.id);
+    assert_eq!(edits.list().await.len(), 1);
+
+    // Saved and sent, and what arrives is Latin-1 again.
+    edits
+        .save(&edit.id, "<?php\n// Grüße, Welt\n")
+        .await
+        .expect("save the copy");
+    edits
+        .push(&sessions, &edit.id, false)
+        .await
+        .expect("write it back");
+
+    let check = put("check.php", b"");
+    sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: remote.clone(),
+                source_path: there.clone(),
+                target_endpoint: local.clone(),
+                target_path: check.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                use_temporary_name: false,
+                source_permissions: None,
+            },
+            &amberbeam_core::engine::Progress::default(),
+        )
+        .await
+        .expect("read it back");
+    assert_eq!(
+        std::fs::read(&check).unwrap(),
+        b"<?php\n// Gr\xfc\xdfe, Welt\n".to_vec(),
+        "what is on the server is byte for byte what an editor typed, in the file's own encoding"
+    );
+
+    // Now somebody else changes it. Long enough after that a server keeping
+    // times to the second reports a different one.
+    tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+    let meddled = put("meddled.php", b"<?php\n// jemand anderes war hier\n");
+    sessions
+        .transfer(
+            &upload(meddled, there.clone()),
+            &amberbeam_core::engine::Progress::default(),
+        )
+        .await
+        .expect("somebody else writes the file");
+
+    edits.save(&edit.id, "<?php\n// noch mehr\n").await.unwrap();
+    let refused = edits.push(&sessions, &edit.id, false).await;
+    assert!(
+        matches!(refused, Err(Error::EditChangedOnServer { .. })),
+        "writing back over somebody else's work has to be asked about, not done: {refused:?}"
+    );
+    assert_eq!(
+        edits.text(&edit.id).await.unwrap(),
+        "<?php\n// noch mehr\n",
+        "the typing survives the refusal, or the question could not be answered"
+    );
+
+    // Told to go ahead, it goes ahead.
+    edits
+        .push(&sessions, &edit.id, true)
+        .await
+        .expect("write it back anyway");
+    // And the refusal does not repeat: what is up there now is the new starting
+    // point.
+    edits
+        .save(&edit.id, "<?php\n// und noch mehr\n")
+        .await
+        .unwrap();
+    edits
+        .push(&sessions, &edit.id, false)
+        .await
+        .expect("the next save is not asked about again");
+
+    let copy = edit.local_path.clone();
+    edits.finish(&edit.id, true).await;
+    assert!(
+        !std::path::Path::new(&copy).exists(),
+        "a copy that was to be thrown away is gone"
+    );
+    assert!(edits.list().await.is_empty());
+
+    sessions.remove(&remote, &there).await.expect("tidy up");
+    let _ = std::fs::remove_dir_all(std::env::temp_dir().join("amberbeam-edit-test"));
+}

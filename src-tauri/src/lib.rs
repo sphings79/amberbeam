@@ -23,6 +23,7 @@ use std::sync::Arc;
 use amberbeam_commands::Service;
 use amberbeam_core::bundle;
 use amberbeam_core::config::Config;
+use amberbeam_core::editing::Edits;
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::events::{Event, RecvError};
@@ -423,6 +424,7 @@ pub fn run() {
         queue: Runner::new(sessions, events.clone(), queue_path),
         secrets: Box::new(SystemStore::default()),
         session: MemoryStore::default(),
+        edits: Edits::beneath_temp(),
         // The version of the program somebody is running, which is this crate
         // and not the shared one.
         version: env!("CARGO_PKG_VERSION").to_string(),

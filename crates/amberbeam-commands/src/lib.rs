@@ -27,6 +27,7 @@
 use std::sync::Arc;
 
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
+use amberbeam_core::editing::Edits;
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
 use amberbeam_core::ftp::tls::{CertificateDecision, Exceptions};
@@ -57,6 +58,9 @@ pub struct Service {
     /// be reached from the one that connects. Never written anywhere; it goes
     /// when the program does.
     pub session: MemoryStore,
+    /// The files taken off a server to be worked on, and the copies they
+    /// were taken into.
+    pub edits: Edits,
     /// The version the shell was built as, for judging a release against.
     ///
     /// Passed in rather than read here: `CARGO_PKG_VERSION` in this crate is
@@ -370,6 +374,45 @@ struct Remembering {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct Editing {
+    endpoint: String,
+    path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Saving2 {
+    id: String,
+    text: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Pushing {
+    id: String,
+    /// Write over the server's copy even though it is no longer the one that
+    /// was taken. Only ever set by a window that asked and was told to.
+    #[serde(default)]
+    anyway: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Ending {
+    id: String,
+    #[serde(default)]
+    delete_copy: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct EndingAll {
+    #[serde(default)]
+    delete_copies: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Paused {
     paused: bool,
 }
@@ -461,6 +504,13 @@ pub const COMMANDS: &[&str] = &[
     "queue_clear_finished",
     "queue_move",
     "queue_decide",
+    "start_edit",
+    "open_edits",
+    "edit_text",
+    "save_edit",
+    "push_edit",
+    "end_edit",
+    "end_edits",
 ];
 
 fn out<T: Serialize>(value: T) -> Result<Value, Error> {
@@ -766,6 +816,44 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
             let it: Deciding = taking(command, args)?;
             service.queue.decide(&it.id, it.policy, it.for_all).await;
             out(())
+        }
+
+        // --- Working on a file that is on a server ---
+        "start_edit" => {
+            let it: Editing = taking(command, args)?;
+            out(service
+                .edits
+                .begin(&service.sessions, &EndpointId::new(it.endpoint), &it.path)
+                .await?)
+        }
+        "open_edits" => out(service.edits.list().await),
+        "edit_text" => {
+            let it: ById = taking(command, args)?;
+            out(service.edits.text(&it.id).await?)
+        }
+        "save_edit" => {
+            let it: Saving2 = taking(command, args)?;
+            // Saved first, then sent. If the server refuses the write-back --
+            // because somebody else has been in the file -- the work is still
+            // in the copy, and the window can ask and try again. The other
+            // order would lose the typing to answer a question about it.
+            service.edits.save(&it.id, &it.text).await?;
+            out(service.edits.push(&service.sessions, &it.id, false).await?)
+        }
+        "push_edit" => {
+            let it: Pushing = taking(command, args)?;
+            out(service
+                .edits
+                .push(&service.sessions, &it.id, it.anyway)
+                .await?)
+        }
+        "end_edit" => {
+            let it: Ending = taking(command, args)?;
+            out(service.edits.finish(&it.id, it.delete_copy).await)
+        }
+        "end_edits" => {
+            let it: EndingAll = taking(command, args)?;
+            out(service.edits.finish_all(it.delete_copies).await)
         }
 
         other => Err(Error::other(format!("no command called {other}"))),
@@ -1158,6 +1246,7 @@ mod tests {
             ),
             secrets: Box::new(MemoryStore::default()),
             session: MemoryStore::default(),
+            edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
             version: "0.0.0".into(),
         });
 
@@ -1186,6 +1275,7 @@ mod tests {
             ),
             secrets: Box::new(MemoryStore::default()),
             session: MemoryStore::default(),
+            edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
             version: "0.0.0".into(),
         });
 
