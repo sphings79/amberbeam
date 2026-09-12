@@ -41,7 +41,7 @@
     onservers: () => void;
     ondisconnect: () => void;
     /** Sends the named entries to the other pane. */
-    ontransfer: (names: string[]) => Promise<void>;
+    ontransfer: (names: string[], held?: boolean) => Promise<void>;
     /** Entries dragged here from the other pane. */
     onreceive: (from: Side, names: string[]) => Promise<void>;
   }
@@ -304,6 +304,13 @@
         break;
       case "transfer":
         await ontransfer(chosen.map((entry) => entry.name));
+        break;
+      case "enqueue":
+        // The same journey, lined up rather than set going.
+        await ontransfer(
+          chosen.map((entry) => entry.name),
+          true,
+        );
         break;
       case "download":
         for (const entry of chosen) {

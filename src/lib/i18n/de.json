@@ -455,5 +455,11 @@
   "conflict.scope.always": "Immer, ab jetzt",
   "conflict.scope.always.hint": "Wird in den Einstellungen gespeichert. AmberBeam fragt dann nicht mehr, bis du es zurücknimmst.",
   "queue.tidy.on": "Fertige Übertragungen verschwinden von selbst. Klick behält sie.",
-  "queue.tidy.off": "Fertige Übertragungen bleiben stehen. Klick räumt sie automatisch weg."
+  "queue.tidy.off": "Fertige Übertragungen bleiben stehen. Klick räumt sie automatisch weg.",
+  "appearance.size": "Größe",
+  "size.0-9": "Klein",
+  "size.1": "Normal",
+  "size.1-15": "Groß",
+  "size.1-3": "Größer",
+  "cmd.enqueue": "Zur Warteschlange hinzufügen"
 }

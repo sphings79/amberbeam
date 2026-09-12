@@ -94,11 +94,22 @@ body,
   margin: 0;
 }
 
+/*
+ * Everything is a multiple of this.
+ *
+ * `rem` measures against the root, so one number here moves rows, columns,
+ * gaps and text together and keeps them in proportion. Set from the appearance
+ * settings; sixteen pixels is what a browser calls ordinary.
+ */
+:root {
+  font-size: calc(16px * var(--scale, 1));
+}
+
 body {
   background: var(--surface-0);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;

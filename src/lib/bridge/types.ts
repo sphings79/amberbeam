@@ -285,6 +285,13 @@ export interface JobProgress {
 }
 
 export interface EnqueueRequest {
+  /**
+   * Line it up without setting it going.
+   *
+   * For somebody gathering a few things first and then starting them, rather
+   * than watching each one leave as it is dropped.
+   */
+  held?: boolean;
   sourceEndpoint: string;
   sourceDirectory: string;
   names: string[];

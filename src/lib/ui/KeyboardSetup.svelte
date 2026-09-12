@@ -359,23 +359,23 @@
 
   .drawing .caption {
     fill: var(--text-muted);
-    font-size: 11px;
+    font-size: 0.69rem;
     font-weight: 600;
   }
 
   .drawing .row {
     fill: var(--text);
-    font-size: 11px;
+    font-size: 0.69rem;
   }
 
   .drawing .quiet {
     fill: var(--text-faint);
-    font-size: 10px;
+    font-size: 0.63rem;
   }
 
   .drawing .mono-small {
     fill: var(--text-faint);
-    font-size: 10px;
+    font-size: 0.63rem;
     font-family: ui-monospace, monospace;
   }
 

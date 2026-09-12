@@ -455,5 +455,11 @@
   "conflict.scope.always": "Always, from now on",
   "conflict.scope.always.hint": "Saved in the settings. AmberBeam will stop asking until you change it back.",
   "queue.tidy.on": "Finished transfers clear themselves. Click to keep them.",
-  "queue.tidy.off": "Finished transfers stay. Click to clear them automatically."
+  "queue.tidy.off": "Finished transfers stay. Click to clear them automatically.",
+  "appearance.size": "Size",
+  "size.0-9": "Small",
+  "size.1": "Normal",
+  "size.1-15": "Large",
+  "size.1-3": "Larger",
+  "cmd.enqueue": "Add to the queue"
 }

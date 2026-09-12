@@ -16,6 +16,7 @@ export type CommandId =
   | "permissions"
   | "delete"
   | "transfer"
+  | "enqueue"
   | "download"
   | "edit-remote";
 
@@ -60,6 +61,13 @@ export const COMMANDS: Command[] = [
   { id: "permissions", key: "cmd.permissions", icon: "permissions", inToolbar: true, needsTarget: true },
   { id: "delete", key: "cmd.delete", icon: "delete", inToolbar: true, needsTarget: true },
   { id: "transfer", key: "cmd.transfer", icon: "transfer", inToolbar: true, needsTarget: true },
+  {
+    id: "enqueue",
+    key: "cmd.enqueue",
+    icon: "transfer",
+    inToolbar: false,
+    needsTarget: true,
+  },
   {
     id: "download",
     key: "cmd.download",

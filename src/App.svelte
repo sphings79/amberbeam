@@ -12,7 +12,14 @@
     type Unsubscribe,
   } from "./lib/bridge";
   import { resetLocale, t } from "./lib/i18n/index.svelte";
-  import { DEFAULT_ACCENT, DEFAULT_THEME, setAccent, setTheme } from "./lib/theme/index.svelte";
+  import {
+    DEFAULT_ACCENT,
+    DEFAULT_SIZE,
+    DEFAULT_THEME,
+    setAccent,
+    setSize,
+    setTheme,
+  } from "./lib/theme/index.svelte";
   import {
     actionOf,
     hasAnswered,
@@ -177,6 +184,7 @@
     }
     setTheme(DEFAULT_THEME);
     setAccent(DEFAULT_ACCENT);
+    setSize(DEFAULT_SIZE);
     resetLocale();
   }
 
@@ -561,7 +569,14 @@
   }
 
   /** Puts entries from one pane into the queue, bound for the other. */
-  async function transfer(from: Side, names: string[]): Promise<void> {
+  /**
+   * Sends what was chosen to the other side.
+   *
+   * `held` lines it up without setting it going, for somebody gathering a few
+   * things first. Everything else is the same journey, so it is one function
+   * and not two that would drift.
+   */
+  async function transfer(from: Side, names: string[], held = false): Promise<void> {
     if (names.length === 0) return;
     const source = pane(from);
     const target = pane(other(from));
@@ -571,6 +586,7 @@
       names,
       targetEndpoint: target.endpoint,
       targetDirectory: target.path,
+      held,
     });
     await refreshQueue();
   }
@@ -940,7 +956,7 @@
         onconnect={(at) => (connectMenu = { side: "left", ...at })}
         onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("left")}
-        ontransfer={(names) => transfer("left", names)}
+        ontransfer={(names, held) => transfer("left", names, held)}
         onreceive={(from, names) => transfer(from, names)}
       />
     </div>
@@ -951,7 +967,7 @@
         onconnect={(at) => (connectMenu = { side: "right", ...at })}
         onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("right")}
-        ontransfer={(names) => transfer("right", names)}
+        ontransfer={(names, held) => transfer("right", names, held)}
         onreceive={(from, names) => transfer(from, names)}
       />
     </div>

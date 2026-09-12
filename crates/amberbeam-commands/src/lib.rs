@@ -226,6 +226,9 @@ pub struct EnqueueBody {
     pub names: Vec<String>,
     pub target_endpoint: String,
     pub target_directory: String,
+    /// Line it up without setting it going.
+    #[serde(default)]
+    pub held: bool,
 }
 
 // --- The shapes arguments arrive in ----------------------------------------
@@ -830,6 +833,7 @@ async fn enqueue(service: &Service, request: EnqueueBody) -> Result<usize, Error
             keep_permissions: settings.keep_permissions,
             use_temporary_name: settings.temporary_name,
             retries: Some(settings.retries),
+            held: request.held,
         })
         .await
 }

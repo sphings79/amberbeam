@@ -171,7 +171,11 @@ impl Runner {
                     target_endpoint: request.target_endpoint.clone(),
                     target_path,
                     name: item.relative.clone(),
-                    state: JobState::Queued,
+                    state: if request.held {
+                        JobState::Paused
+                    } else {
+                        JobState::Queued
+                    },
                     conflict_policy: standing.unwrap_or(request.conflict_policy),
                     total_bytes: item.size,
                     done_bytes: 0,
@@ -739,6 +743,12 @@ pub struct EnqueueRequest {
     pub keep_permissions: bool,
     pub use_temporary_name: bool,
     pub retries: Option<u8>,
+    /// Put it in the list without starting it.
+    ///
+    /// For somebody lining a few things up and then setting them going, rather
+    /// than watching each one leave as it is dropped. It lands paused, which
+    /// is a state the queue already knows how to show and how to release.
+    pub held: bool,
 }
 
 fn now_seconds() -> i64 {

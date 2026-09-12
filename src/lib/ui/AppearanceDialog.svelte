@@ -12,7 +12,17 @@
    * not — it is a decision, taken once, in front of the thing it changes.
    */
   import { t, locale, LOCALES, setLocale, type Locale } from "../i18n/index.svelte";
-  import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "../theme/index.svelte";
+  import {
+    ACCENTS,
+    currentAccent,
+    currentSize,
+    currentTheme,
+    setAccent,
+    setSize,
+    setTheme,
+    SIZES,
+    THEMES,
+  } from "../theme/index.svelte";
   import { trap } from "./trap";
 
   type Where = "top" | "bottom" | "off";
@@ -112,6 +122,22 @@
               aria-label={t(`accent.${candidate}`)}
               onclick={() => setAccent(candidate)}
             ></button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="row">
+        <span class="label">{t("appearance.size")}</span>
+        <div class="choice">
+          {#each SIZES as candidate (candidate)}
+            <button
+              type="button"
+              class:active={currentSize() === candidate}
+              onclick={() => setSize(candidate)}
+              style:font-size="{0.62 + candidate * 0.2}rem"
+            >
+              {t(`size.${String(candidate).replace(".", "-")}`)}
+            </button>
           {/each}
         </div>
       </div>

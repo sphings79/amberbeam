@@ -1380,6 +1380,7 @@ async fn a_folder_travels_with_its_structure() {
             keep_permissions: false,
             use_temporary_name: true,
             retries: Some(3),
+            held: false,
         })
         .await
         .expect("enqueue");
@@ -1476,6 +1477,7 @@ async fn an_existing_file_stops_and_waits_for_an_answer() {
             keep_permissions: false,
             use_temporary_name: true,
             retries: Some(1),
+            held: false,
         })
         .await
         .expect("enqueue");

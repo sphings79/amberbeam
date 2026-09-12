@@ -12,6 +12,18 @@
  */
 
 export const THEMES = ["system", "light", "dark"] as const;
+
+/**
+ * How large everything is, as a multiple of the ordinary size.
+ *
+ * A multiplier and not a list of point sizes: almost every measurement in this
+ * program is written in `rem`, which is a multiple of the root size, so moving
+ * that one number moves the whole interface together — rows, columns, gaps and
+ * all. Point sizes per element would have meant choosing one for each of two
+ * hundred places and keeping them in proportion by hand.
+ */
+export const SIZES = [0.9, 1, 1.15, 1.3] as const;
+export type Size = (typeof SIZES)[number];
 export const ACCENTS = ["amber", "violet", "blue", "emerald", "rose"] as const;
 
 export type Theme = (typeof THEMES)[number];
@@ -19,6 +31,7 @@ export type Accent = (typeof ACCENTS)[number];
 
 const THEME_KEY = "amberbeam.theme";
 const ACCENT_KEY = "amberbeam.accent";
+const SIZE_KEY = "amberbeam.size";
 
 function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   const value = localStorage.getItem(key);
@@ -34,9 +47,17 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
  */
 export const DEFAULT_THEME: Theme = "system";
 export const DEFAULT_ACCENT: Accent = "amber";
+export const DEFAULT_SIZE: Size = 1;
+
+/** The size that was chosen, or the ordinary one. */
+function storedSize(): Size {
+  const value = Number(localStorage.getItem(SIZE_KEY));
+  return (SIZES as readonly number[]).includes(value) ? (value as Size) : DEFAULT_SIZE;
+}
 
 let theme = $state<Theme>(stored(THEME_KEY, THEMES, DEFAULT_THEME));
 let accent = $state<Accent>(stored(ACCENT_KEY, ACCENTS, DEFAULT_ACCENT));
+let size = $state<Size>(storedSize());
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -56,6 +77,7 @@ function apply(): void {
   const root = document.documentElement;
   root.dataset.theme = resolve(theme);
   root.dataset.accent = accent;
+  root.style.setProperty("--scale", String(size));
 }
 
 darkQuery.addEventListener("change", (event) => {
@@ -89,5 +111,15 @@ export function setTheme(next: Theme): void {
 export function setAccent(next: Accent): void {
   accent = next;
   localStorage.setItem(ACCENT_KEY, next);
+  apply();
+}
+
+export function currentSize(): Size {
+  return size;
+}
+
+export function setSize(next: Size): void {
+  size = next;
+  localStorage.setItem(SIZE_KEY, String(next));
   apply();
 }
