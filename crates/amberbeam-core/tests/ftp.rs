@@ -1039,3 +1039,71 @@ async fn a_directory_that_is_not_there_is_made_rather_than_assumed() {
         .expect("tidy up");
     let _ = std::fs::remove_file(&source);
 }
+
+/// Asking about a file that is not there.
+///
+/// It used to answer "zero bytes, no date" rather than "not there", and the
+/// queue takes that for a file already at the target — so every new file
+/// uploaded to an FTP server raised the "already exists" question, showing a
+/// size of 0 B and an unknown date for a file that did not exist.
+#[tokio::test]
+async fn a_file_that_is_not_there_says_so() {
+    use amberbeam_core::error::{Error, PathProblem};
+    use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+
+    let (host, port) = server_or_skip!("a_file_that_is_not_there");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+    let home = connected.home.trim_end_matches('/').to_string();
+    let missing = format!("{home}/gibt-es-sicher-nicht.txt");
+    let _ = sessions.remove(&remote, &missing).await;
+
+    assert!(
+        matches!(
+            sessions.stat_of(&remote, &missing).await,
+            Err(Error::Path {
+                reason: PathProblem::NotFound,
+                ..
+            })
+        ),
+        "a path with nothing at it is not a file of zero bytes"
+    );
+
+    // And one that is there answers with what is there.
+    let source = std::env::temp_dir().join("amberbeam-stat-test.txt");
+    std::fs::write(&source, b"acht dazu\n").unwrap();
+    sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: local.clone(),
+                source_path: source.to_string_lossy().into_owned(),
+                target_endpoint: remote.clone(),
+                target_path: missing.clone(),
+                resume: None,
+                keep_modified: false,
+                keep_permissions: false,
+                use_temporary_name: false,
+                source_permissions: None,
+            },
+            &amberbeam_core::engine::Progress::default(),
+        )
+        .await
+        .expect("put something there");
+
+    let (size, modified) = sessions
+        .stat_of(&remote, &missing)
+        .await
+        .expect("now it is");
+    assert_eq!(size, 10);
+    assert!(modified.is_some(), "this server does answer MDTM");
+
+    sessions.remove(&remote, &missing).await.expect("tidy up");
+    let _ = std::fs::remove_file(&source);
+}

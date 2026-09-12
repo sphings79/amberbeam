@@ -697,15 +697,27 @@ impl FtpSession {
     /// `SIZE` and `MDTM` are asked separately, and both are optional. Where the
     /// server answers neither, a resume cannot be judged safe and the transfer
     /// starts again — which is the right way round.
+    /// Size and modification time, or [`PathProblem::NotFound`].
+    ///
+    /// Both questions are asked and both may be refused, which used to come
+    /// back as a file of zero bytes with no date — so every file uploaded to
+    /// an FTP server looked like a file that was already there, and every one
+    /// of them raised the "already exists" question showing 0 B and an unknown
+    /// date. A server that answers neither question is a server saying there
+    /// is nothing at that path.
+    ///
+    /// A server that answers one of them settles it. `SIZE` is refused for
+    /// directories almost everywhere, and plenty of servers have no `MDTM` at
+    /// all; either answer on its own is proof that something is there.
     pub async fn stat(&self, path: &str) -> Result<(u64, Option<i64>)> {
         let mut lease = self.lease().await?;
 
         let size = if self.abilities.size {
             self.events
                 .log(&self.endpoint, LogDirection::Sent, format!("SIZE {path}"));
-            lease.stream().size(path).await.unwrap_or_default() as u64
+            lease.stream().size(path).await.ok().map(|size| size as u64)
         } else {
-            0
+            None
         };
 
         self.events
@@ -718,7 +730,14 @@ impl FtpSession {
             .map(|stamp| stamp.and_utc().timestamp());
 
         lease.release();
-        Ok((size, modified))
+
+        if size.is_none() && modified.is_none() {
+            return Err(Error::Path {
+                path: path.to_string(),
+                reason: PathProblem::NotFound,
+            });
+        }
+        Ok((size.unwrap_or_default(), modified))
     }
 
     /// Puts a finished file under its final name.
