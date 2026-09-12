@@ -7,6 +7,55 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.2
+
+Windows and Linux were still unusable in 0.1.1. The explanation given there was
+wrong, and this says what it actually was.
+
+### Fixed
+
+- **The server window still opened blank on Windows.** It was built from a
+  synchronous command, which Tauri's own documentation warns against: on
+  Windows that deadlocks, because WebView2 wants the main thread and the
+  command is already holding it. So the window appeared and nothing in it ever
+  started — frozen in 0.1.0, blank in 0.1.1.
+
+  The question mark in the path, blamed for this in 0.1.1, was a real mistake
+  and worth fixing, but it was not this one.
+- **Every keyboard shortcut was unreachable outside macOS.** They were bound to
+  Meta, which is Command on a Mac, the Windows key on Windows and Super on
+  Linux — keys the system takes for itself before any program sees them. The
+  status bar advertised one of them as "⌘S" on a machine that has no such key.
+
+  The table no longer says which physical key the command modifier is: Command
+  on a Mac, Ctrl everywhere else, decided when the program starts. Shortcuts
+  are written in the words of the keyboard in front of you rather than in Mac
+  symbols, and the two bindings that could not exist away from a Mac —
+  full screen, and deleting with Backspace — have answers that work there.
+
+  Keys you chose yourself are carried across unchanged.
+- **The dialog on the first start explained Mission Control to people on
+  Windows.** It exists for one problem — on a Mac, F1 to F12 are not function
+  keys — and it was shown everywhere regardless, down to buttons offering to
+  open the macOS system settings. It now appears only where that problem
+  exists. Elsewhere a new installation simply starts on the layout of the older
+  Windows clients, which is what this program is for.
+
+### Added
+
+- A window that cannot start says so. Any error before or during startup is
+  written into the page, and if nothing has been drawn after eight seconds it
+  says that too. Its silence is what finally located the fault above: a page
+  that never started cannot report anything, including this.
+
+### Changed
+
+- The keyboard page says outright that none of the macOS section applies to
+  Windows or Linux, and the shortcuts written out in the other pages give both
+  keyboards.
+- The guard script checks the keyboard against both keyboards rather than the
+  one the machine running it happens to have. That gap is how this shipped.
+
 ## 0.1.1
 
 Windows was unusable in 0.1.0, and this is why.

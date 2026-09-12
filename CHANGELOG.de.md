@@ -7,6 +7,58 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.2
+
+Unter Windows und Linux war auch 0.1.1 unbenutzbar. Die dort gegebene Erklärung
+war falsch; hier steht, woran es wirklich lag.
+
+### Behoben
+
+- **Das Serverfenster ging unter Windows weiterhin weiß auf.** Es wurde aus
+  einem synchronen Befehl gebaut, wovor Tauris eigene Dokumentation warnt:
+  Unter Windows blockiert das, weil WebView2 den Haupt-Thread braucht und der
+  Befehl ihn bereits hält. Das Fenster erschien also, und darin begann nie
+  etwas — in 0.1.0 eingefroren, in 0.1.1 weiß.
+
+  Das Fragezeichen im Pfad, dem 0.1.1 das anlastete, war ein echter Fehler und
+  richtig behoben, aber nicht dieser.
+- **Außerhalb von macOS war jedes Tastenkürzel unerreichbar.** Sie lagen auf
+  Meta — auf dem Mac die Befehlstaste, unter Windows die Windows-Taste, unter
+  Linux Super. Tasten also, die sich das System nimmt, bevor ein Programm sie
+  sieht. In der Statuszeile stand „⌘S" auf einem Rechner, der diese Taste gar
+  nicht hat.
+
+  Die Tabelle legt sich nicht mehr fest, welche physische Taste die Befehlstaste
+  ist: auf dem Mac ⌘, sonst Strg, entschieden beim Start. Kürzel stehen in den
+  Worten der Tastatur, die vor dir liegt, statt in Mac-Symbolen, und die beiden
+  Belegungen, die es außerhalb des Macs nicht geben konnte — Vollbild und
+  Löschen mit Rückschritt —, haben dort eine Antwort, die funktioniert.
+
+  Selbst gewählte Tasten werden unverändert übernommen.
+- **Der Dialog beim ersten Start erklärte Windows-Nutzern Mission Control.** Er
+  existiert für ein einziges Problem — auf dem Mac sind F1 bis F12 keine
+  Funktionstasten — und erschien trotzdem überall, bis hin zu Knöpfen, die die
+  macOS-Systemeinstellungen öffnen wollten. Er kommt jetzt nur noch dort, wo es
+  dieses Problem gibt. Sonst startet eine neue Installation direkt mit der
+  Belegung der älteren Windows-Programme, und dafür ist dieses Programm da.
+
+### Neu
+
+- Ein Fenster, das nicht starten kann, sagt das. Jeder Fehler vor oder während
+  des Starts wird in die Seite geschrieben, und wenn nach acht Sekunden nichts
+  gezeichnet wurde, sagt sie auch das. Sein Schweigen hat den Fehler oben
+  überhaupt erst eingekreist: Eine Seite, die nie startet, kann nichts melden —
+  auch das nicht.
+
+### Geändert
+
+- Die Tastatur-Seite sagt unmissverständlich, dass der macOS-Teil für Windows
+  und Linux nicht gilt, und die ausgeschriebenen Kürzel auf den anderen Seiten
+  nennen beide Tastaturen.
+- Das Wächter-Skript prüft die Tastatur gegen beide Tastaturen statt nur gegen
+  die des Rechners, auf dem es läuft. Durch diese Lücke ist das überhaupt
+  ausgeliefert worden.
+
 ## 0.1.1
 
 Unter Windows war 0.1.0 unbenutzbar, und das ist der Grund.
