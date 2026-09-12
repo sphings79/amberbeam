@@ -221,6 +221,11 @@ export const api: AmberBeamApi = {
   writeTextFile: (path: string, text: string) => call<void>("write-text-file", { path, text }),
   readTextFile: (path: string) => call<string>("read-text-file", { path }),
 
+  windowLabel: () =>
+    // One page in a browser, so the view is where it has always been for this
+    // shell: in the address. A browser has no windows to label.
+    new URLSearchParams(location.search).get("view") === "sites" ? "sites" : "main",
+
   async openSiteManager(): Promise<void> {
     // A browser tab cannot open a native window, and the container build shows
     // the site manager as a view of the same page instead.

@@ -62,8 +62,7 @@
    * but building it as a second application would mean two interfaces to keep
    * in step, and they would drift.
    */
-  const isSiteManager =
-    typeof location !== "undefined" && new URLSearchParams(location.search).get("view") === "sites";
+  const isSiteManager = api.windowLabel() === "sites";
 
   /** Heights, split and where each region sits — all kept across restarts. */
   let logHeight = $state(120);

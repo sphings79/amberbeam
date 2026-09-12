@@ -21,6 +21,19 @@ pub enum Protocol {
     Ftps,
 }
 
+/// How long a server has to finish saying hello.
+///
+/// Covers the whole of it — the socket, the greeting, the key exchange, the
+/// login — because the failure this exists for is a server that accepts the
+/// connection and then goes quiet, and that can happen at any point in there.
+/// Without it the program waits for ever with "connecting" on screen and no way
+/// out, which is what it did until somebody on Windows waited long enough to
+/// notice.
+///
+/// Twenty seconds: long enough for a slow link and a busy server doing key
+/// exchange, short enough that nobody wonders whether the program is broken.
+pub const GREETING: std::time::Duration = std::time::Duration::from_secs(20);
+
 impl Protocol {
     /// How many transfers run at the same time unless a site entry says otherwise.
     ///

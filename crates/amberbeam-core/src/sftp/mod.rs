@@ -194,26 +194,34 @@ impl SftpSession {
         };
 
         let config = Arc::new(client::Config::default());
-        let mut handle =
-            match client::connect(config, (params.host.as_str(), params.port), verifier).await {
-                Ok(handle) => handle,
-                Err(source) => {
-                    // A refused host key closes the connection, so the reason
-                    // is in the verdict rather than in russh's error.
-                    let error = verdict.take_refusal().unwrap_or(Error::Unreachable {
-                        host: params.host.clone(),
-                        port: params.port,
-                    });
-                    let _ = source;
-                    events.connection(
-                        endpoint,
-                        ConnectionState::Failed {
-                            error: error.clone(),
-                        },
-                    );
-                    return Err(error);
-                }
-            };
+        // Bounded, because the interesting failure is not a refused connection
+        // but an accepted one that then says nothing at all.
+        let opening = client::connect(config, (params.host.as_str(), params.port), verifier);
+        let mut handle = match tokio::time::timeout(crate::endpoint::GREETING, opening)
+            .await
+            .map_err(|_| Error::TimedOut {
+                host: params.host.clone(),
+                port: params.port,
+                seconds: crate::endpoint::GREETING.as_secs(),
+            })? {
+            Ok(handle) => handle,
+            Err(source) => {
+                // A refused host key closes the connection, so the reason
+                // is in the verdict rather than in russh's error.
+                let error = verdict.take_refusal().unwrap_or(Error::Unreachable {
+                    host: params.host.clone(),
+                    port: params.port,
+                });
+                let _ = source;
+                events.connection(
+                    endpoint,
+                    ConnectionState::Failed {
+                        error: error.clone(),
+                    },
+                );
+                return Err(error);
+            }
+        };
 
         if let Some(error) = verdict.take_refusal() {
             events.connection(

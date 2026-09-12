@@ -154,6 +154,7 @@ export const api: AmberBeamApi = {
   writeTextFile: (path: string, text: string) => invoke<void>("write_text_file", { path, text }),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
 
+  windowLabel: () => getCurrentWindow().label,
   openSiteManager: () => invoke<void>("open_site_manager"),
   openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),
   async onOpenSite(handler): Promise<Unsubscribe> {

@@ -156,6 +156,7 @@ export type CoreError =
       /** What the TLS library said, word for word. */
       detail: string;
     }
+  | { kind: "timed-out"; host: string; port: number; seconds: number }
   | { kind: "encryption-refused"; detail: string }
   | { kind: "path"; path: string; reason: PathProblem }
   | { kind: "source-changed" }
@@ -611,6 +612,15 @@ export interface AmberBeamApi {
   /** Writes a file the user picked. Used for key schemes. */
   writeTextFile(path: string, text: string): Promise<void>;
   readTextFile(path: string): Promise<string>;
+
+  /**
+   * Which window this is — "main", "sites", or whatever the shell calls it.
+   *
+   * The view used to be chosen by a query string in the window's URL, which
+   * cost an entire Windows release: that URL is a path, and a question mark is
+   * illegal in one there. A label is not a path.
+   */
+  windowLabel(): string;
 
   /** Opens the site manager in a window of its own. */
   openSiteManager(): Promise<void>;

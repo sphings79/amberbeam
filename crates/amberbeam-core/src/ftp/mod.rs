@@ -983,8 +983,32 @@ fn yes_no(value: bool) -> &'static str {
     }
 }
 
-/// Opens and logs in one control connection.
+/// Opens and logs in one control connection, or gives up.
+///
+/// The whole of it is bounded: socket, greeting, `AUTH TLS`, handshake and
+/// login. A server that accepts the connection and then goes quiet is the
+/// failure this guards against, and it can go quiet at any point in there.
 async fn open(
+    params: &FtpParams,
+    endpoint: &EndpointId,
+    events: &Events,
+) -> Result<AsyncRustlsFtpStream> {
+    match tokio::time::timeout(
+        crate::endpoint::GREETING,
+        open_inner(params, endpoint, events),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(Error::TimedOut {
+            host: params.host.clone(),
+            port: params.port,
+            seconds: crate::endpoint::GREETING.as_secs(),
+        }),
+    }
+}
+
+async fn open_inner(
     params: &FtpParams,
     endpoint: &EndpointId,
     events: &Events,

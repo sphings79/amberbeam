@@ -47,6 +47,16 @@ pub enum Error {
         /// What the TLS library said, for the log and the small print.
         detail: String,
     },
+    /// The server took the connection and then said nothing.
+    ///
+    /// Not the same as unreachable: something answered. A firewall that
+    /// swallows rather than refuses looks exactly like this, and so does a port
+    /// that belongs to a different program.
+    TimedOut {
+        host: String,
+        port: u16,
+        seconds: u64,
+    },
     /// The server would not encrypt at all, or would not encrypt the data
     /// channel. Never silently downgraded: a data channel without `PROT P` is
     /// not half secure, it is in the clear.
@@ -99,6 +109,7 @@ impl Error {
             Error::HostKeyUnknown { .. } => "error.host-key-unknown",
             Error::HostKeyChanged { .. } => "error.host-key-changed",
             Error::CertificateUntrusted { .. } => "error.certificate-untrusted",
+            Error::TimedOut { .. } => "error.timed-out",
             Error::EncryptionRefused { .. } => "error.encryption-refused",
             Error::Path { .. } => "error.path",
             Error::SourceChanged => "error.source-changed",

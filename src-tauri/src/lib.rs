@@ -222,17 +222,19 @@ fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(
-        &app,
-        SITES_WINDOW,
-        WebviewUrl::App("index.html?view=sites".into()),
-    )
-    .title("AmberBeam")
-    .inner_size(980.0, 660.0)
-    .min_inner_size(700.0, 460.0)
-    .center()
-    .build()
-    .map_err(Error::other)?;
+    // The plain page, with no query string. `WebviewUrl::App` takes a
+    // **path**, and a question mark is a perfectly ordinary character in a path
+    // on macOS and an illegal one on Windows — so "index.html?view=sites"
+    // loaded here and opened an empty, frozen window there. Which view this is
+    // gets decided from the window's label instead, which is not a path and
+    // cannot be mangled by one.
+    WebviewWindowBuilder::new(&app, SITES_WINDOW, WebviewUrl::App("index.html".into()))
+        .title("AmberBeam")
+        .inner_size(980.0, 660.0)
+        .min_inner_size(700.0, 460.0)
+        .center()
+        .build()
+        .map_err(Error::other)?;
     Ok(())
 }
 
@@ -389,12 +391,12 @@ fn bundle_apply(
 /// the file again and moves them straight into the credential store, so no
 /// password ever travels to a window even once.
 #[tauri::command]
-fn import_candidates() -> Vec<import::Candidate> {
-    import::discover()
+async fn import_candidates() -> Result<Vec<import::Candidate>, Error> {
+    Ok(import::discover())
 }
 
 #[tauri::command]
-fn import_preview(source: import::Source, path: PathBuf) -> Result<import::Found, Error> {
+async fn import_preview(source: import::Source, path: PathBuf) -> Result<import::Found, Error> {
     import::read(source, &path)
 }
 
@@ -479,9 +481,9 @@ fn import_apply(
 // travel through a webview to be useful.
 
 #[tauri::command]
-fn sites(state: tauri::State<'_, Arc<State>>) -> Vec<SiteRow> {
+async fn sites(state: tauri::State<'_, Arc<State>>) -> Result<Vec<SiteRow>, Error> {
     let secrets = &state.secrets;
-    state
+    Ok(state
         .config
         .sites()
         .load()
@@ -494,7 +496,7 @@ fn sites(state: tauri::State<'_, Arc<State>>) -> Vec<SiteRow> {
             folder: filed.folder,
             site: filed.site,
         })
-        .collect()
+        .collect())
 }
 
 #[tauri::command]

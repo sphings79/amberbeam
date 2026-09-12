@@ -32,6 +32,12 @@ export function describe(failure: unknown): string {
       return t("error.host-key-changed", { host: error.host });
     case "certificate-untrusted":
       return t("error.certificate-untrusted", { host: error.host });
+    case "timed-out":
+      return t("error.timed-out", {
+        host: error.host,
+        port: error.port,
+        seconds: error.seconds,
+      });
     case "encryption-refused":
       return t("error.encryption-refused");
     case "path":
