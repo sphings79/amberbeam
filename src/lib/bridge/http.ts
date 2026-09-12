@@ -163,6 +163,12 @@ export const api: AmberBeamApi = {
   createSiteFolder: (folder: string) => call<void>("create-site-folder", { folder }),
   renameSiteFolder: (from: string, to: string) => call<void>("rename-site-folder", { from, to }),
   deleteSiteFolder: (folder: string) => call<void>("delete-site-folder", { folder }),
+  // A page in a browser cannot replace the program serving it, and should not
+  // pretend otherwise. The window offers the download page instead.
+  canInstallUpdate: () => Promise.resolve(false),
+  installUpdate: () => Promise.reject(new Error("the web shell cannot install updates")),
+  restart: () => Promise.reject(new Error("the web shell cannot restart the program")),
+
   setSiteSecret: (id: string, kind: SecretKind, value: string) =>
     call<void>("set-site-secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>

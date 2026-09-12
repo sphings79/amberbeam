@@ -106,6 +106,49 @@ export const api: AmberBeamApi = {
   createSiteFolder: (folder: string) => invoke<void>("create_site_folder", { folder }),
   renameSiteFolder: (from: string, to: string) => invoke<void>("rename_site_folder", { from, to }),
   deleteSiteFolder: (folder: string) => invoke<void>("delete_site_folder", { folder }),
+  /**
+   * Asking the updater whether there is something it could install.
+   *
+   * A second question on top of the one this program asks GitHub itself, and
+   * they are not the same question. Ours reads the release and its notes;
+   * this one asks whether there is a signed artefact for *this* machine, which
+   * is what decides whether a button may promise to install anything.
+   */
+  async canInstallUpdate(): Promise<boolean> {
+    try {
+      const { check } = await import("@tauri-apps/plugin-updater");
+      return (await check()) !== null;
+    } catch {
+      // No manifest, no network, no artefact for this platform. All of them
+      // mean the same thing to the window: not from here.
+      return false;
+    }
+  },
+
+  async installUpdate(
+    onProgress: (downloaded: number, total: number | null) => void,
+  ): Promise<void> {
+    const { check } = await import("@tauri-apps/plugin-updater");
+    const update = await check();
+    if (!update) throw new Error("no update to install");
+
+    let downloaded = 0;
+    let total: number | null = null;
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started") {
+        total = event.data.contentLength ?? null;
+        onProgress(0, total);
+      } else if (event.event === "Progress") {
+        downloaded += event.data.chunkLength;
+        onProgress(downloaded, total);
+      } else {
+        onProgress(total ?? downloaded, total);
+      }
+    });
+  },
+
+  restart: () => invoke<void>("restart"),
+
   setSiteSecret: (id: string, kind: SecretKind, value: string) =>
     invoke<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>

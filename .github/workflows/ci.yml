@@ -138,7 +138,10 @@ jobs:
             librsvg2-dev patchelf libgtk-3-dev
       - run: npm ci
       - name: Build the app and its installer
-        run: npm run tauri build
+        # Without the updater artefacts, which need the signing key. CI proves
+        # the program builds; only a release needs something installable, and
+        # the key for that lives in the release workflow alone.
+        run: npm run build:local
       - uses: actions/upload-artifact@v5
         with:
           name: amberbeam-${{ matrix.name }}

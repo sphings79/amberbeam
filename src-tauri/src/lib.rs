@@ -632,6 +632,12 @@ fn forget_site_secret(
     state.secrets.forget(&id, kind.into())
 }
 
+/// Starts the program again, which is what an installed update is waiting for.
+#[tauri::command]
+fn restart(app: tauri::AppHandle) {
+    app.restart();
+}
+
 #[tauri::command]
 fn core_info() -> CoreInfo {
     CoreInfo::gather()
@@ -1177,6 +1183,12 @@ pub fn run() {
     let started = Arc::clone(&state);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        // Fetching and installing a new version without leaving the program.
+        // Every update is checked against the public key in the config before
+        // anything is written, which is the whole reason this can exist at
+        // all: the program replaces itself, so "where did this come from" has
+        // to have an answer that does not depend on trusting the network.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             // The version belongs where somebody would look for it, and the
             // title bar is the one strip of the window that is always visible
@@ -1258,6 +1270,7 @@ pub fn run() {
             create_site_folder,
             rename_site_folder,
             delete_site_folder,
+            restart,
             set_site_secret,
             set_session_secret,
             forget_session_secret,

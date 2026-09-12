@@ -406,5 +406,12 @@
   "update.dialog.where": "Öffnet die Release-Seite im Browser.",
   "update.dialog.later": "Später",
   "update.dialog.download": "Herunterladen",
-  "update.checked": "Zuletzt geprüft um {time}. Klick fragt erneut."
+  "update.checked": "Zuletzt geprüft um {time}. Klick fragt erneut.",
+  "update.dialog.install": "Herunterladen & installieren",
+  "update.dialog.install.where": "Wird geholt, gegen den Schlüssel dieses Programms geprüft und dann installiert.",
+  "update.dialog.working": "Wird geladen…",
+  "update.dialog.working.share": "Wird geladen… {done} %",
+  "update.dialog.done": "Installiert. Gilt, sobald das Programm neu startet.",
+  "update.dialog.restart": "Jetzt neu starten",
+  "update.dialog.retry": "Erneut versuchen"
 }

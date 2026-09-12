@@ -536,6 +536,28 @@ export interface AmberBeamApi {
   /** Only an empty one — a folder full of servers deserves its own question. */
   deleteSiteFolder(folder: string): Promise<void>;
   /** One way only: a secret goes in, and never comes back out here. */
+  /**
+   * Whether this installation can replace itself.
+   *
+   * Not every one can. A `.deb` sits under `/usr` and cannot be rewritten
+   * without root, so there the honest answer is no and the window offers the
+   * download page instead of a button that would fail halfway.
+   */
+  canInstallUpdate(): Promise<boolean>;
+
+  /**
+   * Fetches the new version and installs it.
+   *
+   * Nothing is written until the download has been checked against the public
+   * key built into this program. The progress callback is for showing where it
+   * has got to; a download that stops silently is the one thing worse than a
+   * slow one.
+   */
+  installUpdate(onProgress: (downloaded: number, total: number | null) => void): Promise<void>;
+
+  /** Starts the program again, once an update has been written. */
+  restart(): Promise<void>;
+
   setSiteSecret(id: string, kind: SecretKind, value: string): Promise<void>;
   forgetSiteSecret(id: string, kind: SecretKind): Promise<void>;
 

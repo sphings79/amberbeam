@@ -13,6 +13,7 @@
    * line of text, which is the worst that can happen and is harmless.
    */
   import { api, type Release } from "../bridge";
+  import { describe } from "./errors";
   import { pieces } from "./notes";
   import { t } from "../i18n/index.svelte";
   import { trap } from "./trap";
@@ -25,6 +26,44 @@
   let { release, onclose }: Props = $props();
 
   let parts = $derived(pieces(release.notes));
+
+  /**
+   * Whether this installation can replace itself.
+   *
+   * Asked rather than assumed. A `.deb` under `/usr` cannot be rewritten
+   * without root, and a manifest that has not caught up yet is the same story
+   * from the window's side — in both cases the honest offer is the download
+   * page, not a button that fails halfway through.
+   */
+  let canInstall = $state(false);
+  let stage = $state<"asking" | "ready" | "working" | "done" | "failed">("asking");
+  let downloaded = $state(0);
+  let total = $state<number | null>(null);
+  let failure = $state<unknown>(null);
+
+  $effect(() => {
+    void api.canInstallUpdate().then((yes) => {
+      canInstall = yes;
+      stage = "ready";
+    });
+  });
+
+  let share = $derived(total && total > 0 ? Math.min(100, (downloaded / total) * 100) : null);
+
+  async function install(): Promise<void> {
+    stage = "working";
+    downloaded = 0;
+    try {
+      await api.installUpdate((got, size) => {
+        downloaded = got;
+        total = size;
+      });
+      stage = "done";
+    } catch (problem) {
+      failure = problem;
+      stage = "failed";
+    }
+  }
 </script>
 
 <div class="backdrop" role="presentation">
@@ -65,13 +104,46 @@
     </div>
 
     <footer>
-      <p class="where">{t("update.dialog.where")}</p>
-      <div class="actions">
-        <button type="button" onclick={onclose}>{t("update.dialog.later")}</button>
-        <button type="button" class="go" onclick={() => api.openUrl(release.url)}>
-          {t("update.dialog.download")}
-        </button>
-      </div>
+      {#if stage === "working"}
+        <div class="progress" role="progressbar" aria-label={t("update.dialog.working")}>
+          <div class="bar" style:width={share === null ? "100%" : `${share}%`} class:unknown={share === null}></div>
+        </div>
+        <p class="where">
+          {share === null
+            ? t("update.dialog.working")
+            : t("update.dialog.working.share", { done: Math.round(share) })}
+        </p>
+      {:else if stage === "done"}
+        <p class="where done">{t("update.dialog.done")}</p>
+        <div class="actions">
+          <button type="button" onclick={onclose}>{t("update.dialog.later")}</button>
+          <button type="button" class="go" onclick={() => void api.restart()}>
+            {t("update.dialog.restart")}
+          </button>
+        </div>
+      {:else}
+        <p class="where" class:bad={stage === "failed"}>
+          {#if stage === "failed"}
+            {describe(failure)}
+          {:else if canInstall}
+            {t("update.dialog.install.where")}
+          {:else}
+            {t("update.dialog.where")}
+          {/if}
+        </p>
+        <div class="actions">
+          <button type="button" onclick={onclose}>{t("update.dialog.later")}</button>
+          {#if canInstall}
+            <button type="button" class="go" onclick={() => void install()}>
+              {stage === "failed" ? t("update.dialog.retry") : t("update.dialog.install")}
+            </button>
+          {:else}
+            <button type="button" class="go" onclick={() => api.openUrl(release.url)}>
+              {t("update.dialog.download")}
+            </button>
+          {/if}
+        </div>
+      {/if}
     </footer>
   </div>
 </div>
@@ -177,6 +249,36 @@
     margin: 0;
     font-size: 0.72rem;
     color: var(--text-faint);
+  }
+
+  .where.done {
+    color: var(--ok);
+  }
+
+  .where.bad {
+    color: var(--danger);
+  }
+
+  .progress {
+    flex: 0 0 120px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--surface-3);
+    overflow: hidden;
+  }
+
+  .progress .bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 120ms linear;
+  }
+
+  /* A server that will not say how large the file is still has to look like
+     something is happening, so the bar moves instead of standing full. */
+  .progress .bar.unknown {
+    animation: ab-beam 1.2s linear infinite;
+    background: linear-gradient(90deg, var(--surface-3), var(--accent), var(--surface-3));
+    background-size: 60% 100%;
   }
 
   .actions {

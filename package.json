@@ -20,12 +20,14 @@
     "check:keys": "node scripts/check-keys.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:buttons": "node scripts/check-buttons.mjs",
-    "check:notes": "node scripts/check-notes.mjs"
+    "check:notes": "node scripts/check-notes.mjs",
+    "build:local": "tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'"
   },
   "dependencies": {
     "@tanstack/virtual-core": "^3.17.10",
     "@tauri-apps/api": "^2",
-    "@tauri-apps/plugin-dialog": "^2.7.3"
+    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-updater": "2.11.0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",

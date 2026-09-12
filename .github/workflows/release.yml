@@ -42,17 +42,22 @@ jobs:
         include:
           - os: macos-15
             name: macOS
-            artefact: target/release/bundle/dmg/*.dmg
+            artefact: |
+              target/release/bundle/dmg/*.dmg
+              target/release/bundle/macos/*.app.tar.gz
+              target/release/bundle/macos/*.app.tar.gz.sig
           - os: windows-latest
             name: Windows
             artefact: |
               target/release/bundle/msi/*.msi
               target/release/bundle/nsis/*.exe
+              target/release/bundle/nsis/*.sig
           - os: ubuntu-22.04
             name: Linux
             artefact: |
               target/release/bundle/deb/*.deb
               target/release/bundle/appimage/*.AppImage
+              target/release/bundle/appimage/*.AppImage.sig
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -91,12 +96,24 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Not the same thing as the Apple certificate above, and not
+          # optional. Without it the build produces no signature, and a
+          # released version nobody can verify is a released version nobody can
+          # install — the updater refuses unsigned updates and cannot be told
+          # not to.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         shell: bash
         run: |
           for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
                       APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
             if [ -z "${!name}" ]; then unset "$name"; fi
           done
+
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. The update this builds could never be installed by anyone."
+            exit 1
+          fi
 
           if [ "${{ runner.os }}" = "macOS" ] && [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
             echo "::notice::No Apple signing identity in the secrets — building ad-hoc signed and not notarised. Gatekeeper will warn on first launch; the release notes say how to get past it."
@@ -163,3 +180,105 @@ jobs:
           draft: false
           body_path: notes.md
           fail_on_unmatched_files: true
+
+  # The manifest the program reads to find out that this release exists.
+  #
+  # It lives on a branch of its own rather than in a release of its own,
+  # because a release called "updates" sitting among the version numbers is a
+  # thing every visitor has to work out and ignore. The branch is machine
+  # territory: one file, rewritten every time, and main never hears about it.
+  #
+  # Nothing here is trusted on its own. The signatures were made in the build
+  # above with a key that is not in this repository, and the program refuses
+  # anything that does not match the public key it was built with — so a
+  # manifest pointing somewhere else buys an attacker nothing.
+  manifest:
+    name: Update manifest
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v6
+        with:
+          path: installers
+
+      - name: Write it out of what was actually signed
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          python3 - "$version" "$GITHUB_REF_NAME" <<'PY'
+          import json, os, pathlib, sys
+          from datetime import datetime, timezone
+
+          version, tag = sys.argv[1], sys.argv[2]
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}"
+
+          # Which signature belongs to which machine. Taken from the file that
+          # is actually there rather than from a name built up here: a guessed
+          # filename that stops matching produces a manifest that looks right
+          # and installs nothing.
+          wanted = {
+              "darwin-aarch64": ".app.tar.gz.sig",
+              "windows-x86_64": "-setup.exe.sig",
+              "linux-x86_64": ".AppImage.sig",
+          }
+
+          platforms = {}
+          for target, ending in wanted.items():
+              matches = [p for p in pathlib.Path("installers").rglob("*") if p.name.endswith(ending)]
+              if len(matches) != 1:
+                  raise SystemExit(f"expected one {ending}, found {len(matches)}: {matches}")
+              signature = matches[0]
+              platforms[target] = {
+                  "signature": signature.read_text().strip(),
+                  "url": f"{base}/{signature.name[:-len('.sig')]}",
+              }
+
+          notes = pathlib.Path("CHANGELOG.md").read_text()
+          start = notes.find(f"## {version}")
+          after = notes.find("\n## ", start + 1)
+          section = notes[start:after if after != -1 else None].strip()
+
+          pathlib.Path("latest.json").write_text(
+              json.dumps(
+                  {
+                      "version": version,
+                      "notes": section,
+                      "pub_date": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+                      "platforms": platforms,
+                  },
+                  indent=2,
+              )
+              + "\n"
+          )
+          PY
+          echo "--- latest.json ---"; cat latest.json
+
+      - name: Put it on the updates branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp latest.json /tmp/latest.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # A branch with no history in common with main: it is not a version
+          # of the project, it is one generated file, and threading it through
+          # main's history would say otherwise.
+          git checkout --orphan updates
+          git rm -rf --cached . >/dev/null
+          rm -rf $(ls -A | grep -v '^\.git$') || true
+          cp /tmp/latest.json latest.json
+          cat > README.md <<'EOF'
+          This branch holds one generated file: `latest.json`, the manifest
+          AmberBeam reads to find out that a new version exists. It is rewritten
+          by the release workflow and has no history worth reading.
+
+          The manifest is not what makes an update trustworthy. Every download
+          is checked against the public key built into the program, so pointing
+          this file somewhere else achieves nothing without the private key.
+          EOF
+          git add latest.json README.md
+          git commit -m "Manifest for ${GITHUB_REF_NAME}"
+          git push --force origin updates

@@ -44,6 +44,15 @@
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-"
     },
-    "publisher": "sphings79"
+    "publisher": "sphings79",
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE1MTNEOEJFNTE5ODg5RUYKUldUdmlaaFJ2dGdUcFZYOVFmUDlNbHd6c0dlZGFlWFdlZS9mWUdMa2kwcy8wUEk0U2FUSE9jS0cK",
+      "endpoints": [
+        "https://raw.githubusercontent.com/sphings79/amberbeam/updates/latest.json"
+      ]
+    }
   }
 }

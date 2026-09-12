@@ -406,5 +406,12 @@
   "update.dialog.where": "Opens the release page in your browser.",
   "update.dialog.later": "Later",
   "update.dialog.download": "Download",
-  "update.checked": "Last checked at {time}. Press to ask again."
+  "update.checked": "Last checked at {time}. Press to ask again.",
+  "update.dialog.install": "Download & install",
+  "update.dialog.install.where": "Fetched and checked against this program's key, then installed.",
+  "update.dialog.working": "Downloading…",
+  "update.dialog.working.share": "Downloading… {done}%",
+  "update.dialog.done": "Installed. It takes effect when the program starts again.",
+  "update.dialog.restart": "Restart now",
+  "update.dialog.retry": "Try again"
 }

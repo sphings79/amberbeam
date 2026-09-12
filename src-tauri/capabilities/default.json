@@ -2,6 +2,13 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "What both windows may do. The site manager is a window of its own with the same rights: it talks to the same core through the same commands, and leaving it out would have left every one of its calls refused.",
-  "windows": ["main", "sites"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "windows": [
+    "main",
+    "sites"
+  ],
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "updater:default"
+  ]
 }
