@@ -463,6 +463,17 @@ async fn child_path(
     service.sessions.join(endpoint, directory, name).await
 }
 
+/// How long a finished job is kept, from the settings.
+///
+/// Two seconds: long enough to see a line appear and go, short enough that
+/// nobody waits for it. Not a setting of its own — one more number to choose
+/// for something nobody wants to think about.
+pub fn clearing(settings: &Settings) -> Option<std::time::Duration> {
+    settings
+        .clear_finished
+        .then(|| std::time::Duration::from_secs(2))
+}
+
 fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -667,6 +678,10 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
         "settings" => out(service.config.settings()),
         "set_settings" => {
             let it: Valued<Settings> = taking(command, args)?;
+            // The queue is told at once rather than at the next restart: a
+            // switch that only takes effect tomorrow is a switch somebody
+            // presses twice and then distrusts.
+            service.queue.set_clear_after(clearing(&it.value)).await;
             out(service.config.set_settings(&it.value)?)
         }
         "ui_state" => out(service.config.ui_state()),
@@ -807,9 +822,10 @@ async fn enqueue(service: &Service, request: EnqueueBody) -> Result<usize, Error
             names: request.names,
             target_endpoint: EndpointId::new(request.target_endpoint),
             target_directory: request.target_directory,
-            // Asking is the default: overwriting somebody's file without a word
-            // is the kind of help nobody wants.
-            conflict_policy: ConflictPolicy::Ask,
+            // Asking is the default: overwriting somebody's file without a
+            // word is the kind of help nobody wants. Somebody who has said
+            // once what they want done is not asked again.
+            conflict_policy: settings.conflict_policy.unwrap_or(ConflictPolicy::Ask),
             keep_modified: settings.keep_modified,
             keep_permissions: settings.keep_permissions,
             use_temporary_name: settings.temporary_name,

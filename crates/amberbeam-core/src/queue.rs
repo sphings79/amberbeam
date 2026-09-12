@@ -58,6 +58,13 @@ pub struct QueuedJob {
     pub source_modified: Option<i64>,
     /// Seconds since the epoch, for stable ordering of equals.
     pub added: i64,
+    /// When it finished, for clearing it away again by itself.
+    ///
+    /// Only set for a job that is done. A failure stays until somebody has
+    /// seen it: tidying away the one line that says what went wrong is the
+    /// opposite of helping.
+    #[serde(default)]
+    pub finished: Option<i64>,
 }
 
 impl QueuedJob {
@@ -267,6 +274,7 @@ mod tests {
             existing_modified: None,
             source_modified: None,
             added: 0,
+            finished: None,
         }
     }
 

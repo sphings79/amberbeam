@@ -8,6 +8,7 @@
     isDirectory,
     isUp,
     selectTo,
+    startRename,
     pane,
     renaming,
     setCursor,
@@ -87,6 +88,19 @@
     { key: "modified", label: t("column.modified"), className: "modified" },
   ]);
 
+  /**
+   * The row a click landed on last, and when.
+   *
+   * Two unhurried clicks on the same row mean renaming — the way every file
+   * manager has worked since folders had icons. A real double click is a
+   * different gesture and opens the thing; the difference is only the pause
+   * between them, so the pause is what has to be measured.
+   */
+  let lastClick: { name: string; at: number } | null = null;
+
+  /** Longer than a double click, short enough not to catch two separate ones. */
+  const SLOW = 1200;
+
   function onRowClick(index: number, entry: DirEntry, event: MouseEvent): void {
     // Shift first: holding it means "everything from where I was to here",
     // and that has to be read before the cursor moves, because where I was is
@@ -95,6 +109,23 @@
       selectTo(side, index);
       return;
     }
+    // Clicked again, unhurried, on the row that was already under the cursor
+    // and alone in the selection. Renaming something that is one of five
+    // marked rows is not what somebody meant by clicking one of them.
+    const again =
+      lastClick !== null &&
+      lastClick.name === entry.name &&
+      event.timeStamp - lastClick.at < SLOW &&
+      view.cursor === index &&
+      view.selected.size === 0 &&
+      !isUp(entry);
+    lastClick = { name: entry.name, at: event.timeStamp };
+
+    if (again) {
+      startRename(side, entry.name);
+      return;
+    }
+
     setCursor(side, index);
     if (event.metaKey || event.ctrlKey) {
       toggleSelection(side, entry.name);

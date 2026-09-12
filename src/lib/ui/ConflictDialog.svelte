@@ -1,4 +1,7 @@
 <script lang="ts">
+  /** How far an answer reaches: this file, the rest of this run, or for good. */
+  export type Scope = "one" | "rest" | "always";
+
   import type { ConflictPolicy, QueuedJob } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { trap } from "./trap";
@@ -6,15 +9,44 @@
 
   interface Props {
     job: QueuedJob;
-    /** How many others are also waiting for an answer. */
-    waiting: number;
-    ondecide: (policy: ConflictPolicy, forAll: boolean) => void;
+    ondecide: (policy: ConflictPolicy, scope: Scope) => void;
     onskipall: () => void;
   }
 
-  let { job, waiting, ondecide, onskipall }: Props = $props();
+  let { job, ondecide, onskipall }: Props = $props();
 
-  let forAll = $state(false);
+  /**
+   * How far an answer reaches.
+   *
+   * A tick saying "and the others" was there before, and it only appeared when
+   * more than one job was already waiting — which during a folder upload is
+   * never, because they are walked one at a time. So the question came back
+   * for every file and the answer that would have stopped it was invisible.
+   *
+   * Three reaches, said plainly. "The rest" now includes the ones not thought
+   * of yet, which is what it has to mean while a folder is still being walked.
+   */
+  let scope = $state<Scope>("one");
+
+  /**
+   * The accented choice, and the one Enter means.
+   *
+   * It looked chosen already and was not: the colour said "press Enter" and
+   * Enter did nothing. A button that wears the accent has to be the one the
+   * keyboard is on, or the colour is a lie about what the program will do.
+   */
+  let armed = $state<HTMLButtonElement | null>(null);
+
+
+  $effect(() => {
+    armed?.focus();
+  });
+
+  const SCOPES: { value: Scope; key: string }[] = [
+    { value: "one", key: "conflict.scope.one" },
+    { value: "rest", key: "conflict.scope.rest" },
+    { value: "always", key: "conflict.scope.always" },
+  ];
 
   const CHOICES: { policy: ConflictPolicy; key: string; accent?: boolean }[] = [
     { policy: "overwrite", key: "conflict.overwrite", accent: true },
@@ -23,10 +55,34 @@
     { policy: "rename", key: "conflict.rename" },
     { policy: "skip", key: "conflict.skip" },
   ];
+
+  /** Read from the same list the button is drawn from, so they cannot differ. */
+  const accented = CHOICES.find((choice) => choice.accent)?.policy;
 </script>
 
 <div class="backdrop" role="presentation">
-  <div class="dialog" use:trap role="alertdialog" aria-modal="true">
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <div
+    class="dialog"
+    use:trap
+    role="alertdialog"
+    aria-modal="true"
+    tabindex="-1"
+    onkeydown={(event) => {
+      // The accented button is what Enter means, wherever the cursor happens
+      // to be. Focusing it was not enough: choosing how far the answer reaches
+      // moves the focus onto a radio, and Enter then landed on nothing — a
+      // button that looks armed and does nothing is worse than one that looks
+      // plain.
+      //
+      // Unless the focus is already on a button, which has its own meaning
+      // and gets to keep it.
+      if (event.key !== "Enter") return;
+      if ((event.target as HTMLElement | null)?.tagName === "BUTTON") return;
+      event.preventDefault();
+      if (accented) ondecide(accented, scope);
+    }}
+  >
     <h2>{t("conflict.title")}</h2>
     <p class="subject mono" title={job.targetPath}>{job.name}</p>
     <p class="explain">{t("conflict.body")}</p>
@@ -76,7 +132,10 @@
         <button
           type="button"
           class:primary={choice.accent}
-          onclick={() => ondecide(choice.policy, forAll)}
+          {@attach (node) => {
+            if (choice.accent) armed = node;
+          }}
+          onclick={() => ondecide(choice.policy, scope)}
         >
           {t(choice.key)}
         </button>
@@ -85,11 +144,17 @@
 
     <p class="hint">{t("conflict.resume.hint")}</p>
 
-    {#if waiting > 1}
-      <label class="for-all">
-        <input type="checkbox" bind:checked={forAll} />
-        <span>{t("conflict.for-all", { count: waiting - 1 })}</span>
-      </label>
+    <fieldset class="reach">
+      <legend>{t("conflict.scope")}</legend>
+      {#each SCOPES as choice (choice.value)}
+        <label>
+          <input type="radio" value={choice.value} bind:group={scope} />
+          <span>{t(choice.key)}</span>
+        </label>
+      {/each}
+    </fieldset>
+    {#if scope === "always"}
+      <p class="hint warn">{t("conflict.scope.always.hint")}</p>
     {/if}
 
     <div class="actions">
@@ -218,13 +283,34 @@
     color: var(--text-faint);
   }
 
-  .for-all {
+
+  .reach {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    margin-bottom: 12px;
+    gap: 14px;
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 0.6rem;
+  }
+
+  .reach legend {
+    padding: 0 6px;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .reach label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+  }
+
+  .hint.warn {
+    color: var(--warn);
   }
 
   .actions {

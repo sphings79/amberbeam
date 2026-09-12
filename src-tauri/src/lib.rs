@@ -448,7 +448,13 @@ pub fn run() {
             // Inside an async block, so the queue's loops are spawned where a
             // runtime exists.
             let queue = Arc::clone(&started.queue);
+            let settings = started.config.settings();
             tauri::async_runtime::spawn(async move {
+                // What was chosen last time applies from the first second of
+                // this run, not from the next time the settings are touched.
+                queue
+                    .set_clear_after(amberbeam_commands::clearing(&settings))
+                    .await;
                 queue.start();
             });
 

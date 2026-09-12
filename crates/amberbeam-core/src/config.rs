@@ -68,6 +68,21 @@ pub struct Settings {
     /// makes that the user did not ask for, so what it does is written out in
     /// the settings rather than left to be assumed.
     pub check_for_updates: bool,
+    /// What to do when a file is already there, decided once and for good.
+    ///
+    /// `None` is asking, which is the default and stays the default: writing
+    /// over somebody's file without a word is the kind of help nobody wants.
+    /// This exists because answering the same question forty times while a
+    /// folder walks is not consent, it is wearing somebody down.
+    #[serde(default)]
+    pub conflict_policy: Option<crate::transfer::ConflictPolicy>,
+    /// Take a finished line out of the queue by itself, after a moment.
+    ///
+    /// Off by default. A queue that empties itself is tidy right up until
+    /// somebody wants to know whether the thing they started actually
+    /// happened.
+    #[serde(default)]
+    pub clear_finished: bool,
 }
 
 impl Default for Settings {
@@ -79,6 +94,8 @@ impl Default for Settings {
             keep_permissions: false,
             temporary_name: true,
             check_for_updates: true,
+            conflict_policy: None,
+            clear_finished: false,
         }
     }
 }

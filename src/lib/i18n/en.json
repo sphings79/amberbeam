@@ -188,7 +188,6 @@
   "conflict.rename": "Keep both",
   "conflict.skip": "Skip",
   "conflict.resume.hint": "Continuing appends to what is there. AmberBeam cannot tell whether that half came from this same file, so this one is on you.",
-  "conflict.for-all": "Do the same for the other {count} waiting",
   "conflict.skip-all": "Skip everything waiting",
   "queue.state.skipped": "skipped",
   "queue.asking": "{count} waiting for an answer",
@@ -449,5 +448,12 @@
   "together.title": "Not on the other side",
   "together.body": "There is no “{name}” in {where}. Create it?",
   "together.create": "Create it",
-  "together.stay": "Leave the other side"
+  "together.stay": "Leave the other side",
+  "conflict.scope": "Applies to",
+  "conflict.scope.one": "This file",
+  "conflict.scope.rest": "Everything left in this transfer",
+  "conflict.scope.always": "Always, from now on",
+  "conflict.scope.always.hint": "Saved in the settings. AmberBeam will stop asking until you change it back.",
+  "queue.tidy.on": "Finished transfers clear themselves. Click to keep them.",
+  "queue.tidy.off": "Finished transfers stay. Click to clear them automatically."
 }

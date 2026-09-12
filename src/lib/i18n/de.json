@@ -188,7 +188,6 @@
   "conflict.rename": "Beide behalten",
   "conflict.skip": "Überspringen",
   "conflict.resume.hint": "Fortsetzen hängt an das an, was da ist. AmberBeam kann nicht erkennen, ob diese Hälfte von derselben Datei stammt — diese Entscheidung liegt bei dir.",
-  "conflict.for-all": "Genauso mit den {count} anderen wartenden verfahren",
   "conflict.skip-all": "Alle wartenden überspringen",
   "queue.state.skipped": "übersprungen",
   "queue.asking": "{count} warten auf eine Antwort",
@@ -449,5 +448,12 @@
   "together.title": "Drüben nicht vorhanden",
   "together.body": "In {where} gibt es kein „{name}“. Anlegen?",
   "together.create": "Anlegen",
-  "together.stay": "Andere Seite stehen lassen"
+  "together.stay": "Andere Seite stehen lassen",
+  "conflict.scope": "Gilt für",
+  "conflict.scope.one": "Diese Datei",
+  "conflict.scope.rest": "Alles Übrige dieser Übertragung",
+  "conflict.scope.always": "Immer, ab jetzt",
+  "conflict.scope.always.hint": "Wird in den Einstellungen gespeichert. AmberBeam fragt dann nicht mehr, bis du es zurücknimmst.",
+  "queue.tidy.on": "Fertige Übertragungen verschwinden von selbst. Klick behält sie.",
+  "queue.tidy.off": "Fertige Übertragungen bleiben stehen. Klick räumt sie automatisch weg."
 }

@@ -1203,6 +1203,7 @@ async fn the_queue_works_through_several_files_and_survives_a_restart() {
             existing_modified: None,
             source_modified: None,
             added: index,
+            finished: None,
         });
     }
     runner.add_all(jobs).await;
@@ -1309,6 +1310,7 @@ async fn a_held_job_keeps_its_place_and_its_offset() {
             existing_modified: None,
             source_modified: None,
             added: 0,
+            finished: None,
         })
         .await;
 

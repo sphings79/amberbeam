@@ -22,6 +22,25 @@
   let { onreveal }: Props = $props();
 
   let queue = $derived(queueState());
+
+  /**
+   * Whether a finished line takes itself away.
+   *
+   * Kept in the settings rather than in this window: with the container build
+   * two browsers look at one queue, and a switch that only one of them knew
+   * about would have lines disappearing for one person and not the other.
+   */
+  let tidying = $state(false);
+
+  $effect(() => {
+    void api.settings().then((settings) => (tidying = settings.clearFinished));
+  });
+
+  async function setTidying(on: boolean): Promise<void> {
+    tidying = on;
+    const settings = await api.settings();
+    await api.setSettings({ ...settings, clearFinished: on });
+  }
   let totals = $derived(queueTotals());
   let dragging = $state<string | null>(null);
 
@@ -92,6 +111,16 @@
       title={queue.paused ? t("queue.start") : t("queue.pause")}
     >
       {queue.paused ? "▶" : "❚❚"}
+    </button>
+    <!-- Beside the pause, because it is the other thing somebody wants to say
+         about the queue as a whole rather than about one line in it. -->
+    <button
+      type="button"
+      class:on={tidying}
+      onclick={() => void setTidying(!tidying)}
+      title={tidying ? t("queue.tidy.on") : t("queue.tidy.off")}
+    >
+      ⌫
     </button>
     <button
       type="button"

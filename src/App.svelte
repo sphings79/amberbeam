@@ -1092,10 +1092,16 @@
 {#if asking.length > 0 && asking[0]}
   <ConflictDialog
     job={asking[0]}
-    waiting={asking.length}
-    ondecide={async (policy, forAll) => {
+    ondecide={async (policy, scope) => {
       const id = asking[0]?.id;
-      if (id) await api.queueDecide(id, policy, forAll);
+      // Written down before it is acted on. A remembered answer that the
+      // program forgets because something failed a moment later would be an
+      // answer somebody gave and did not get.
+      if (scope === "always") {
+        const settings = await api.settings();
+        await api.setSettings({ ...settings, conflictPolicy: policy });
+      }
+      if (id) await api.queueDecide(id, policy, scope !== "one");
       await refreshQueue();
     }}
     onskipall={async () => {

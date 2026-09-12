@@ -229,6 +229,11 @@ async fn main() {
         }),
     });
 
+    // What was chosen last time applies from the first second of this run.
+    service
+        .queue
+        .set_clear_after(amberbeam_commands::clearing(&service.config.settings()))
+        .await;
     service.queue.start();
 
     let web = env("AMBERBEAM_WEB").unwrap_or_else(|| "/web".into());

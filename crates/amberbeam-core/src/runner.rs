@@ -57,6 +57,24 @@ pub struct Runner {
     /// a job, which finishes and calls the scheduler — a recursion with no end
     /// that the compiler cannot even describe.
     wake: tokio::sync::Notify,
+    /// A decision that outlives the job it was made for.
+    ///
+    /// "Overwrite all" has to mean the ones not thought of yet as well. A
+    /// folder does not arrive as a list: it is walked, and its jobs appear over
+    /// seconds or minutes, so a decision that only reached the ones already
+    /// there was a decision that asked again a moment later. That is not
+    /// answering once, it is answering repeatedly and being told it counted.
+    ///
+    /// Gone when the program is, which is the difference between this and the
+    /// setting that keeps it.
+    standing: Mutex<Option<ConflictPolicy>>,
+    /// How long a finished job stays in the list before it goes by itself.
+    ///
+    /// `None` leaves them. Seconds rather than at once: a line that vanishes
+    /// the instant it is done is a line nobody saw, and "did that actually
+    /// happen" is not a question a transfer program should leave somebody
+    /// with.
+    clear_after: Mutex<Option<std::time::Duration>>,
 }
 
 impl Runner {
@@ -69,6 +87,8 @@ impl Runner {
             running: Mutex::new(HashMap::new()),
             path,
             wake: tokio::sync::Notify::new(),
+            standing: Mutex::new(None),
+            clear_after: Mutex::new(None),
         })
     }
 
@@ -81,6 +101,7 @@ impl Runner {
     pub fn start(self: &Arc<Self>) {
         Arc::clone(self).start_reporting();
         Arc::clone(self).start_scheduling();
+        Arc::clone(self).start_tidying();
         // Whatever was left over from the last run is waiting to be picked up.
         self.wake.notify_one();
     }
@@ -109,6 +130,9 @@ impl Runner {
     ) -> crate::error::Result<usize> {
         let mut jobs = Vec::new();
         let added = now_seconds();
+        // Read once for the whole batch. Asked per job, a decision made
+        // halfway through a walk would apply to some of it and not the rest.
+        let standing = *self.standing.lock().await;
 
         for name in &request.names {
             let found = self
@@ -148,7 +172,7 @@ impl Runner {
                     target_path,
                     name: item.relative.clone(),
                     state: JobState::Queued,
-                    conflict_policy: request.conflict_policy,
+                    conflict_policy: standing.unwrap_or(request.conflict_policy),
                     total_bytes: item.size,
                     done_bytes: 0,
                     resume: None,
@@ -156,6 +180,7 @@ impl Runner {
                     keep_permissions: request.keep_permissions,
                     use_temporary_name: request.use_temporary_name,
                     attempts: 0,
+                    finished: None,
                     retries: request.retries,
                     failure: None,
                     existing_size: None,
@@ -246,13 +271,19 @@ impl Runner {
         {
             let mut queue = self.queue.lock().await;
             if for_all {
-                // "For all remaining" means exactly that: everything still
-                // waiting, not everything in the list.
+                // Everything still waiting, and everything not yet thought of.
+                //
+                // Told *and* let go. Handing the others the answer and leaving
+                // them standing at "asking" was the whole of what went wrong:
+                // eight files, one answer given, and seven of them still
+                // waiting to be asked about something already decided.
                 for job in queue.jobs.iter_mut() {
                     if job.state == JobState::Asking || job.state == JobState::Queued {
                         job.conflict_policy = policy;
+                        job.state = JobState::Queued;
                     }
                 }
+                *self.standing.lock().await = Some(policy);
             }
             if let Some(job) = queue.get_mut(id) {
                 job.conflict_policy = policy;
@@ -260,6 +291,29 @@ impl Runner {
             }
         }
         self.after_change().await;
+    }
+
+    /// How long a finished job is kept before it clears itself away.
+    pub async fn set_clear_after(&self, after: Option<std::time::Duration>) {
+        *self.clear_after.lock().await = after;
+    }
+
+    /// Drops finished jobs that have been on screen long enough to be read.
+    ///
+    /// Only the ones that worked. A failure stays until somebody takes it
+    /// away themselves — the line saying what went wrong is the whole reason
+    /// the queue is visible.
+    async fn clear_old(self: &Arc<Self>) -> bool {
+        let Some(after) = *self.clear_after.lock().await else {
+            return false;
+        };
+        let cutoff = now_seconds() - after.as_secs() as i64;
+        let mut queue = self.queue.lock().await;
+        let before = queue.jobs.len();
+        queue.jobs.retain(|job| {
+            job.state != JobState::Done || job.finished.map(|at| at > cutoff).unwrap_or(true)
+        });
+        queue.jobs.len() != before
     }
 
     async fn after_change(self: &Arc<Self>) {
@@ -274,6 +328,23 @@ impl Runner {
             loop {
                 self.wake.notified().await;
                 Arc::clone(&self).start_what_fits().await;
+            }
+        });
+    }
+
+    /// Takes finished lines away once they have been on screen long enough.
+    ///
+    /// A clock of its own, because nothing else ticks: the scheduler only
+    /// wakes when something changes, and "enough time has passed" is not a
+    /// change anything would report.
+    fn start_tidying(self: Arc<Self>) {
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                if Arc::clone(&self).clear_old().await {
+                    self.persist().await;
+                    self.events.emit(Event::Queue);
+                }
             }
         });
     }
@@ -470,6 +541,27 @@ impl Runner {
             ConflictOutcome::Run(job) => *job,
             ConflictOutcome::Ask(described) => {
                 self.running.lock().await.remove(&job.id);
+
+                // Asked and answered while this one was already on its way.
+                //
+                // A job works from a copy of itself, taken when it started. An
+                // answer that arrived in the meantime — "overwrite the rest",
+                // say — reached the list but not the copy, so this one asked
+                // again about something already decided. Somebody who answers
+                // once should not be asked once more because of when they
+                // happened to answer.
+                {
+                    let mut queue = self.queue.lock().await;
+                    if let Some(entry) = queue.get_mut(&job.id) {
+                        if entry.conflict_policy != ConflictPolicy::Ask {
+                            entry.state = JobState::Queued;
+                            drop(queue);
+                            self.after_change().await;
+                            return;
+                        }
+                    }
+                }
+
                 if let Some(entry) = self.queue.lock().await.get_mut(&job.id) {
                     entry.state = JobState::Asking;
                     entry.existing_size = described.existing_size;
@@ -509,6 +601,7 @@ impl Runner {
                 let mut queue = self.queue.lock().await;
                 if let Some(entry) = queue.get_mut(&job.id) {
                     entry.state = JobState::Done;
+                    entry.finished = Some(now_seconds());
                     entry.done_bytes = progress.done();
                     entry.total_bytes = Some(progress.done());
                     entry.resume = None;

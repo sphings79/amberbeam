@@ -198,6 +198,21 @@ export interface Settings {
   temporaryName: boolean;
   /** Ask GitHub now and then whether a newer release exists. */
   checkForUpdates: boolean;
+  /**
+   * What to do about a file that is already there, decided for good.
+   *
+   * Null is asking, which is the default and stays it. This exists because
+   * answering the same question forty times while a folder walks is not
+   * consent.
+   */
+  conflictPolicy: ConflictPolicy | null;
+  /**
+   * Take a finished line out of the queue by itself, after a moment.
+   *
+   * Off by default. A queue that empties itself is tidy right up until
+   * somebody wants to know whether the thing they started actually happened.
+   */
+  clearFinished: boolean;
 }
 
 /** What a recursive delete is about to remove. */
