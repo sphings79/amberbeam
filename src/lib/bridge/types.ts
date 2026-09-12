@@ -860,6 +860,14 @@ export interface AmberBeamApi {
    */
   closeThisWindow(): Promise<void>;
   /**
+   * Asks before the program is closed, where there is a closing to catch.
+   *
+   * The handler says whether to go ahead. A browser has none of this: closing
+   * a tab is not the program ending — the service carries on without it — and
+   * a browser will not let a page ask a question of its own on the way out.
+   */
+  onClosing(handler: () => Promise<boolean>): Promise<Unsubscribe>;
+  /**
    * Hands a copy that is being edited to another program.
    *
    * False where there is no other program to hand it to, which is a browser:

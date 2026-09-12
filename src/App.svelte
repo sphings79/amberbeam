@@ -148,6 +148,43 @@
    */
   let editChanged = $state<{ id: string; name: string; path: string } | null>(null);
 
+  /**
+   * The copies still lying about as the program closes, and the answer nobody
+   * has given yet.
+   *
+   * Asked rather than assumed, because the two answers are both reasonable and
+   * only one of them can be taken back. A copy thrown away is gone with
+   * whatever was typed into it and never saved; a copy kept is somebody's file
+   * sitting unencrypted in a temporary directory.
+   */
+  let leftBehind = $state<{ names: string[]; answer: (deleteCopies: boolean) => void } | null>(
+    null,
+  );
+
+  $effect(() => {
+    // Only this window asks. The site manager and the editor windows close on
+    // their own, and three windows asking the same question is two too many.
+    if (isSiteManager || editorFor) return;
+    let stop: Unsubscribe | undefined;
+    void api
+      .onClosing(async () => {
+        const open = await api.openEdits().catch(() => []);
+        if (open.length === 0) return true;
+        return await new Promise<boolean>((settle) => {
+          leftBehind = {
+            names: open.map((edit) => edit.name),
+            answer: (deleteCopies) => {
+              leftBehind = null;
+              void api.endEdits(deleteCopies).catch(() => undefined);
+              settle(true);
+            },
+          };
+        });
+      })
+      .then((off) => (stop = off));
+    return () => stop?.();
+  });
+
   /** Heights, split and where each region sits — all kept across restarts. */
   /**
    * What the window looks like before anybody drags anything.
@@ -1330,6 +1367,23 @@
     onaccept={acceptHostKey}
     oncancel={() => ((connectFailure = null), (pendingRequest = null))}
   />
+{/if}
+
+{#if leftBehind}
+  <div class="backdrop" role="presentation">
+    <div class="box" use:trap role="dialog" aria-modal="true">
+      <h2>{t("editing.left.title")}</h2>
+      <p>{t("editing.left", { names: leftBehind.names.join(", ") })}</p>
+      <div class="choices">
+        <button type="button" class="primary" onclick={() => leftBehind?.answer(true)}>
+          {t("editing.left.delete")}
+        </button>
+        <button type="button" onclick={() => leftBehind?.answer(false)}>
+          {t("editing.left.keep")}
+        </button>
+      </div>
+    </div>
+  </div>
 {/if}
 
 {#if editChanged}

@@ -558,6 +558,9 @@ pub fn run() {
                 queue
                     .set_clear_after(amberbeam_commands::clearing(&settings))
                     .await;
+                // Copies left behind by a run that ended badly. The register is in
+                // memory, so anything still in that directory belongs to nobody.
+                service.edits.sweep();
                 queue.start();
                 amberbeam_commands::watch_edits(&service, watching);
             });

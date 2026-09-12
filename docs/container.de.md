@@ -81,7 +81,8 @@ kommt.
 
 Welche Dateien überhaupt bearbeitet werden dürfen, steht in der Tabelle unter
 **Einstellungen → Bearbeiten** — dieselbe Tabelle, die das Desktop-Programm
-liest, wenn es diesen Dienst bedient.
+liest, wenn es diesen Dienst bedient. Der Rest steht unter
+[Eine Datei dort bearbeiten, wo sie liegt](editing.de.md).
 
 ## Was er nicht tut
 

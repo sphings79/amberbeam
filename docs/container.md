@@ -79,7 +79,7 @@ rather than leaving somebody to wonder why their editor never came up.
 
 Which files may be edited at all is the table under **Settings → Editing**,
 and it is the same table the desktop program reads when it drives this
-service.
+service. See [Editing a file where it lies](editing.md) for the rest of it.
 
 ## What it does not do
 

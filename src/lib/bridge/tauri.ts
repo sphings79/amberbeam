@@ -252,6 +252,21 @@ export const api: AmberBeamApi = {
     await invoke<void>("open_with", { path, program });
     return true;
   },
+  async onClosing(handler: () => Promise<boolean>): Promise<Unsubscribe> {
+    const window = getCurrentWindow();
+    // Asking again on the way out of the answer would be a window that cannot
+    // be closed. The second request goes straight through.
+    let going = false;
+    const stop = await window.onCloseRequested(async (event) => {
+      if (going) return;
+      event.preventDefault();
+      if (await handler()) {
+        going = true;
+        await window.close();
+      }
+    });
+    return stop;
+  },
   async closeThisWindow(): Promise<void> {
     await getCurrentWindow().close();
   },

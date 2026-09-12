@@ -334,6 +334,12 @@ export function makeApi(target: Target): AmberBeamApi {
       // would not put it in front of the person who asked.
       return false;
     },
+    async onClosing(): Promise<Unsubscribe> {
+      // Closing a tab is not the program ending: the service carries on, and
+      // the copies it holds are swept when it next starts. A browser would not
+      // let this page ask a question of its own on the way out anyway.
+      return () => undefined;
+    },
     async closeThisWindow(): Promise<void> {
       // A browser tab that closed itself would take the whole session with it.
     },

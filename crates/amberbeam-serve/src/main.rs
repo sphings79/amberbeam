@@ -236,6 +236,9 @@ async fn main() {
         .queue
         .set_clear_after(amberbeam_commands::clearing(&service.config.settings()))
         .await;
+    // Copies left behind by a run that ended badly. The register is in
+    // memory, so anything still in that directory belongs to nobody.
+    service.edits.sweep();
     service.queue.start();
     amberbeam_commands::watch_edits(&service, events.clone());
 

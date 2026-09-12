@@ -229,6 +229,25 @@ impl Edits {
         Self::at(std::env::temp_dir().join("amberbeam-edits"))
     }
 
+    /// Throws away copies left behind by a run that ended badly.
+    ///
+    /// Only ever called at the start, and only correct there: the register
+    /// lives in memory, so anything already in this directory belongs to a run
+    /// that is over. Without this the directory only grows, and it grows with
+    /// the contents of somebody's server sitting unencrypted on a disk.
+    pub fn sweep(&self) -> usize {
+        let Ok(entries) = std::fs::read_dir(&self.root) else {
+            return 0;
+        };
+        let mut swept = 0;
+        for entry in entries.flatten() {
+            if std::fs::remove_dir_all(entry.path()).is_ok() {
+                swept += 1;
+            }
+        }
+        swept
+    }
+
     pub fn root(&self) -> &Path {
         &self.root
     }
@@ -778,6 +797,21 @@ mod tests {
         assert_eq!(leaf("/var/www/config.php"), "config.php");
         assert_eq!(leaf("config.php"), "config.php");
         assert_eq!(leaf("/"), "file");
+    }
+
+    #[test]
+    fn copies_from_a_run_that_ended_badly_do_not_pile_up() {
+        let root = std::env::temp_dir().join(format!("amberbeam-sweep-{}", new_id()));
+        std::fs::create_dir_all(root.join("one")).unwrap();
+        std::fs::write(root.join("one/config.php"), b"<?php\n").unwrap();
+        std::fs::create_dir_all(root.join("two")).unwrap();
+
+        let edits = Edits::at(&root);
+        assert_eq!(edits.sweep(), 2, "both left-over copies go");
+        assert_eq!(edits.sweep(), 0, "and there is nothing left to find");
+        assert!(root.exists(), "the directory itself stays");
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[tokio::test]
