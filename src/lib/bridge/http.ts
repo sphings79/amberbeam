@@ -146,7 +146,7 @@ export function makeApi(target: Target): AmberBeamApi {
     },
 
     localSession: () => call<Connected>("local_session"),
-    connect: (request: ConnectRequest) => call<Connected>("connect", request),
+    connect: (request: ConnectRequest) => call<Connected>("connect", { request }),
     disconnect: (endpoint: string) => call<void>("disconnect", { endpoint }),
 
     listDir: (endpoint: string, path: string) => call<Listing>("list_dir", { endpoint, path }),
@@ -180,7 +180,7 @@ export function makeApi(target: Target): AmberBeamApi {
       return () => undefined;
     },
 
-    enqueue: (request: EnqueueRequest) => call<number>("enqueue", request),
+    enqueue: (request: EnqueueRequest) => call<number>("enqueue", { request }),
     queueSnapshot: () => call<Queue>("queue_snapshot"),
     queueTotals: () => call<Totals>("queue_totals"),
     queuePause: (paused: boolean) => call<void>("queue_pause", { paused }),

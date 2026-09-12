@@ -57,6 +57,19 @@ function desktopOnly() {
     .filter((name) => /^[a-z_]+$/.test(name));
 }
 
+/** Where each bridge lives, and how a call to the core looks in it. */
+/** @type {[string, RegExp][]} */
+const BRIDGES = [
+  [
+    "src/lib/bridge/tauri.ts",
+    /(?:send|invoke)(?:<[^>]*>)?\("([a-z_]+)"(?:,\s*(\{[\s\S]*?\}|[A-Za-z_][A-Za-z0-9_]*))?\s*\)/g,
+  ],
+  [
+    "src/lib/bridge/http.ts",
+    /call(?:<[^>]*>)?\("([a-z_]+)"(?:,\s*(\{[\s\S]*?\}|[A-Za-z_][A-Za-z0-9_]*))?\s*\)/g,
+  ],
+];
+
 /**
  * Every command name a bridge asks for, and which bridge asked.
  *
@@ -65,17 +78,54 @@ function desktopOnly() {
 function asked() {
   /** @type {Map<string, Set<string>>} */
   const found = new Map();
-  /** @type {[string, RegExp][]} */
-  const bridges = [
-    ["src/lib/bridge/tauri.ts", /(?:send|invoke)(?:<[^>]*>)?\("([a-z_]+)"/g],
-    ["src/lib/bridge/http.ts", /call(?:<[^>]*>)?\("([a-z_]+)"/g],
-  ];
-  for (const [file, pattern] of bridges) {
+  for (const [file, pattern] of BRIDGES) {
     const source = readFileSync(join(root, file), "utf8");
     for (const match of source.matchAll(pattern)) {
       const name = match[1] ?? "";
       if (!found.has(name)) found.set(name, new Set());
       found.get(name)?.add(file);
+    }
+  }
+  return found;
+}
+
+/**
+ * The shape of what each bridge sends, per command.
+ *
+ * The names agreeing is not enough. One bridge sending `{ request }` and the
+ * other sending the request bare passes every check there was and fails at the
+ * moment somebody presses connect — which is exactly how the container build
+ * shipped unable to open a connection or line up a transfer.
+ *
+ * Only the field names are compared, and only at the top level. This is a
+ * sanity check between two hand-written files, not a type system.
+ *
+ * @param {string} argument
+ * @returns {string}
+ */
+function shape(argument) {
+  if (argument === "") return "nothing";
+  if (!argument.startsWith("{")) return `the bare value ${argument}`;
+  const fields = [...argument.matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*[:,}]/g)]
+    .map((match) => match[1] ?? "")
+    .sort();
+  return fields.length === 0 ? "an empty object" : fields.join(", ");
+}
+
+/**
+ * What each bridge sends for each command.
+ *
+ * @returns {Map<string, Map<string, string>>}
+ */
+function shapes() {
+  /** @type {Map<string, Map<string, string>>} */
+  const found = new Map();
+  for (const [file, pattern] of BRIDGES) {
+    const source = readFileSync(join(root, file), "utf8");
+    for (const match of source.matchAll(pattern)) {
+      const name = match[1] ?? "";
+      if (!found.has(name)) found.set(name, new Map());
+      found.get(name)?.set(file, shape((match[2] ?? "").trim()));
     }
   }
   return found;
@@ -120,6 +170,15 @@ for (const name of core) {
   const files = wanted.get(name);
   if (files && files.size !== 2) {
     complain(`"${name}" is called by ${[...files].join(", ")} alone; both bridges need it.`);
+  }
+}
+
+// And both have to send the same thing, not merely ask for the same name.
+for (const [name, perBridge] of shapes()) {
+  const sent = [...new Set(perBridge.values())];
+  if (perBridge.size === 2 && sent.length !== 1) {
+    const told = [...perBridge].map(([file, form]) => `${file} sends ${form}`).join(", ");
+    complain(`"${name}" is not asked the same way by both bridges: ${told}.`);
   }
 }
 
