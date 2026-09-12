@@ -413,5 +413,7 @@
   "update.dialog.working.share": "Downloading… {done}%",
   "update.dialog.done": "Installed. It takes effect when the program starts again.",
   "update.dialog.restart": "Restart now",
-  "update.dialog.retry": "Try again"
+  "update.dialog.retry": "Try again",
+  "splitter.tree": "Resize the folder tree",
+  "pane.path.placeholder": "Path"
 }

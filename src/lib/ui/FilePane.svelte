@@ -16,6 +16,7 @@
     stopRename,
     targets,
     toggleHidden,
+    setTreeWidth,
     toggleTree,
     visibleEntries,
     type Side,
@@ -26,6 +27,7 @@
   import { describe } from "./errors";
   import FileList from "./FileList.svelte";
   import FolderTree from "./FolderTree.svelte";
+  import Splitter from "./Splitter.svelte";
   import Icon from "./Icon.svelte";
   import PermissionsDialog from "./PermissionsDialog.svelte";
 
@@ -47,6 +49,16 @@
   let dropTarget = $state(false);
 
   let filterField = $state<HTMLInputElement | null>(null);
+  /**
+   * What is in the address field while somebody is editing it.
+   *
+   * Null means nobody is: the field then shows where the pane actually is, and
+   * follows it when it moves. Holding the text the whole time would mean a
+   * pane that navigated by some other route — a double click, the tree, the
+   * up arrow — left a stale path sitting in the box.
+   */
+  let editingPath = $state<string | null>(null);
+
   /** What a recursive search turned up, or null when none has run. */
   let found = $state<SearchResult | null>(null);
   let searching = $state(false);
@@ -419,7 +431,42 @@
 
   <div class="path">
     <button type="button" class="up" onclick={() => goUp(side)} title={t("pane.up")}>↑</button>
-    <span class="mono current" title={view.path}>{view.path || "—"}</span>
+    <!--
+      A field rather than a label, so a path can be pasted in. It shows where
+      the pane is until somebody starts editing, and goes back to showing that
+      the moment they give up — a box holding a path the pane is not at is a
+      box that lies about where you are.
+
+      Nothing happens while it is being typed in. Navigating on every keystroke
+      would walk off to "/v", "/va", "/var" on the way to anywhere, and on a
+      remote that is three round trips nobody asked for.
+    -->
+    <input
+      class="mono current"
+      value={editingPath ?? view.path}
+      title={view.path}
+      placeholder={t("pane.path.placeholder")}
+      spellcheck="false"
+      autocomplete="off"
+      autocapitalize="off"
+      autocorrect="off"
+      oninput={(event) => (editingPath = event.currentTarget.value)}
+      onfocus={(event) => event.currentTarget.select()}
+      onblur={() => (editingPath = null)}
+      onkeydown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const wanted = (editingPath ?? "").trim();
+          editingPath = null;
+          event.currentTarget.blur();
+          if (wanted !== "" && wanted !== view.path) void navigate(side, wanted);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          editingPath = null;
+          event.currentTarget.blur();
+        }
+      }}
+    />
     {#if view.busy}<span class="busy">{t("pane.loading")}</span>{/if}
     <!-- "1 Einträge" is the sort of thing that makes a program feel machine
          translated, and it takes one key to avoid. -->
@@ -437,7 +484,14 @@
 
   <div class="body">
     {#if view.showTree}
-      <FolderTree {side} />
+      <div class="tree" style:width="{view.treeWidth}px">
+        <FolderTree {side} />
+      </div>
+      <Splitter
+        direction="vertical"
+        label={t("splitter.tree")}
+        onmove={(delta) => setTreeWidth(side, view.treeWidth + delta)}
+      />
     {/if}
     <FileList {side} onenter={open} oncontext={openMenu} onrename={rename} />
   </div>
@@ -668,16 +722,36 @@
     border-bottom: 1px solid var(--border);
   }
 
+  /* Looks like the label it replaced until somebody puts the cursor in it.
+     A box drawn around the path all day would turn the place you are into a
+     form to be filled in. */
   .current {
     flex: 1;
+    min-width: 0;
     font-size: 0.76rem;
     color: var(--text-muted);
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    padding: 1px 5px;
+    background: transparent;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     /* No right-to-left trick to cut long paths from the front: it moves the
        leading slash to the end, so /Users/sphings reads as Users/sphings/. A
        path that lies about its own shape is worse than one that is cut off. */
+  }
+
+  .current:hover {
+    border-color: var(--border);
+  }
+
+  .current:focus {
+    border-color: var(--accent);
+    background: var(--surface-1);
+    color: var(--text);
+    outline: none;
+    text-overflow: clip;
   }
 
   .busy,
@@ -701,5 +775,13 @@
     display: flex;
     min-height: 0;
     overflow: hidden;
+  }
+
+  /* The width lives here rather than in FolderTree, because it is now a thing
+     somebody drags rather than a number the component decided for itself. */
+  .tree {
+    flex: none;
+    min-width: 0;
+    display: flex;
   }
 </style>

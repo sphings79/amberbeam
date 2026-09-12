@@ -413,5 +413,7 @@
   "update.dialog.working.share": "Wird geladen… {done} %",
   "update.dialog.done": "Installiert. Gilt, sobald das Programm neu startet.",
   "update.dialog.restart": "Jetzt neu starten",
-  "update.dialog.retry": "Erneut versuchen"
+  "update.dialog.retry": "Erneut versuchen",
+  "splitter.tree": "Breite des Ordnerbaums ändern",
+  "pane.path.placeholder": "Pfad"
 }

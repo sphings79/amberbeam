@@ -43,6 +43,14 @@ export interface PaneState {
   /** Whether the folder tree beside the list is shown. */
   showTree: boolean;
   /**
+   * How wide it is, in pixels.
+   *
+   * Per side rather than shared: somebody with a deep tree on the remote and a
+   * flat one locally wants two different widths, and making them agree would
+   * only mean setting it twice.
+   */
+  treeWidth: number;
+  /**
    * What is typed into the filter, narrowing the list as it is typed.
    *
    * Cleared on every change of directory, and that is deliberate. A filter that
@@ -86,6 +94,7 @@ function emptyPane(): PaneState {
     // Hiding them by default would hide the point of the program.
     showHidden: true,
     showTree: true,
+    treeWidth: 186,
     renaming: null,
     requested: null,
     filter: "",
@@ -337,6 +346,14 @@ export function toggleTree(side: Side): void {
 
 export function setTreeVisible(side: Side, visible: boolean): void {
   panes[side].showTree = visible;
+}
+
+/** The narrowest and widest the tree may be dragged. */
+export const TREE_MIN = 120;
+export const TREE_MAX = 480;
+
+export function setTreeWidth(side: Side, width: number): void {
+  panes[side].treeWidth = Math.min(TREE_MAX, Math.max(TREE_MIN, Math.round(width)));
 }
 
 export function toggleExpanded(side: Side, path: string): void {

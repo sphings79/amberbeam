@@ -182,8 +182,8 @@
 
 <style>
   .tree {
-    width: 186px;
-    flex: none;
+    flex: 1;
+    min-width: 0;
     overflow: auto;
     background: var(--surface-2);
     border-right: 1px solid var(--border);

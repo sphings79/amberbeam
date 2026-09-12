@@ -37,6 +37,7 @@
     requestCommand,
     setFiltering,
     setTreeVisible,
+    setTreeWidth,
     startRename,
     switchFocus,
     toggleSelection,
@@ -221,6 +222,7 @@
             logPosition?: Position;
             queuePosition?: Position;
             showTree?: { left?: boolean; right?: boolean };
+            treeWidth?: { left?: number; right?: number };
             showHidden?: { left?: boolean; right?: boolean };
             keys?: unknown;
           }
@@ -230,6 +232,10 @@
       if (saved?.splitRatio) splitRatio = saved.splitRatio;
       if (saved?.logPosition) logPosition = saved.logPosition;
       if (saved?.queuePosition) queuePosition = saved.queuePosition;
+      if (saved?.treeWidth) {
+        if (saved.treeWidth.left) setTreeWidth("left", saved.treeWidth.left);
+        if (saved.treeWidth.right) setTreeWidth("right", saved.treeWidth.right);
+      }
       if (saved?.showTree) {
         setTreeVisible("left", saved.showTree.left ?? true);
         setTreeVisible("right", saved.showTree.right ?? true);
@@ -280,6 +286,7 @@
       logPosition,
       queuePosition,
       showTree: { left: pane("left").showTree, right: pane("right").showTree },
+      treeWidth: { left: pane("left").treeWidth, right: pane("right").treeWidth },
       showHidden: { left: pane("left").showHidden, right: pane("right").showHidden },
       leftPath: pane("left").endpoint === LOCAL ? pane("left").path : undefined,
       keys: savedKeys(),
