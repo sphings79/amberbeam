@@ -7,6 +7,102 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.5
+
+AmberBeam without a window at all, and files edited where they lie.
+
+### Added
+
+- **A container build.** The same program with no window: it runs on a machine
+  and you reach it in a browser. Same core, same commands, same interface —
+  only the way the window talks to the core changes, and nothing in the
+  interface knows the difference. Useful when transfers should carry on after
+  the laptop is shut.
+
+  One password rather than user accounts, and no TLS of its own: a reverse
+  proxy in front renews certificates, which a container cannot, and is already
+  running on that machine anyway. Saved passwords go into a sealed file under a
+  passphrase, because there is no keychain out there to put them in — and a
+  wrong passphrase stops the program rather than starting empty and
+  overwriting what it failed to read. See
+  [Running it as a container](docs/container.md).
+- **The desktop program can drive a service.** Same window, same keys, but the
+  transfers happen over there and carry on without it. Under **Servers**.
+- **Editing a file where it lies.** Right-click a file on a server, choose
+  **Edit remotely**, and a copy comes down, opens, and goes back up on every
+  save.
+
+  What it has to get right is not the editing. A file that is not text is
+  refused on its bytes, whatever it is called. A file that is not UTF-8 is read
+  as Latin-1 and written back as Latin-1, because reading one as UTF-8 and
+  saving it rewrites every umlaut in it and nobody notices until much later —
+  and the same goes for a byte order mark and for CR LF line endings. What the
+  file looked like when the copy was taken is kept, so a write-back over
+  somebody else's afternoon is asked about rather than done.
+
+  A table under **Settings → Editing** says which kinds of file may be edited
+  and what opens each: AmberBeam's own editor, the system's choice, or a
+  program you name. A file open in another program is watched and what it
+  saves goes up by itself. See
+  [Editing a file where it lies](docs/editing.md).
+- **A wastebasket on the server**, per saved server. Deleted files move into a
+  directory of your choosing, named by the moment they were thrown away, so
+  sorting the bin by name sorts it by when. Deleting something already inside
+  it is final. If the move fails nothing is deleted and the wastebasket is
+  switched off for that server — a bin that cannot take things is worse than
+  none.
+- **Carry on where a server was left**, a tick per saved server. The server
+  side opens in the directory it was last showing instead of the configured
+  one. Gone? Then the configured one, without a word: an error about a
+  convenience nobody asked for is not worth showing.
+- **Both sides can walk together.** Changing directory on one side moves the
+  other with it, by the path relative to where the pairing started.
+- **The interface can be made larger**, in four steps, under appearance.
+- **Add to queue without starting it**, for gathering a few things first.
+- **Answer the overwrite question once.** The answer now reaches this file, the
+  rest of this run, or every run from here — including the files not thought of
+  yet, which is what it has to mean while a folder is still being walked.
+  Answering the same question forty times is not consent.
+- **Finished transfers can clear themselves** after a moment, beside the pause
+  button. Off by default: a queue that empties itself is tidy right up until
+  somebody wants to know whether the thing they started actually happened.
+- **Folders and files have their own icons**, in the list and in the tree. The
+  screenshot in the README has been showing them since the first release and
+  the program was drawing a triangle and a dot.
+- **A slow second click renames**, as it does everywhere else.
+- **The way up is in the list again** — the `..` row — and a run of rows can be
+  selected with shift, by clicking or with the arrow keys.
+
+### Fixed
+
+- **FTP over IPv6 could not transfer at all.** `PASV` can only answer with an
+  IPv4 address, so every data connection over IPv6 asked for something the
+  protocol cannot express. `EPSV` is used where the server offers it. A
+  connection that stalled after the login now also gives up and says so rather
+  than waiting for ever.
+- **A server demanding TLS was reported as a wrong password**, which sent
+  people to check a password that was never looked at.
+- **The keychain asked once per saved server**, every time the list was opened,
+  because answering "is there a password" meant fetching it. The entry's own
+  "remember this" answers it now, and nothing is fetched until something
+  connects.
+- **The container could not open a connection or line up a transfer.** Both
+  bridges asked for the same commands by the same names and one of them sent
+  the arguments in a shape the core would not read. Every check passed; it
+  failed at the moment somebody pressed connect. The guard now compares what
+  each bridge sends, not only what it calls it.
+- **A write the server refused said the file could not be read**, which is
+  wrong about the direction and about the cause, and sends somebody looking for
+  a file that is sitting right there.
+- **A pane lost the server it came from on a second connection attempt** —
+  after accepting a host key or a certificate, or typing a password that was
+  not stored. With it went the rule about what deleting means.
+- **The whole window turned amber behind a context menu.** The thing that
+  catches the click outside a menu is a button, and a rule meant for the
+  buttons inside it reached that one too.
+- **The buttons that finish the job in the server form stay in sight**, instead
+  of being somewhere below the bottom of the window.
+
 ## 0.1.4
 
 Updating from inside the program, and a window that can be put back the way it

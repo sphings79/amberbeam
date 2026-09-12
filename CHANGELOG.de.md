@@ -7,6 +7,108 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.5
+
+AmberBeam ganz ohne Fenster, und Dateien dort bearbeitet, wo sie liegen.
+
+### Hinzugefügt
+
+- **Ein Container.** Dasselbe Programm ohne Fenster: Es läuft auf einer
+  Maschine, und du erreichst es im Browser. Derselbe Kern, dieselben Befehle,
+  dieselbe Oberfläche — nur der Weg vom Fenster zum Kern ändert sich, und die
+  Oberfläche merkt davon nichts. Nützlich, wenn Übertragungen weiterlaufen
+  sollen, nachdem der Laptop zugeklappt ist.
+
+  Ein Passwort statt Benutzerkonten, und kein eigenes TLS: Ein Reverse Proxy
+  davor erneuert Zertifikate, was ein Container nicht kann, und läuft auf
+  dieser Maschine ohnehin schon. Gespeicherte Passwörter kommen in eine
+  versiegelte Datei unter einer Passphrase, weil es dort draußen keinen
+  Schlüsselbund gibt — und eine falsche Passphrase hält das Programm an,
+  statt leer zu starten und zu überschreiben, was es nicht lesen konnte. Siehe
+  [Als Container betreiben](docs/container.de.md).
+- **Das Desktop-Programm kann einen Dienst bedienen.** Dasselbe Fenster,
+  dieselben Tasten, aber die Übertragungen passieren drüben und laufen ohne es
+  weiter. Unter **Server**.
+- **Dateien dort bearbeiten, wo sie liegen.** Rechtsklick auf eine Datei auf
+  dem Server, **Remote bearbeiten** — eine Kopie kommt herunter, geht auf, und
+  jedes Speichern geht wieder hinauf.
+
+  Was dabei stimmen muss, ist nicht das Bearbeiten. Eine Datei, die kein Text
+  ist, wird an ihren Bytes erkannt und abgelehnt, wie sie auch heißt. Eine
+  Datei, die kein UTF-8 ist, wird als Latin-1 gelesen und als Latin-1
+  zurückgeschrieben, denn sie als UTF-8 zu lesen und zu speichern schreibt
+  jeden Umlaut darin neu, und es fällt erst viel später auf — dasselbe gilt für
+  ein Byte Order Mark und für CR-LF-Zeilenenden. Wie die Datei aussah, als die
+  Kopie genommen wurde, wird gemerkt: Über den Nachmittag eines anderen zu
+  schreiben wird gefragt, nicht getan.
+
+  Eine Tabelle unter **Einstellungen → Bearbeiten** sagt, welche Dateiarten
+  bearbeitet werden dürfen und was jede öffnet: AmberBeams eigener Editor, was
+  das System nimmt, oder ein Programm deiner Wahl. Eine Datei in einem fremden
+  Programm wird beobachtet, und was es speichert, geht von selbst hinauf. Siehe
+  [Eine Datei dort bearbeiten, wo sie liegt](docs/editing.de.md).
+- **Ein Papierkorb auf dem Server**, pro gespeichertem Server. Gelöschte
+  Dateien wandern in ein Verzeichnis deiner Wahl, benannt nach dem Moment des
+  Wegwerfens — nach Namen sortiert ist der Papierkorb damit nach Zeit sortiert.
+  Löschen darin ist endgültig. Scheitert das Verschieben, wird nichts gelöscht
+  und der Papierkorb für diesen Server abgeschaltet: Einer, der nichts annehmen
+  kann, ist schlimmer als keiner.
+- **Dort weitermachen, wo ein Server verlassen wurde**, ein Haken pro Server.
+  Die Serverseite öffnet in dem Verzeichnis, das zuletzt zu sehen war, statt im
+  eingetragenen. Nicht mehr da? Dann das eingetragene, kommentarlos: Ein Fehler
+  über eine Bequemlichkeit, um die niemand gebeten hat, ist keiner, den man
+  sehen will.
+- **Beide Seiten können sich gemeinsam bewegen.** Ein Verzeichniswechsel auf
+  einer Seite nimmt die andere mit, entlang des Pfads relativ zum Start der
+  Kopplung.
+- **Die Oberfläche lässt sich vergrößern**, in vier Stufen, unter Darstellung.
+- **Zur Warteschlange hinzufügen, ohne zu starten** — zum Sammeln.
+- **Die Überschreiben-Frage einmal beantworten.** Die Antwort gilt jetzt für
+  diese Datei, den Rest dieses Laufs oder jeden Lauf ab jetzt — einschließlich
+  der Dateien, an die noch niemand gedacht hat, was sie bedeuten muss, solange
+  ein Ordner noch durchlaufen wird. Vierzigmal dieselbe Frage zu beantworten
+  ist keine Zustimmung.
+- **Fertige Übertragungen können sich selbst aufräumen**, nach einem Moment,
+  neben dem Pause-Knopf. Aus als Voreinstellung: Eine Warteschlange, die sich
+  selbst leert, ist genau so lange ordentlich, bis jemand wissen will, ob das
+  Gestartete tatsächlich passiert ist.
+- **Ordner und Dateien haben eigene Symbole**, in der Liste und im Baum. Das
+  Bild im README zeigt sie seit der ersten Fassung, und das Programm zeichnete
+  ein Dreieck und einen Punkt.
+- **Ein langsamer zweiter Klick benennt um**, wie überall sonst auch.
+- **Der Weg nach oben steht wieder in der Liste** — die `..`-Zeile — und eine
+  Reihe von Zeilen lässt sich mit Shift markieren, per Klick oder mit den
+  Pfeiltasten.
+
+### Behoben
+
+- **Über IPv6 war per FTP keine Übertragung möglich.** `PASV` kann nur eine
+  IPv4-Adresse nennen, also fragte jede Datenverbindung über IPv6 nach etwas,
+  das das Protokoll nicht ausdrücken kann. Wo der Server es anbietet, wird
+  `EPSV` benutzt. Eine Verbindung, die nach der Anmeldung stehen blieb, gibt
+  jetzt außerdem auf und sagt es, statt ewig zu warten.
+- **Ein Server, der TLS verlangt, wurde als falsches Passwort gemeldet** — und
+  schickte Leute los, ein Passwort zu prüfen, das nie angesehen wurde.
+- **Der Schlüsselbund fragte einmal pro Server**, jedes Mal beim Öffnen der
+  Liste, weil „gibt es ein Passwort" hieß, es zu holen. Das beantwortet jetzt
+  der Eintrag selbst, und geholt wird erst, wenn sich etwas verbindet.
+- **Der Container konnte weder verbinden noch etwas einreihen.** Beide Brücken
+  fragten dieselben Befehle unter denselben Namen, und eine schickte die
+  Argumente in einer Form, die der Kern nicht liest. Alle Prüfungen grün,
+  gescheitert erst beim Klick auf Verbinden. Der Wächter vergleicht jetzt, was
+  jede Brücke schickt, nicht nur, wie sie es nennt.
+- **Ein vom Server abgelehntes Schreiben meldete, die Datei ließe sich nicht
+  lesen** — falsch in der Richtung und in der Ursache, und es schickt jemanden
+  auf die Suche nach einer Datei, die genau dort liegt.
+- **Eine Seite verlor beim zweiten Verbindungsversuch ihren Server** — nach dem
+  Annehmen eines Host-Keys oder Zertifikats oder dem Nachtippen eines nicht
+  gespeicherten Passworts. Mit ihm ging die Regel darüber, was Löschen heißt.
+- **Das ganze Fenster wurde bernsteinfarben hinter einem Kontextmenü.** Was den
+  Klick außerhalb eines Menüs auffängt, ist ein Knopf, und eine Regel für die
+  Knöpfe darin erwischte auch ihn.
+- **Die Knöpfe, die im Serverformular die Arbeit abschließen, bleiben sichtbar**
+  statt irgendwo unterhalb des Fensterrands zu liegen.
+
 ## 0.1.4
 
 Updates aus dem Programm heraus, und ein Fenster, das sich wieder herrichten
