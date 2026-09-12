@@ -642,7 +642,7 @@
       title={newer ? t("update.hint", { version: newer.version }) : t("update.check.hint")}
     >
       {#if newer}
-        <Icon name="star" size={13} />
+        <Icon name="update" size={13} />
         {t("update.available", { version: newer.version })}
       {:else if updateStatus() === "checking"}
         {t("update.checking")}
@@ -795,6 +795,7 @@
           class="swatch"
           class:active={currentAccent() === candidate}
           data-accent={candidate}
+          title={t(`accent.${candidate}`)}
           aria-label={t(`accent.${candidate}`)}
           onclick={() => setAccent(candidate)}
         ></button>

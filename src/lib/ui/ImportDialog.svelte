@@ -186,7 +186,13 @@
   <div class="dialog" class:dropping use:trap role="dialog" aria-modal="true" aria-label={t("import.title")}>
     <header>
       <h2>{t("import.title")}</h2>
-      <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>
+      <button
+        type="button"
+        class="close"
+        onclick={onclose}
+        title={t("action.close")}
+        aria-label={t("action.close")}
+      >×</button>
     </header>
 
     {#if bundle}

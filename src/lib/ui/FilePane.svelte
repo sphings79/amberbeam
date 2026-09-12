@@ -384,7 +384,13 @@
       >
         {searching ? t("filter.searching") : t("filter.deep")}
       </button>
-      <button type="button" class="quiet" onclick={() => setFiltering(side, false)}>×</button>
+      <button
+        type="button"
+        class="quiet"
+        onclick={() => setFiltering(side, false)}
+        title={t("filter.close")}
+        aria-label={t("filter.close")}
+      >×</button>
     </div>
 
     {#if found}

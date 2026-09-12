@@ -36,6 +36,9 @@
       "M5 1.5c0 1-.8 1-.8 2M8 1.5c0 1-.8 1-.8 2",
     ],
     disconnect: ["M8 2v6", "M4.6 4.6a5 5 0 1 0 6.8 0"],
+    // Up, not a star: a star is for marking a favourite, and this is about
+    // something being newer than what is installed.
+    update: ["M8 13V3", "M4 7l4-4 4 4"],
   };
 </script>
 

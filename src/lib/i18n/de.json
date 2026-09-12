@@ -217,7 +217,7 @@
   "conflict.existing": "Vorhanden",
   "conflict.new": "Neu",
   "conflict.unknown": "unbekannt",
-  "update.available": "Fassung {version}",
+  "update.available": "Update auf {version}",
   "update.hint": "Fassung {version} ist erschienen. Öffnet die Versionshinweise.",
   "settings.check-updates": "Auf neue Fassungen prüfen",
   "settings.check-updates.hint": "Fragt GitHub einmal kurz nach dem Start nach der neuesten Fassung. Über dich wird nichts gesendet — keine Version, keine Kennung, keine Zählung. Es ist die einzige Anfrage, die AmberBeam von sich aus stellt.",
@@ -399,5 +399,6 @@
   "update.check.hint": "Fragt bei GitHub, ob es eine neuere Version gibt. Über dich wird nichts übertragen.",
   "update.checking": "Wird geprüft…",
   "update.current": "Aktuell",
-  "update.unreachable": "Prüfung fehlgeschlagen"
+  "update.unreachable": "Prüfung fehlgeschlagen",
+  "filter.close": "Filter beenden"
 }

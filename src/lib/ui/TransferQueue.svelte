@@ -116,7 +116,12 @@
     {#if notice}
       <p class="lowered">
         {t("queue.lowered", { allowed: notice.allowed })}
-        <button type="button" onclick={dismissLowered}>×</button>
+        <button
+          type="button"
+          onclick={dismissLowered}
+          title={t("action.close")}
+          aria-label={t("action.close")}
+        >×</button>
       </p>
     {/if}
   {/if}

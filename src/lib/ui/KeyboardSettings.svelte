@@ -76,7 +76,13 @@
   <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("keys.title")}>
     <header>
       <h2>{t("keys.title")}</h2>
-      <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>
+      <button
+        type="button"
+        class="close"
+        onclick={onclose}
+        title={t("action.close")}
+        aria-label={t("action.close")}
+      >×</button>
     </header>
 
     <div class="choices">

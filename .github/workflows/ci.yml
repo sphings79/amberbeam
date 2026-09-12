@@ -78,6 +78,8 @@ jobs:
         run: npm run check:keys
       # Markdown renders a link to a file that is not there exactly like a
       # working one, until somebody clicks it.
+      - name: Wordless buttons say what they do
+        run: npm run check:buttons
       - name: Documentation links
         run: npm run check:docs
       - run: npm run check

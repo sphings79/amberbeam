@@ -217,7 +217,7 @@
   "conflict.existing": "Already there",
   "conflict.new": "New",
   "conflict.unknown": "unknown",
-  "update.available": "Version {version}",
+  "update.available": "Update to {version}",
   "update.hint": "Version {version} has been released. Opens the release notes.",
   "settings.check-updates": "Check for new releases",
   "settings.check-updates.hint": "Asks GitHub for the newest release, once shortly after starting. Nothing about you is sent — no version, no identifier, no count. It is the only request AmberBeam makes on its own.",
@@ -399,5 +399,6 @@
   "update.check.hint": "Asks GitHub whether a newer release exists. Nothing about you is sent.",
   "update.checking": "Checking…",
   "update.current": "Up to date",
-  "update.unreachable": "Could not check"
+  "update.unreachable": "Could not check",
+  "filter.close": "Stop filtering"
 }

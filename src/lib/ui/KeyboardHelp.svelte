@@ -33,7 +33,13 @@
     <header>
       <h2>{t("help.title")}</h2>
       <span class="scheme">{t(`scheme.${currentScheme()}`)}</span>
-      <button type="button" class="close" onclick={onclose} aria-label={t("action.cancel")}>×</button>
+      <button
+        type="button"
+        class="close"
+        onclick={onclose}
+        title={t("action.close")}
+        aria-label={t("action.close")}
+      >×</button>
     </header>
 
     <div class="rows">
