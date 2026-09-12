@@ -394,5 +394,10 @@
   "connect.loading": "Serverliste wird gelesen…",
   "connect.none": "Noch keine Server gespeichert.",
   "connect.quick": "Schnellverbindung…",
-  "connect.manage": "Serverliste…"
+  "connect.manage": "Serverliste…",
+  "update.check": "Auf Updates prüfen",
+  "update.check.hint": "Fragt bei GitHub, ob es eine neuere Version gibt. Über dich wird nichts übertragen.",
+  "update.checking": "Wird geprüft…",
+  "update.current": "Aktuell",
+  "update.unreachable": "Prüfung fehlgeschlagen"
 }

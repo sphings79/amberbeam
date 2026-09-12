@@ -394,5 +394,10 @@
   "connect.loading": "Reading the server list…",
   "connect.none": "No servers saved yet.",
   "connect.quick": "Quick connect…",
-  "connect.manage": "Server list…"
+  "connect.manage": "Server list…",
+  "update.check": "Check for updates",
+  "update.check.hint": "Asks GitHub whether a newer release exists. Nothing about you is sent.",
+  "update.checking": "Checking…",
+  "update.current": "Up to date",
+  "update.unreachable": "Could not check"
 }

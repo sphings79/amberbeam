@@ -18,7 +18,7 @@
   } from "./lib/keys/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
-  import { availableUpdate, checkForUpdate, dismissUpdate } from "./lib/state/update.svelte";
+  import { availableUpdate, checkForUpdate, updateStatus } from "./lib/state/update.svelte";
   import {
     focusedSide,
     focusPane,
@@ -98,6 +98,9 @@
   );
 
   let quickFor = $state<Side | null>(null);
+  /** The release the check found, if it found one. */
+  let newer = $derived(availableUpdate());
+
   /** The connect menu, and which side asked for it. */
   let connectMenu = $state<{ side: Side; x: number; y: number } | null>(null);
 
@@ -614,6 +617,30 @@
 
     <span class="gap"></span>
 
+    <!-- Says where the check stands rather than only speaking up when there is
+         news. Silence used to mean three different things — not asked yet,
+         nothing new, could not reach GitHub — and they are not the same. -->
+    <button
+      type="button"
+      class="update"
+      class:news={updateStatus() === "available"}
+      onclick={() => (newer ? api.openUrl(newer.url) : void checkForUpdate(true))}
+      title={newer ? t("update.hint", { version: newer.version }) : t("update.check.hint")}
+    >
+      {#if newer}
+        <Icon name="star" size={13} />
+        {t("update.available", { version: newer.version })}
+      {:else if updateStatus() === "checking"}
+        {t("update.checking")}
+      {:else if updateStatus() === "current"}
+        {t("update.current")}
+      {:else if updateStatus() === "unreachable"}
+        {t("update.unreachable")}
+      {:else}
+        {t("update.check")}
+      {/if}
+    </button>
+
     <!-- The three that open a window and change nothing by themselves, kept
          together and away from the one that does the work. -->
     <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
@@ -704,28 +731,6 @@
   <footer>
     <span class="keys mono">{t("status.keys", { servers: label("Mod+S") })}</span>
     <div class="actions">
-      {#if availableUpdate()}
-        {@const release = availableUpdate()}
-        {#if release}
-          <button
-            type="button"
-            class="support update"
-            onclick={() => api.openUrl(release.url)}
-            title={t("update.hint", { version: release.version })}
-          >
-            <Icon name="star" size={14} />
-            {t("update.available", { version: release.version })}
-          </button>
-          <button
-            type="button"
-            class="dismiss"
-            onclick={dismissUpdate}
-            aria-label={t("action.cancel")}
-          >
-            ×
-          </button>
-        {/if}
-      {/if}
       <button
         type="button"
         class="support star"
@@ -1006,14 +1011,17 @@
     background: var(--surface-1);
   }
 
+  /* Findable without being shouted at. The icon carries the accent, the
+     button itself does not: an outlined pill at the top of the window sits in
+     the corner of the eye all day, and that is what made it nag. */
   .bar .servers {
     display: flex;
     align-items: center;
     gap: 6px;
-    border: 1px solid var(--accent);
+    border: 1px solid var(--border);
     border-radius: 0.5rem;
     padding: 4px 10px;
-    background: var(--accent-soft);
+    background: var(--surface-2);
     color: var(--text);
     font: inherit;
     font-size: 0.8rem;
@@ -1021,14 +1029,44 @@
     cursor: pointer;
   }
 
+  .bar .servers :global(svg) {
+    color: var(--accent);
+  }
+
   .bar .servers:hover {
-    border-color: var(--accent);
-    background: var(--accent);
-    color: var(--accent-text);
+    border-color: var(--border-strong);
+    background: var(--surface-3);
   }
 
   .bar .gap {
     flex: 1;
+  }
+
+  .bar .update {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.76rem;
+    cursor: pointer;
+  }
+
+  .bar .update:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+
+  /* The one state worth colour. Everything else the button reports is the
+     absence of news, and the absence of news should not glow. */
+  .bar .update.news {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   .bar .shortcut {
@@ -1164,22 +1202,4 @@
     color: var(--surface-1);
   }
 
-  .support.update {
-    border-color: var(--ok);
-    background: var(--ok-soft);
-    color: var(--ok);
-  }
-
-  .support.update:hover {
-    background: var(--ok);
-    color: var(--surface-1);
-  }
-
-  .dismiss {
-    border: none;
-    background: none;
-    color: var(--text-faint);
-    padding: 0 2px;
-    font-size: 0.9rem;
-  }
 </style>
