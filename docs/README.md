@@ -12,5 +12,6 @@ come before that, or afterwards.
 | [The keyboard](keyboard.md) | The layouts, and the Mac function key problem |
 | [Bringing your servers with you](importing.md) | FileZilla, WinSCP, Total Commander, OpenSSH and older Windows clients |
 | [Where the secrets are](security.md) | Passwords, host keys, certificates — and what is never written down |
+| [Running it as a container](container.md) | No window, on a machine, reached in a browser |
 
 Something missing or wrong? [Open an issue](https://github.com/sphings79/amberbeam/issues).

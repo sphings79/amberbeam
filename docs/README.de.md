@@ -12,5 +12,6 @@ danach.
 | [Die Tastatur](keyboard.de.md) | Die Belegungen und das F-Tasten-Problem auf dem Mac |
 | [Server mitbringen](importing.de.md) | FileZilla, WinSCP, Total Commander, OpenSSH und ältere Windows-Programme |
 | [Wo die Geheimnisse liegen](security.de.md) | Passwörter, Host-Keys, Zertifikate — und was nie auf die Platte kommt |
+| [Als Container betreiben](container.de.md) | Ohne Fenster, auf einer Maschine, erreichbar im Browser |
 
 Fehlt etwas oder stimmt etwas nicht? [Melde es](https://github.com/sphings79/amberbeam/issues).

@@ -49,6 +49,7 @@ use std::sync::Arc;
 
 use amberbeam_commands::Service;
 use amberbeam_core::config::Config;
+use amberbeam_core::error::Error;
 use amberbeam_core::events::RecvError;
 use amberbeam_core::registry::Sessions;
 use amberbeam_core::runner::Runner;
@@ -119,6 +120,19 @@ fn passphrase() -> Option<String> {
     env("AMBERBEAM_SECRET_PASSPHRASE")
 }
 
+/// A failure as a person at a terminal should read it.
+///
+/// The core writes errors for logs, beginning with the key a window would look
+/// up to find the sentence. There is no window here and nothing to look up, so
+/// "error.other: the password file will not open" is a line explaining the
+/// program to itself rather than to whoever is reading it.
+fn plainly(why: &Error) -> String {
+    match why {
+        Error::Other { detail } => detail.clone(),
+        other => other.to_string(),
+    }
+}
+
 /// Where saved passwords go, and what to say when they cannot go anywhere.
 ///
 /// A container has no credential store, so there are two honest answers and no
@@ -143,7 +157,7 @@ fn secrets(root: &std::path::Path) -> Box<dyn SecretStore> {
             // Deliberately fatal. Carrying on with an empty store would mean
             // the first saved password overwrites every password in the file,
             // so a mistyped passphrase would destroy what it failed to read.
-            eprintln!("{why}");
+            eprintln!("{}", plainly(&why));
             std::process::exit(1);
         }
     }

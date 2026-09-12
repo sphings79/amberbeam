@@ -1,0 +1,41 @@
+# AmberBeam as a container.
+#
+# One service, two volumes, one port. Copy this, put a real password in it,
+# and it runs.
+#
+# Behind a reverse proxy, which is where this belongs if it is reachable from
+# anywhere but your own network: the proxy holds the certificate, renews it,
+# and this is told about it with AMBERBEAM_BEHIND_TLS so the session cookie is
+# marked accordingly.
+
+services:
+  amberbeam:
+    image: ghcr.io/sphings79/amberbeam:latest
+    container_name: amberbeam
+    restart: unless-stopped
+    ports:
+      - "2122:2122"
+    volumes:
+      # The files it works with. This is where the local side starts.
+      - ./data:/data
+      # The server list, the settings, and the sealed password file.
+      - ./config:/config
+    environment:
+      # Without this nothing is let in. Not a default, on purpose: a password
+      # everybody knows is worse than a service that refuses everybody.
+      AMBERBEAM_PASSWORD: "change-this-or-nobody-gets-in"
+      # What the saved passwords are encrypted with. Without it the program
+      # runs and saves none, and says so.
+      AMBERBEAM_SECRET_PASSPHRASE: "change-this-too"
+      # Switch on when something in front of this terminates TLS.
+      # AMBERBEAM_BEHIND_TLS: "true"
+
+# Both secrets can come from files instead, which is what you want if this
+# lives in a repository:
+#
+#   environment:
+#     AMBERBEAM_PASSWORD_FILE: /run/secrets/amberbeam_password
+#     AMBERBEAM_SECRET_PASSPHRASE_FILE: /run/secrets/amberbeam_passphrase
+#   secrets:
+#     - amberbeam_password
+#     - amberbeam_passphrase

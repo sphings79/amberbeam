@@ -1,0 +1,11 @@
+# Everything the image does not need, which is most of it. A build context of
+# a gigabyte is a build that waits on the copy before it starts.
+target
+node_modules
+dist
+.git
+.github
+docs
+src-tauri/gen
+src-tauri/icons
+*.md
