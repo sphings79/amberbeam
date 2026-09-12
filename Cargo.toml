@@ -1,5 +1,10 @@
 [workspace]
-members = ["crates/amberbeam-core", "crates/amberbeam-commands", "src-tauri"]
+members = [
+    "crates/amberbeam-core",
+    "crates/amberbeam-commands",
+    "crates/amberbeam-serve",
+    "src-tauri",
+]
 resolver = "2"
 
 [workspace.package]

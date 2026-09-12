@@ -1,0 +1,25 @@
+[package]
+name = "amberbeam-serve"
+description = "The container shell of AmberBeam: the same commands over HTTP and a WebSocket."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "amberbeam-serve"
+path = "src/main.rs"
+
+[dependencies]
+amberbeam-core.workspace = true
+amberbeam-commands.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["signal"] }
+# Random for session tokens and a constant-time comparison for the password.
+# Already a direct dependency of the core, so this costs nothing in the binary.
+ring.workspace = true
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.7", features = ["fs"] }
