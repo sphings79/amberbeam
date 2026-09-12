@@ -18,6 +18,16 @@
         var shown = false;
         function show(what, where) {
           if (shown) return;
+          /*
+           * Once something has been drawn, the program started. Whatever went
+           * wrong after that is not "AmberBeam could not start", and covering
+           * a running program with that sentence — and with an invitation to
+           * report a bug — is worse than the failure it is reporting. It
+           * happened: a service politely refusing an unauthenticated request
+           * was announced as a crash.
+           */
+          var app = document.getElementById("app");
+          if (app && app.childElementCount > 0) return;
           shown = true;
           var box = document.createElement("pre");
           box.setAttribute("data-startup-error", "");

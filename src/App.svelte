@@ -457,6 +457,11 @@
 
   /** Everything the window does once it is allowed to ask questions. */
   async function begin(): Promise<void> {
+    // Set here rather than at the one call site that knows about passwords,
+    // because both ways in come through this function and only one of them
+    // went past that line. Setting it there left the window blank after
+    // signing in — the gate keeping the program quiet kept it quiet for good.
+    allowed = true;
     {
       const local = await api.localSession();
       const saved = (await api.uiState().catch(() => null)) as
@@ -522,6 +527,17 @@
    * is nothing worth drawing until there is one.
    */
   let wantsPassword = $state(false);
+
+  /**
+   * Whether the core has said this window may ask it things.
+   *
+   * Nothing is drawn until it has. The window used to go up first and find out
+   * afterwards, so for a moment every pane, tree and toolbar was talking to a
+   * service that had not let them in — and the refusals came back as errors
+   * nobody had asked for, one of which painted "AmberBeam could not start"
+   * over a program that was about to start perfectly well.
+   */
+  let allowed = $state(false);
 
   /**
    * The question two coupled panes raise, and the answer somebody gives it.
@@ -596,6 +612,11 @@
 
   let unsubscribe: Unsubscribe | null = null;
   $effect(() => {
+    // Not before the core has let this window in. A socket opened at a door
+    // that is still shut is refused, retried a second later, refused again —
+    // a stream of failures in the console for as long as somebody takes to
+    // type a password.
+    if (!allowed) return;
     void api
       .subscribe((event: CoreEvent) => {
         recordEvent(event);
@@ -792,8 +813,12 @@
    * decides where they go.
    */
   // Once, shortly after the window opens, so it does not compete with the
-  // first listing for attention or bandwidth.
+  // first listing for attention or bandwidth — and not before the core has let
+  // this window in. Asking a service that has not answered the door gets a
+  // refusal, and the button then said "could not check" for the rest of the
+  // session over a question that was never really asked.
   $effect(() => {
+    if (!allowed) return;
     const timer = setTimeout(() => void checkForUpdate(), 3000);
     return () => clearTimeout(timer);
   });
@@ -1045,6 +1070,10 @@
       void begin();
     }}
   />
+{:else if !allowed && !editorFor && !isSiteManager}
+  <!-- Deliberately empty. It is the moment between asking the core whether we
+       may and hearing back, and on this machine it is a few milliseconds. -->
+  <div class="waiting"></div>
 {:else if editorFor}
   <Editor id={editorFor} onclose={() => void api.closeThisWindow()} />
 {:else if isSiteManager}
@@ -1492,6 +1521,12 @@
 {/if}
 
 <style>
+  .waiting {
+    position: fixed;
+    inset: 0;
+    background: var(--surface-0);
+  }
+
   .backdrop {
     position: fixed;
     inset: 0;
