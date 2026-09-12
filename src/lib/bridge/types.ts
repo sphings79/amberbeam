@@ -282,6 +282,13 @@ export interface Release {
   tag: string;
   version: string;
   url: string;
+  /**
+   * What the release says about itself, as written.
+   *
+   * Text from the network, and treated as nothing else: the window builds its
+   * own structure from it and never hands it to the browser as markup.
+   */
+  notes: string;
 }
 
 /**

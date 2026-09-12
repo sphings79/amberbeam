@@ -400,5 +400,10 @@
   "update.checking": "Checking…",
   "update.current": "Up to date",
   "update.unreachable": "Could not check",
-  "filter.close": "Stop filtering"
+  "filter.close": "Stop filtering",
+  "update.dialog.title": "Update to {version}",
+  "update.dialog.nothing": "This release says nothing about itself.",
+  "update.dialog.where": "Opens the release page in your browser.",
+  "update.dialog.later": "Later",
+  "update.dialog.download": "Download"
 }

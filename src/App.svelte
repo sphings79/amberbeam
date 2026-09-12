@@ -46,6 +46,7 @@
   import KeyboardSettings from "./lib/ui/KeyboardSettings.svelte";
   import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
   import ConnectMenu from "./lib/ui/ConnectMenu.svelte";
+  import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
@@ -100,6 +101,8 @@
   let quickFor = $state<Side | null>(null);
   /** The release the check found, if it found one. */
   let newer = $derived(availableUpdate());
+  /** Whether its notes are being read. */
+  let updateOpen = $state(false);
 
   /** The connect menu, and which side asked for it. */
   let connectMenu = $state<{ side: Side; x: number; y: number } | null>(null);
@@ -638,7 +641,7 @@
       type="button"
       class="update"
       class:news={updateStatus() === "available"}
-      onclick={() => (newer ? api.openUrl(newer.url) : void checkForUpdate(true))}
+      onclick={() => (newer ? (updateOpen = true) : void checkForUpdate(true))}
       title={newer ? t("update.hint", { version: newer.version }) : t("update.check.hint")}
     >
       {#if newer}
@@ -809,6 +812,10 @@
     </div>
   {/if}
 </div>
+
+{#if updateOpen && newer}
+  <UpdateDialog release={newer} onclose={() => (updateOpen = false)} />
+{/if}
 
 {#if connectMenu}
   {@const menu = connectMenu}

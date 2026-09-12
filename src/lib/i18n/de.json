@@ -400,5 +400,10 @@
   "update.checking": "Wird geprüft…",
   "update.current": "Aktuell",
   "update.unreachable": "Prüfung fehlgeschlagen",
-  "filter.close": "Filter beenden"
+  "filter.close": "Filter beenden",
+  "update.dialog.title": "Update auf {version}",
+  "update.dialog.nothing": "Diese Fassung sagt nichts über sich selbst.",
+  "update.dialog.where": "Öffnet die Release-Seite im Browser.",
+  "update.dialog.later": "Später",
+  "update.dialog.download": "Herunterladen"
 }

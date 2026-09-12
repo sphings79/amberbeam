@@ -24,6 +24,13 @@ pub struct Release {
     pub version: String,
     /// Where to read about it.
     pub url: String,
+    /// What the release says about itself, as written.
+    ///
+    /// Carried so the window can show what changed before somebody decides to
+    /// fetch it. It arrives from the network and is never treated as anything
+    /// but text — the window builds its own structure from it rather than
+    /// letting a release describe what to draw.
+    pub notes: String,
 }
 
 /// A version as three numbers, which is all this project uses.
@@ -108,6 +115,11 @@ fn release_of(entry: &serde_json::Value) -> Option<Release> {
 
     Some(Release {
         tag,
+        notes: entry
+            .get("body")
+            .and_then(|body| body.as_str())
+            .unwrap_or_default()
+            .to_string(),
         url: entry
             .get("html_url")
             .and_then(|url| url.as_str())
@@ -120,6 +132,31 @@ fn release_of(entry: &serde_json::Value) -> Option<Release> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_notes_travel_with_the_release() {
+        let answer = serde_json::json!([{
+            "tag_name": "v0.3.0",
+            "html_url": "https://github.com/sphings79/amberbeam/releases/tag/v0.3.0",
+            "body": "### Fixed\n\n- Something that was broken.",
+            "draft": false,
+        }]);
+        let found = read_answer(&answer.to_string()).unwrap();
+        assert_eq!(found.notes, "### Fixed\n\n- Something that was broken.");
+    }
+
+    /// A release with nothing written about it is not an error. It is a
+    /// release somebody published in a hurry, and the window has to cope.
+    #[test]
+    fn a_release_without_notes_is_still_a_release() {
+        let answer = serde_json::json!([{
+            "tag_name": "v0.3.0",
+            "html_url": "https://github.com/sphings79/amberbeam/releases/tag/v0.3.0",
+            "draft": false,
+        }]);
+        let found = read_answer(&answer.to_string()).unwrap();
+        assert_eq!(found.notes, "");
+    }
 
     #[test]
     fn a_higher_version_is_newer() {
