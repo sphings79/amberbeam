@@ -80,6 +80,8 @@ jobs:
       # working one, until somebody clicks it.
       - name: Wordless buttons say what they do
         run: npm run check:buttons
+      - name: Release notes come apart safely
+        run: npm run check:notes
       - name: Documentation links
         run: npm run check:docs
       - run: npm run check

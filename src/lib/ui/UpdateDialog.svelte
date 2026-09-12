@@ -13,6 +13,7 @@
    * line of text, which is the worst that can happen and is harmless.
    */
   import { api, type Release } from "../bridge";
+  import { pieces } from "./notes";
   import { t } from "../i18n/index.svelte";
   import { trap } from "./trap";
 
@@ -23,54 +24,7 @@
 
   let { release, onclose }: Props = $props();
 
-  type Piece =
-    | { kind: "heading"; text: string }
-    | { kind: "bullet"; parts: { text: string; strong: boolean }[] }
-    | { kind: "line"; parts: { text: string; strong: boolean }[] };
-
-  /**
-   * Splits `**bold**` out of a line and leaves everything else alone.
-   *
-   * Deliberately the only inline thing understood. A release note is read, not
-   * interacted with, and every further shape is another thing that can be got
-   * wrong on text somebody else wrote.
-   */
-  function inline(text: string): { text: string; strong: boolean }[] {
-    return text
-      .split(/(\*\*[^*]+\*\*)/)
-      .filter((part) => part !== "")
-      .map((part) =>
-        part.startsWith("**") && part.endsWith("**")
-          ? { text: part.slice(2, -2), strong: true }
-          : { text: part, strong: false },
-      );
-  }
-
-  let pieces = $derived.by(() => {
-    const out: Piece[] = [];
-    for (const raw of release.notes.split("\n")) {
-      const line = raw.trimEnd();
-      if (line.trim() === "") continue;
-      const heading = /^#{1,6}\s+(.*)$/.exec(line);
-      if (heading) {
-        out.push({ kind: "heading", text: heading[1] ?? "" });
-        continue;
-      }
-      const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
-      if (bullet) {
-        out.push({ kind: "bullet", parts: inline(bullet[1] ?? "") });
-        continue;
-      }
-      // A continuation of the bullet above it, which is how these notes wrap.
-      const last = out[out.length - 1];
-      if (last && (last.kind === "bullet" || last.kind === "line") && /^\s+\S/.test(raw)) {
-        last.parts.push({ text: " " + line.trim(), strong: false });
-        continue;
-      }
-      out.push({ kind: "line", parts: inline(line.trim()) });
-    }
-    return out;
-  });
+  let parts = $derived(pieces(release.notes));
 </script>
 
 <div class="backdrop" role="presentation">
@@ -87,10 +41,10 @@
     </header>
 
     <div class="notes">
-      {#if pieces.length === 0}
+      {#if parts.length === 0}
         <p class="hint">{t("update.dialog.nothing")}</p>
       {:else}
-        {#each pieces as piece, index (index)}
+        {#each parts as piece, index (index)}
           {#if piece.kind === "heading"}
             <h3>{piece.text}</h3>
           {:else if piece.kind === "bullet"}
@@ -100,7 +54,7 @@
               {/each}
             </p>
           {:else}
-            <p>
+            <p class:under={piece.kind === "under"}>
               {#each piece.parts as part, at (at)}
                 {#if part.strong}<strong>{part.text}</strong>{:else}{part.text}{/if}
               {/each}
@@ -189,6 +143,11 @@
   .notes p.bullet {
     padding-left: 14px;
     text-indent: -14px;
+  }
+
+  /* Lined up under the point it belongs to, so it reads as part of it. */
+  .notes p.under {
+    padding-left: 14px;
   }
 
   .notes p.bullet::before {

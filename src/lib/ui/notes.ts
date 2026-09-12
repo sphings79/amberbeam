@@ -1,0 +1,85 @@
+/**
+ * Release notes, taken apart.
+ *
+ * The text arrives from the network and is treated as nothing but text: this
+ * returns pieces the window draws itself, never markup. Whatever a release
+ * says, the worst it can produce here is a plain line — there is no shape it
+ * can ask for that this does not already know how to draw.
+ *
+ * Plain TypeScript with no runes, so `scripts/check-notes.mjs` can run it and
+ * check it against a real release rather than against a hopeful example.
+ */
+
+export interface Span {
+  text: string;
+  strong: boolean;
+}
+
+export type Piece =
+  | { kind: "heading"; text: string }
+  | { kind: "bullet"; parts: Span[] }
+  /** A second paragraph belonging to the point above it. */
+  | { kind: "under"; parts: Span[] }
+  | { kind: "line"; parts: Span[] };
+
+/**
+ * Splits `**bold**` out of a line and leaves everything else alone.
+ *
+ * Deliberately the only inline shape understood. A release note is read, not
+ * interacted with, and every further shape is one more thing to get wrong on
+ * text somebody else wrote.
+ */
+export function inline(text: string): Span[] {
+  return text
+    .split(/(\*\*[^*]+\*\*)/)
+    .filter((part) => part !== "")
+    .map((part) =>
+      part.startsWith("**") && part.endsWith("**")
+        ? { text: part.slice(2, -2), strong: true }
+        : { text: part, strong: false },
+    );
+}
+
+export function pieces(notes: string): Piece[] {
+  const out: Piece[] = [];
+  let blankBefore = false;
+
+  for (const raw of notes.split("\n")) {
+    const line = raw.trimEnd();
+    if (line.trim() === "") {
+      blankBefore = true;
+      continue;
+    }
+    const broken = blankBefore;
+    blankBefore = false;
+
+    const heading = /^#{1,6}\s+(.*)$/.exec(line);
+    if (heading) {
+      out.push({ kind: "heading", text: heading[1] ?? "" });
+      continue;
+    }
+
+    const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (bullet) {
+      out.push({ kind: "bullet", parts: inline(bullet[1] ?? "") });
+      continue;
+    }
+
+    // An indented line belongs to the bullet above it. These notes wrap at
+    // eighty columns, so most bullets arrive as several lines and joining them
+    // back up is the difference between a paragraph and a stack of fragments.
+    //
+    // Unless a blank line came between them: then the writer meant a second
+    // paragraph under the same point, and running the two together makes one
+    // sentence out of two thoughts.
+    const last = out[out.length - 1];
+    const indented = /^\s+\S/.test(raw);
+    if (last && last.kind !== "heading" && indented && !broken) {
+      last.parts.push(...inline(" " + line.trim()));
+      continue;
+    }
+
+    out.push({ kind: indented ? "under" : "line", parts: inline(line.trim()) });
+  }
+  return out;
+}
