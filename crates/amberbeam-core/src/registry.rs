@@ -359,6 +359,31 @@ impl Sessions {
         session.stat(path).await
     }
 
+    /// What a file's bytes come to, for telling two of them apart.
+    ///
+    /// Reads the whole file. Over a server that is the cost of transferring
+    /// it, which is why nothing asks for this unless somebody chose it.
+    pub async fn digest(&self, endpoint: &EndpointId, path: &str) -> Result<[u8; 32]> {
+        use tokio::io::AsyncReadExt;
+
+        let session = self.find(endpoint).await?;
+        let (mut reader, hold) = session.open_read(path, 0).await?;
+        let mut context = ring::digest::Context::new(&ring::digest::SHA256);
+        let mut buffer = vec![0u8; 64 * 1024];
+        loop {
+            let read = reader.read(&mut buffer).await.map_err(Error::from)?;
+            if read == 0 {
+                break;
+            }
+            context.update(&buffer[..read]);
+        }
+        session.finish_read(reader, hold).await?;
+
+        let mut out = [0u8; 32];
+        out.copy_from_slice(context.finish().as_ref());
+        Ok(out)
+    }
+
     /// Moves one file from one endpoint to another.
     ///
     /// Neither side is privileged: a download, an upload and a copy between two

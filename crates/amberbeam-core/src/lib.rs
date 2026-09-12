@@ -14,6 +14,7 @@
 //!    the user interface translates; see the `i18n` module of the frontend.
 
 pub mod bundle;
+pub mod compare;
 pub mod config;
 pub mod editing;
 pub mod endpoint;
@@ -38,6 +39,7 @@ pub mod system;
 pub mod transfer;
 pub mod update;
 
+pub use compare::{Comparison, Difference, How};
 pub use config::{AuthKind, Config, QuickConnectEntry, Settings};
 pub use editing::{Edit, Edits, Encoding};
 pub use endpoint::{Endpoint, EndpointId, FtpSecurity, Protocol};

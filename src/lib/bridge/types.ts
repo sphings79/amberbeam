@@ -182,6 +182,7 @@ export type LogDirection = "sent" | "received" | "note";
 
 export type CoreEvent =
   | { event: "log"; endpoint: string; direction: LogDirection; text: string }
+  | { event: "comparing"; directories: number; rows: number }
   | {
       event: "edited";
       id: string;
@@ -400,6 +401,43 @@ export interface Site {
   colour: string | null;
 }
 
+/** What two sides are judged by when they are compared. */
+export type How = "size" | "size-and-time" | "checksum";
+
+/** What a comparison found about one name. */
+export type Difference = "only-here" | "only-there" | "different" | "same";
+
+/** One side of one row of a comparison. */
+export interface Seen {
+  size: number | null;
+  modified: number | null;
+}
+
+/** One name, as both sides have it. */
+export interface CompareRow {
+  /** Where it sits below the two directories, with forward slashes. */
+  path: string;
+  name: string;
+  kind: EntryKind;
+  state: Difference;
+  here: Seen | null;
+  there: Seen | null;
+}
+
+/** What a comparison found. */
+export interface Comparison {
+  rows: CompareRow[];
+  /** Directories listed, both sides together. */
+  directories: number;
+  /**
+   * True when the walk stopped at its own limit rather than at the end.
+   *
+   * Has to be shown. Everything missing from a list that is quietly
+   * incomplete looks exactly like agreement.
+   */
+  cutShort: boolean;
+}
+
 /** What opens a file of a given kind. */
 export type OpenWith = "own" | "system" | "program";
 
@@ -604,6 +642,22 @@ export interface AmberBeamApi {
    * what is not text and what is too large — a rule about what may be edited
    * belongs where it can be applied once, not in each window that asks.
    */
+  /**
+   * Walks two directories and says what differs.
+   *
+   * Sends `comparing` events as it goes, because a recursive walk of two trees
+   * is many listings and no other sign of life.
+   */
+  compare(it: {
+    hereEndpoint: string;
+    herePath: string;
+    thereEndpoint: string;
+    therePath: string;
+    recursive: boolean;
+    how: How;
+    excludes: string[];
+  }): Promise<Comparison>;
+
   startEdit(endpoint: string, path: string): Promise<Edit>;
   /**
    * Which line of the table covers a file, or null for none.

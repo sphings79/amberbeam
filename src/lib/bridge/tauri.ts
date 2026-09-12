@@ -12,8 +12,10 @@ import type {
   ConnectRequest,
   CoreEvent,
   CoreInfo,
+  Comparison,
   Edit,
   EditRule,
+  How,
   Listing,
   ConflictPolicy,
   EnqueueRequest,
@@ -110,6 +112,15 @@ export const api: AmberBeamApi = {
     send<void>("queue_decide", { id, policy, forAll }),
 
 
+  compare: (it: {
+    hereEndpoint: string;
+    herePath: string;
+    thereEndpoint: string;
+    therePath: string;
+    recursive: boolean;
+    how: How;
+    excludes: string[];
+  }) => send<Comparison>("compare", it),
   startEdit: (endpoint: string, path: string) => send<Edit>("start_edit", { endpoint, path }),
   howToEdit: (name: string) => send<EditRule | null>("how_to_edit", { name }),
   openEdits: () => send<Edit[]>("open_edits"),

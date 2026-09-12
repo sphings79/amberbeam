@@ -824,3 +824,147 @@ async fn a_file_is_edited_where_it_lies() {
     sessions.remove(&remote, &there).await.expect("tidy up");
     let _ = std::fs::remove_dir_all(std::env::temp_dir().join("amberbeam-edit-test"));
 }
+
+/// Two directories compared against a real server.
+///
+/// The rules are unit-tested; what needs a server is everything around them —
+/// a side that is not there yet, a listing whose dates come from `MLSD`, and a
+/// digest read back over a data connection.
+#[tokio::test]
+async fn two_directories_are_told_apart() {
+    use amberbeam_core::compare::{compare, Asking, Difference, How};
+    use amberbeam_core::registry::{Sessions, TransferRun, LOCAL};
+
+    let (host, port) = server_or_skip!("two_directories_are_told_apart");
+    let events = Events::new();
+    let sessions = Sessions::new(events.clone());
+    let remote = EndpointId::new("ftp");
+    let local = EndpointId::new(LOCAL);
+
+    let connected = sessions
+        .connect_ftp(&remote, &params(&host, port, Encryption::None))
+        .await
+        .expect("connect");
+    let there = format!("{}/compare", connected.home.trim_end_matches('/'));
+
+    // A directory on this machine, and the same one on the server with three
+    // deliberate differences in it.
+    let here = std::env::temp_dir().join("amberbeam-compare-test");
+    let _ = std::fs::remove_dir_all(&here);
+    std::fs::create_dir_all(here.join("bilder")).expect("scratch directory");
+    std::fs::write(here.join("index.php"), b"<?php\n// eins\n").unwrap();
+    std::fs::write(here.join("gleich.txt"), b"gleich\n").unwrap();
+    std::fs::write(here.join("nur-hier.txt"), b"nur hier\n").unwrap();
+    std::fs::write(here.join("bilder/foto.jpg"), b"nicht wirklich\n").unwrap();
+    std::fs::write(here.join("error.log"), b"weggelassen\n").unwrap();
+
+    let put = |from: std::path::PathBuf, to: String| TransferRun {
+        source_endpoint: local.clone(),
+        source_path: from.to_string_lossy().into_owned(),
+        target_endpoint: remote.clone(),
+        target_path: to,
+        resume: None,
+        keep_modified: false,
+        keep_permissions: false,
+        use_temporary_name: false,
+        source_permissions: None,
+    };
+    let progress = || amberbeam_core::engine::Progress::default();
+
+    // Made rather than ensured: this server answers MLSD of a directory that
+    // does not exist with an empty listing and no error, so "can it be listed"
+    // is not the same question as "is it there". See the note in the commit.
+    let _ = sessions.remove(&remote, &there).await;
+    sessions.create_dir(&remote, &there).await.expect("make it");
+    // The same length as index.php here, and not the same bytes: the case
+    // that size alone cannot see and a digest can.
+    let other = here.join("other.php");
+    std::fs::write(&other, b"<?php\n// ZWEI\n").unwrap();
+    sessions
+        .transfer(
+            &put(other.clone(), format!("{there}/index.php")),
+            &progress(),
+        )
+        .await
+        .expect("upload the changed one");
+    sessions
+        .transfer(
+            &put(here.join("gleich.txt"), format!("{there}/gleich.txt")),
+            &progress(),
+        )
+        .await
+        .expect("upload the same one");
+    let only_there = here.join("nur-dort.txt");
+    std::fs::write(&only_there, b"nur dort\n").unwrap();
+    sessions
+        .transfer(
+            &put(only_there.clone(), format!("{there}/nur-dort.txt")),
+            &progress(),
+        )
+        .await
+        .expect("upload the extra one");
+    std::fs::remove_file(&only_there).unwrap();
+    std::fs::remove_file(&other).unwrap();
+
+    let asking = |how, recursive| Asking {
+        here: (local.clone(), here.to_string_lossy().into_owned()),
+        there: (remote.clone(), there.clone()),
+        recursive,
+        how,
+        excludes: vec!["*.log".into()],
+    };
+
+    // By size the two index.php files look identical, because they are the
+    // same length. That is the blind spot, and it is the reason the checksum
+    // option exists.
+    let found = compare(&sessions, &asking(How::Size, false), &events)
+        .await
+        .expect("compare");
+    let state = |rows: &Vec<amberbeam_core::compare::Row>, name: &str| {
+        rows.iter()
+            .find(|row| row.name == name)
+            .unwrap_or_else(|| panic!("{name} is not in the comparison"))
+            .state
+    };
+    assert_eq!(state(&found.rows, "index.php"), Difference::Same);
+    assert_eq!(state(&found.rows, "nur-hier.txt"), Difference::OnlyHere);
+    assert_eq!(state(&found.rows, "nur-dort.txt"), Difference::OnlyThere);
+    assert_eq!(state(&found.rows, "gleich.txt"), Difference::Same);
+    assert!(
+        !found.rows.iter().any(|row| row.name == "error.log"),
+        "an excluded name is not a row"
+    );
+    assert!(
+        !found.rows.iter().any(|row| row.path.contains('/')),
+        "nothing below the top level without being asked"
+    );
+    assert!(!found.cut_short);
+
+    // By checksum the same pair is what it really is.
+    let found = compare(&sessions, &asking(How::Checksum, false), &events)
+        .await
+        .expect("compare by checksum");
+    assert_eq!(
+        state(&found.rows, "index.php"),
+        Difference::Different,
+        "same length, different bytes: what the digest is for"
+    );
+    assert_eq!(state(&found.rows, "gleich.txt"), Difference::Same);
+
+    // And recursively, a directory that is only here is walked rather than
+    // reported and left — otherwise "upload what differs" would make an empty
+    // directory and stop.
+    let found = compare(&sessions, &asking(How::Checksum, true), &events)
+        .await
+        .expect("compare recursively");
+    assert_eq!(state(&found.rows, "bilder"), Difference::OnlyHere);
+    assert_eq!(state(&found.rows, "foto.jpg"), Difference::OnlyHere);
+    assert!(
+        found.rows.iter().any(|row| row.path == "bilder/foto.jpg"),
+        "a row below the top level is named by where it sits"
+    );
+    assert!(found.directories >= 4, "both sides of both directories");
+
+    sessions.remove(&remote, &there).await.expect("tidy up");
+    let _ = std::fs::remove_dir_all(&here);
+}

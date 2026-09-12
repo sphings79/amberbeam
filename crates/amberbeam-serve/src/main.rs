@@ -208,6 +208,7 @@ async fn main() {
         secrets,
         session: MemoryStore::default(),
         edits: Edits::beneath_temp(),
+        events: events.clone(),
         version: env!("CARGO_PKG_VERSION").to_string(),
     });
 
@@ -240,7 +241,7 @@ async fn main() {
     // memory, so anything still in that directory belongs to nobody.
     service.edits.sweep();
     service.queue.start();
-    amberbeam_commands::watch_edits(&service, events.clone());
+    amberbeam_commands::watch_edits(&service);
 
     let web = env("AMBERBEAM_WEB").unwrap_or_else(|| "/web".into());
     let index = std::path::Path::new(&web).join("index.html");

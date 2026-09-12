@@ -73,6 +73,12 @@ pub enum Event {
     /// The queue changed in a way the window cannot infer from progress alone:
     /// a job finished, failed, was added or needs an answer.
     Queue,
+    /// How far a comparison has got.
+    ///
+    /// A recursive walk of two trees is many listings and no visible sign of
+    /// life. Sent as it goes, so a window can show what it is doing rather
+    /// than appearing to have stopped.
+    Comparing { directories: usize, rows: usize },
     /// Something happened to a file that is open for editing.
     ///
     /// Its own event because nobody is looking: the file is open in another

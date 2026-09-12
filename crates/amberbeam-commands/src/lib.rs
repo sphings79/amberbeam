@@ -27,6 +27,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use amberbeam_core::compare::{compare, Asking, How};
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
 use amberbeam_core::editing::{how_to_open, Edits};
 use amberbeam_core::endpoint::EndpointId;
@@ -63,6 +64,13 @@ pub struct Service {
     /// The files taken off a server to be worked on, and the copies they
     /// were taken into.
     pub edits: Edits,
+    /// The stream everything the core wants to say goes down.
+    ///
+    /// Held here rather than passed around: the sessions and the queue were
+    /// handed one when they were built, and anything else that has something
+    /// to report needs the same one — two streams would mean a window
+    /// listening to half of what happened.
+    pub events: Events,
     /// The version the shell was built as, for judging a release against.
     ///
     /// Passed in rather than read here: `CARGO_PKG_VERSION` in this crate is
@@ -383,6 +391,22 @@ struct Editing {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct Comparing {
+    here_endpoint: String,
+    here_path: String,
+    there_endpoint: String,
+    there_path: String,
+    #[serde(default)]
+    recursive: bool,
+    how: How,
+    /// Names never looked at. Sent by the window because they belong to the
+    /// server entry, which is the window's to read.
+    #[serde(default)]
+    excludes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Named {
     name: String,
 }
@@ -512,6 +536,7 @@ pub const COMMANDS: &[&str] = &[
     "queue_clear_finished",
     "queue_move",
     "queue_decide",
+    "compare",
     "start_edit",
     "how_to_edit",
     "open_edits",
@@ -840,6 +865,23 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
                 )
                 .await?)
         }
+        // --- Telling two directories apart ---
+        "compare" => {
+            let it: Comparing = taking(command, args)?;
+            out(compare(
+                &service.sessions,
+                &Asking {
+                    here: (EndpointId::new(it.here_endpoint), it.here_path),
+                    there: (EndpointId::new(it.there_endpoint), it.there_path),
+                    recursive: it.recursive,
+                    how: it.how,
+                    excludes: it.excludes,
+                },
+                &service.events,
+            )
+            .await?)
+        }
+
         "open_edits" => out(service.edits.list().await),
         "how_to_edit" => {
             let it: Named = taking(command, args)?;
@@ -997,7 +1039,7 @@ const LOOK_EVERY: Duration = Duration::from_secs(1);
 /// Only started where there is something to watch. The check itself is a
 /// `metadata` call per open file, so an idle program with nothing open does no
 /// work at all beyond waking once a second to find that out.
-pub fn watch_edits(service: &Arc<Service>, events: Events) {
+pub fn watch_edits(service: &Arc<Service>) {
     let service = Arc::clone(service);
     tokio::spawn(async move {
         loop {
@@ -1008,7 +1050,7 @@ pub fn watch_edits(service: &Arc<Service>, events: Events) {
                     Err(Error::EditChangedOnServer { path }) => Edited::Changed { path },
                     Err(error) => Edited::Failed { error },
                 };
-                events.emit(Event::Edited {
+                service.events.emit(Event::Edited {
                     id: edit.id,
                     name: edit.name,
                     what,
@@ -1303,6 +1345,7 @@ mod tests {
             secrets: Box::new(MemoryStore::default()),
             session: MemoryStore::default(),
             edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
+            events: amberbeam_core::Events::new(),
             version: "0.0.0".into(),
         });
 
@@ -1332,6 +1375,7 @@ mod tests {
             secrets: Box::new(MemoryStore::default()),
             session: MemoryStore::default(),
             edits: Edits::at(std::env::temp_dir().join("amberbeam-commands-test/edits")),
+            events: amberbeam_core::Events::new(),
             version: "0.0.0".into(),
         });
 

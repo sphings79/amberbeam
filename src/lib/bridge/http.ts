@@ -21,8 +21,10 @@ import type {
   ConnectRequest,
   CoreEvent,
   CoreInfo,
+  Comparison,
   Edit,
   EditRule,
+  How,
   Listing,
   ConflictPolicy,
   EnqueueRequest,
@@ -169,6 +171,15 @@ export function makeApi(target: Target): AmberBeamApi {
     setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
       call<void>("set_permissions", { endpoint, path, mode, recursive }),
 
+    compare: (it: {
+      hereEndpoint: string;
+      herePath: string;
+      thereEndpoint: string;
+      therePath: string;
+      recursive: boolean;
+      how: How;
+      excludes: string[];
+    }) => call<Comparison>("compare", it),
     startEdit: (endpoint: string, path: string) =>
       call<Edit>("start_edit", { endpoint, path }),
     howToEdit: (name: string) => call<EditRule | null>("how_to_edit", { name }),

@@ -548,6 +548,7 @@ pub fn run() {
         secrets: Box::new(SystemStore::default()),
         session: MemoryStore::default(),
         edits: Edits::beneath_temp(),
+        events: events.clone(),
         // The version of the program somebody is running, which is this crate
         // and not the shared one.
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -577,7 +578,6 @@ pub fn run() {
             // another program is editing.
             let queue = Arc::clone(&started.queue);
             let settings = started.config.settings();
-            let watching = events.clone();
             let service = Arc::clone(&started);
             tauri::async_runtime::spawn(async move {
                 // What was chosen last time applies from the first second of
@@ -589,7 +589,7 @@ pub fn run() {
                 // memory, so anything still in that directory belongs to nobody.
                 service.edits.sweep();
                 queue.start();
-                amberbeam_commands::watch_edits(&service, watching);
+                amberbeam_commands::watch_edits(&service);
             });
 
             // The core's event stream is pumped into the webview here. This is
