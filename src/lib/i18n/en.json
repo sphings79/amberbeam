@@ -442,5 +442,6 @@
   "signin.going": "Signing in…",
   "upload.local-only": "A browser cannot put a file straight onto a server. Drop it here first, then transfer it.",
   "upload.arriving": "{count} arriving…",
-  "cmd.download": "Download"
+  "cmd.download": "Download",
+  "error.encryption-required": "{host} will not talk without encryption. Set this connection to FTPS (explicit) and try again — the server said: {detail}"
 }

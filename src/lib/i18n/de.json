@@ -442,5 +442,6 @@
   "signin.going": "Meldet an…",
   "upload.local-only": "Ein Browser kann eine Datei nicht direkt auf einen Server legen. Erst hierher, dann übertragen.",
   "upload.arriving": "{count} kommen an…",
-  "cmd.download": "Herunterladen"
+  "cmd.download": "Herunterladen",
+  "error.encryption-required": "{host} spricht nicht ohne Verschlüsselung. Stell die Verbindung auf FTPS (explizit) und versuch es erneut — der Server sagt: {detail}"
 }

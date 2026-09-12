@@ -78,6 +78,15 @@ pub struct Abilities {
     /// Setting a file's modification time. Without it an uploaded file carries
     /// the time it arrived, not the time it was written.
     pub mfmt: bool,
+    /// Asking for a data connection in the way that works over IPv6.
+    ///
+    /// PASV answers with four numbers and two more, which is an IPv4 address
+    /// and nothing else. Over IPv6 there is no address it could give, so the
+    /// server refuses and every listing and every transfer fails — on a
+    /// connection that opened perfectly well. EPSV answers with a port and
+    /// means "the same host you are already talking to", which works either
+    /// way.
+    pub epsv: bool,
 }
 
 impl Abilities {
@@ -102,6 +111,7 @@ impl Abilities {
             utf8: has("UTF8"),
             size: has("SIZE"),
             mfmt,
+            epsv: has("EPSV"),
         }
     }
 }
@@ -231,20 +241,28 @@ impl FtpSession {
             format!("connecting to {}:{}", params.host, params.port),
         );
 
-        let mut stream = open(params, endpoint, events).await?;
-
-        let features = stream.feat().await.unwrap_or_default();
+        // The whole of saying hello is under one clock, not just the part that
+        // opens the socket.
+        //
+        // A server that accepts a connection, accepts a login, and then stops
+        // answering used to leave this waiting for ever: the timeout covered
+        // opening and nothing after it, so FEAT and OPTS could hang with the
+        // program showing "connecting…" and no way out but killing it. Nothing
+        // here is worth waiting longer for than the greeting was.
+        let (stream, features) = open(params, endpoint, events).await?;
         let abilities = Abilities::from_features(&features);
+
         events.log(
             endpoint,
             LogDirection::Received,
             format!(
-                "FEAT: MLSD {}, REST STREAM {}, UTF8 {}, SIZE {}, MFMT {}",
+                "FEAT: MLSD {}, REST STREAM {}, UTF8 {}, SIZE {}, MFMT {}, EPSV {}",
                 yes_no(abilities.mlsd),
                 yes_no(abilities.rest),
                 yes_no(abilities.utf8),
                 yes_no(abilities.size),
-                yes_no(abilities.mfmt)
+                yes_no(abilities.mfmt),
+                yes_no(abilities.epsv)
             ),
         );
 
@@ -256,12 +274,6 @@ impl FtpSession {
                 LogDirection::Note,
                 "this server cannot continue an interrupted transfer; a broken one starts again",
             );
-        }
-
-        if abilities.utf8 {
-            // Asked for rather than assumed: a server that speaks UTF-8 only
-            // after being told is common, and names come out mangled otherwise.
-            let _ = stream.opts("UTF8", Some("ON")).await;
         }
 
         events.connection(endpoint, ConnectionState::Connected { banner: None });
@@ -324,7 +336,7 @@ impl FtpSession {
         }
 
         match open(&self.params, &self.endpoint, &self.events).await {
-            Ok(stream) => Ok(FtpLease {
+            Ok((stream, _)) => Ok(FtpLease {
                 session: self,
                 connection: Some(Connection { stream }),
                 _permit: permit,
@@ -988,14 +1000,22 @@ fn yes_no(value: bool) -> &'static str {
 /// The whole of it is bounded: socket, greeting, `AUTH TLS`, handshake and
 /// login. A server that accepts the connection and then goes quiet is the
 /// failure this guards against, and it can go quiet at any point in there.
+/// One more connection for the pool, under the same clock as the first.
+///
+/// A second connection that hangs is the same fault as a first one that does:
+/// a transfer would sit waiting for a lease that never arrives, with nothing
+/// on screen to say why.
 async fn open(
     params: &FtpParams,
     endpoint: &EndpointId,
     events: &Events,
-) -> Result<AsyncRustlsFtpStream> {
+) -> Result<(
+    AsyncRustlsFtpStream,
+    std::collections::HashMap<String, Option<String>>,
+)> {
     match tokio::time::timeout(
         crate::endpoint::GREETING,
-        open_inner(params, endpoint, events),
+        say_hello(params, endpoint, events),
     )
     .await
     {
@@ -1006,6 +1026,53 @@ async fn open(
             seconds: crate::endpoint::GREETING.as_secs(),
         }),
     }
+}
+
+/// Everything between dialling and being ready to work.
+///
+/// Opening, securing, logging in, asking what the server can do, and settling
+/// the character set. All of it together, so one clock covers the lot — see
+/// the note where it is called.
+async fn say_hello(
+    params: &FtpParams,
+    endpoint: &EndpointId,
+    events: &Events,
+) -> Result<(
+    AsyncRustlsFtpStream,
+    std::collections::HashMap<String, Option<String>>,
+)> {
+    let mut stream = open_inner(params, endpoint, events).await?;
+    let features = stream.feat().await.unwrap_or_default();
+    let abilities = Abilities::from_features(&features);
+
+    if abilities.utf8 {
+        // Asked for rather than assumed: a server that speaks UTF-8 only
+        // after being told is common, and names come out mangled otherwise.
+        let _ = stream.opts("UTF8", Some("ON")).await;
+    }
+
+    // How this connection will ask for a data channel. Decided here rather
+    // than by the caller, because every connection goes through here — the
+    // first one and every further one the queue opens — and a pool where the
+    // first can list and the rest cannot would be a puzzle nobody could read.
+    //
+    // EPSV wherever it is offered, and not as a nicety: over IPv6 it is the
+    // only one that can work at all. PASV answers with four numbers and two
+    // more, which is an IPv4 address and nothing else, so the server refuses
+    // and every listing fails on a connection that opened perfectly well.
+    if params.passive {
+        if abilities.epsv {
+            stream.set_mode(suppaftp::Mode::ExtendedPassive);
+        } else {
+            // No EPSV, so PASV — with the address it gives checked against the
+            // one already being talked to. A server behind something that
+            // rewrites addresses announces its private one, and dialling that
+            // from outside is a wait that ends in nothing.
+            stream.set_passive_nat_workaround(true);
+        }
+    }
+
+    Ok((stream, features))
 }
 
 async fn open_inner(
@@ -1069,9 +1136,7 @@ async fn open_inner(
     stream
         .login(&params.user, &params.password)
         .await
-        .map_err(|_| Error::AuthenticationFailed {
-            user: params.user.clone(),
-        })?;
+        .map_err(|error| login_failure(error, params))?;
 
     // Binary throughout. The text mode with its rewritten line endings arrives
     // with the settings of M5, because a wrongly converted file is harder to
@@ -1083,6 +1148,34 @@ async fn open_inner(
     }
 
     Ok(stream)
+}
+
+/// Tells a refused password from a server that never looked at it.
+///
+/// A server with TLS required answers `USER` with something like
+/// "550 SSL/TLS required on the control channel" — the password is never
+/// reached, let alone judged. Calling that a failed login sends somebody to
+/// check a password that was never wrong, while the one sentence that would
+/// have solved it is thrown away.
+///
+/// Matched on what the server said rather than on the reply code: the codes
+/// used for this are all over the place (530, 534, 550 are all in the wild),
+/// and the words are what the servers agree on.
+fn login_failure(error: FtpError, params: &FtpParams) -> Error {
+    if let FtpError::UnexpectedResponse(response) = &error {
+        let said = String::from_utf8_lossy(&response.body).to_ascii_lowercase();
+        let demands_tls = (said.contains("tls") || said.contains("ssl"))
+            && (said.contains("requir") || said.contains("must") || said.contains("only"));
+        if demands_tls {
+            return Error::EncryptionRequired {
+                host: params.host.clone(),
+                detail: String::from_utf8_lossy(&response.body).trim().to_string(),
+            };
+        }
+    }
+    Error::AuthenticationFailed {
+        user: params.user.clone(),
+    }
 }
 
 /// Says what actually went wrong when securing a connection failed.
