@@ -26,7 +26,12 @@ for your own server.
 
 ## Status
 
-> **Milestone M4: it has a server list, and reads other programs'.**
+> **0.1.0 is out** — [installers for macOS, Windows and Linux](https://github.com/sphings79/amberbeam/releases/latest).
+> A pre-release, which is a statement about the state of the program rather
+> than a technicality: it does what it says, it is tested, and it is not
+> finished. [What changed](CHANGELOG.md) · [what is missing](CHANGELOG.md#not-there-yet)
+>
+> **Milestone M5: the keyboard, and everything around it.**
 > Two panes with folder trees, a queue that survives a restart, transfers that
 > pick up where they broke off, and the questions that have to be asked before
 > a file is overwritten — over `AUTH TLS`, over implicit FTPS on port 990, and
@@ -235,8 +240,8 @@ themselves are the source of truth and are readable anywhere.
 | **M3** | FTP and FTPS: control and data channel, `MLSD` preferred, `LIST` with dialect detection as fallback, certificates named by what is wrong with them | **done** |
 | **M4** | Site manager: system credential store, import from FileZilla, WinSCP, OpenSSH and the older Windows clients, export | **done** |
 | **M5** | Keyboard and settings: function keys, first-run dialog, remappable schemes, raw commands, server search | **done** |
-| **M6** | Polish: icon, signing and notarisation, help, first release | next |
-| **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | |
+| **M6** | Polish: icon, signing and notarisation, help, first release | **done** |
+| **M7** | Container: the same core behind an HTTP and WebSocket service, single user, Docker image for amd64 and arm64 — transfers between two remote servers then run there instead of through your home line | next |
 
 ## Translating
 

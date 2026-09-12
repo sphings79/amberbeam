@@ -26,7 +26,12 @@ für den eigenen Server.
 
 ## Stand
 
-> **Meilenstein M4: Es hat eine Serverliste — und liest die anderer Programme.**
+> **0.1.0 ist draußen** — [Installer für macOS, Windows und Linux](https://github.com/sphings79/amberbeam/releases/latest).
+> Eine Vorabversion, und das ist eine Aussage über den Zustand des Programms,
+> keine Formalie: Es tut, was es sagt, es ist geprüft, und es ist nicht fertig.
+> [Was sich geändert hat](CHANGELOG.de.md) · [was fehlt](CHANGELOG.de.md#noch-nicht-dabei)
+>
+> **Meilenstein M5: Die Tastatur, und alles drumherum.**
 > Zwei Bereiche mit Ordnerbaum, eine Warteschlange, die einen Neustart
 > übersteht, Übertragungen, die dort weitermachen, wo sie abgerissen sind, und
 > die Rückfragen, die vor dem Überschreiben nötig sind — über `AUTH TLS`, über
@@ -242,8 +247,8 @@ selbst sind die Quelle und überall lesbar.
 | **M3** | FTP und FTPS: Kontroll- und Datenkanal, `MLSD` bevorzugt, `LIST` mit Dialekterkennung als Rückfallebene, Zertifikate beim Namen genannt statt „Zertifikatsfehler" | **fertig** |
 | **M4** | Site Manager: Zugangsdatenspeicher des Systems, Import aus FileZilla, WinSCP, OpenSSH und den älteren Windows-Programmen, Export | **fertig** |
 | **M5** | Tastatur und Einstellungen: F-Tasten, Einrichtungsdialog, frei belegbare Schemata, Raw-Befehle, Serversuche | **fertig** |
-| **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | als Nächstes |
-| **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | |
+| **M6** | Feinschliff: Symbol, Signierung und Beglaubigung, Hilfe, erste Veröffentlichung | **fertig** |
+| **M7** | Container: derselbe Kern hinter HTTP und WebSocket, ein Benutzer, Docker-Abbild für amd64 und arm64 — Übertragungen zwischen zwei entfernten Servern laufen dann dort statt durch deine Hausleitung | als Nächstes |
 
 ## Übersetzen
 
