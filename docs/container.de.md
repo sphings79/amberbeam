@@ -66,6 +66,23 @@ nicht so tun: Dorthin sind es zwei Schritte, und der zweite ist die
 Warteschlange. Ein Drop auf eine Serverseite sagt das, statt auf halbem Weg zu
 scheitern.
 
+## Eine Datei dort bearbeiten, wo sie liegt
+
+Rechtsklick auf eine Datei der Serverseite und **Remote bearbeiten**: Eine
+Kopie kommt herunter, geht in AmberBeams eigenem Editor über der Seite auf,
+und jedes Speichern geht direkt wieder hinauf.
+
+Nur dieser Editor. In den Einstellungen lässt sich eine Dateiart auf ein
+anderes Programm zeigen, und hier ist das nicht ausführbar — der Dienst läuft
+auf dieser Maschine, und ein dort gestartetes Programm erschiene nicht vor
+dem, der danach gefragt hat. Die Datei geht stattdessen im Editor hier auf,
+und das Log sagt es, statt jemanden rätseln zu lassen, warum sein Editor nicht
+kommt.
+
+Welche Dateien überhaupt bearbeitet werden dürfen, steht in der Tabelle unter
+**Einstellungen → Bearbeiten** — dieselbe Tabelle, die das Desktop-Programm
+liest, wenn es diesen Dienst bedient.
+
 ## Was er nicht tut
 
 **Er spricht selbst kein TLS.** Stell einen Reverse Proxy davor, der auf dieser

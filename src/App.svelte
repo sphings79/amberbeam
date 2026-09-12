@@ -128,6 +128,10 @@
     if (rule && rule.openWith !== "own") {
       const program = rule.openWith === "program" ? rule.program : null;
       if (await api.openWith(started.localPath, program)) return;
+      // Said rather than quietly substituted. Somebody who chose a program and
+      // got something else is owed the reason, and in a browser the reason is
+      // that the program would start on the other machine.
+      note(t("editing.here-only", { name: started.name }));
     }
 
     if (!(await api.openEditor(started.id, started.name))) {

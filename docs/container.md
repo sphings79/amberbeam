@@ -65,6 +65,22 @@ file straight onto an FTP server, and it should not pretend to: getting one
 there is two steps, and the queue is the second. Dropping onto a server pane
 says so rather than failing halfway.
 
+## Editing a file where it lies
+
+Right-click a file on the server pane and **Edit remotely**: a copy comes down,
+opens in AmberBeam's own editor over the page, and every save goes straight
+back up.
+
+Only that editor. The settings can point a kind of file at another program,
+and here that setting cannot be carried out — the service runs on this
+machine, and a program started on it would not appear in front of whoever
+asked for it. The file opens in the editor here instead, and the log says so
+rather than leaving somebody to wonder why their editor never came up.
+
+Which files may be edited at all is the table under **Settings → Editing**,
+and it is the same table the desktop program reads when it drives this
+service.
+
 ## What it does not do
 
 **It does not speak TLS itself.** Put a reverse proxy in front of it, which is

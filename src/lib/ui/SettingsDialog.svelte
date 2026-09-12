@@ -220,6 +220,14 @@
 
         <button type="button" class="add" onclick={addRule}>{t("settings.editing.add")}</button>
 
+        {#if !canBrowse}
+          <!-- The service runs on another machine, and a program started there
+               would not appear in front of whoever asked for it. The rows stay
+               editable: the same settings file is read by the desktop program
+               when it drives this service. -->
+          <p class="hint">{t("settings.editing.web")}</p>
+        {/if}
+
         <p class="note">{t("settings.per-connection")}</p>
       </div>
     {/if}
