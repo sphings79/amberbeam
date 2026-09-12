@@ -224,8 +224,125 @@ export async function openSession(
 }
 
 /** Reads a directory into a pane. */
+/**
+ * Whether the two panes walk together.
+ *
+ * One switch for both sides rather than one each: "together" is a relation and
+ * not a property of either pane, and two switches that could disagree would
+ * mean a state nobody could describe.
+ */
+let together = $state(false);
+
+/** Set while a pane is being moved by the other, so it does not move it back. */
+let following = false;
+
+export function browsingTogether(): boolean {
+  return together;
+}
+
+export function setBrowsingTogether(on: boolean): void {
+  together = on;
+}
+
+/**
+ * How the window asks whether to create a directory that is not there.
+ *
+ * A callback rather than a dialog here: this module knows about paths and
+ * listings and has no business drawing anything. The window installs its own
+ * way of asking, and a window that installs none simply never creates
+ * anything.
+ */
+let askToCreate: ((side: Side, path: string) => Promise<boolean>) | null = null;
+
+export function whenDirectoryMissing(ask: (side: Side, path: string) => Promise<boolean>): void {
+  askToCreate = ask;
+}
+
+/**
+ * Where the other side should go, given where this one went.
+ *
+ * Down: the same names appended to where the other side is. Up: the same
+ * number of levels up. Anywhere else — a path typed in that is not above or
+ * below where we were — has no counterpart by name, and the honest answer is
+ * to leave the other side where it is rather than guess.
+ */
+function steps(before: string, after: string): { down: string[] } | { up: number } | null {
+  const cut = (path: string) => path.split("/").filter((part) => part !== "");
+  const from = cut(before);
+  const to = cut(after);
+
+  if (to.length > from.length && from.every((part, at) => to[at] === part)) {
+    return { down: to.slice(from.length) };
+  }
+  if (from.length > to.length && to.every((part, at) => from[at] === part)) {
+    return { up: from.length - to.length };
+  }
+  return null;
+}
+
+async function follow(mover: Side, before: string, after: string): Promise<void> {
+  const other: Side = mover === "left" ? "right" : "left";
+  const move = steps(before, after);
+  if (!move) return;
+
+  const state = panes[other];
+  const started = state.path;
+  following = true;
+
+  try {
+    if ("up" in move) {
+      let target = started;
+      for (let step = 0; step < move.up; step += 1) {
+        const parent = await api.parentOf(state.endpoint, target);
+        if (!parent || parent === target) break;
+        target = parent;
+      }
+      if (target !== started) await navigate(other, target);
+      return;
+    }
+
+    // One level at a time, because each of them can be the one that is not
+    // there, and because creating a directory takes a name and a place to put
+    // it rather than a finished path — which is what keeps a name with a
+    // slash in it from landing somewhere else entirely.
+    let at = started;
+    for (const name of move.down) {
+      const next = await api.joinPath(state.endpoint, at, name);
+      await navigate(other, next);
+
+      if (state.failure) {
+        // The question replaces the complaint rather than joining it. A red
+        // line saying a directory is missing, under a dialog asking whether to
+        // create it, is the same thing said twice — and the first one is not
+        // this pane's news to report.
+        state.failure = null;
+
+        // Asked only after the move failed: a directory that is already there
+        // is the ordinary case and must not produce a question.
+        const make = askToCreate ? await askToCreate(other, next) : false;
+        if (!make) {
+          // Back where it was. A pane showing an error because the *other*
+          // pane moved is a pane reporting somebody else's problem.
+          await navigate(other, started);
+          return;
+        }
+        await api.createDir(state.endpoint, at, name);
+        await navigate(other, next);
+        if (state.failure) {
+          await navigate(other, started);
+          return;
+        }
+      }
+      at = next;
+    }
+  } finally {
+    following = false;
+  }
+}
+
 export async function navigate(side: Side, path: string): Promise<void> {
   const state = panes[side];
+  const before = state.path;
   state.busy = true;
   state.failure = null;
   try {
@@ -247,6 +364,12 @@ export async function navigate(side: Side, path: string): Promise<void> {
     state.failure = failure;
   } finally {
     state.busy = false;
+  }
+
+  // After the move and outside the try, so a pane that could not move does not
+  // drag the other one anywhere.
+  if (together && !following && !state.failure && state.path !== before) {
+    await follow(side, before, state.path);
   }
 }
 

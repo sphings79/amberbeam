@@ -41,6 +41,9 @@
     setHiddenVisible,
     requestCommand,
     setFiltering,
+    setBrowsingTogether,
+    browsingTogether,
+    whenDirectoryMissing,
     setTreeVisible,
     setTreeWidth,
     TREE_DEFAULT,
@@ -318,6 +321,7 @@
             queueHidden?: boolean;
             showTree?: { left?: boolean; right?: boolean };
             treeWidth?: { left?: number; right?: number };
+            browseTogether?: boolean;
             showHidden?: { left?: boolean; right?: boolean };
             keys?: unknown;
           }
@@ -333,6 +337,7 @@
         if (saved.treeWidth.left) setTreeWidth("left", saved.treeWidth.left);
         if (saved.treeWidth.right) setTreeWidth("right", saved.treeWidth.right);
       }
+      setBrowsingTogether(saved?.browseTogether === true);
       if (saved?.showTree) {
         setTreeVisible("left", saved.showTree.left ?? true);
         setTreeVisible("right", saved.showTree.right ?? true);
@@ -367,6 +372,34 @@
    * is nothing worth drawing until there is one.
    */
   let wantsPassword = $state(false);
+
+  /**
+   * The question two coupled panes raise, and the answer somebody gives it.
+   *
+   * Held open as a promise while the dialog is on screen, so the pane that is
+   * following waits for the answer — it arrives where the question was asked
+   * rather than as a second thing happening later.
+   */
+  let missing = $state<{ name: string; where: string; answer: (make: boolean) => void } | null>(
+    null,
+  );
+
+  $effect(() => {
+    whenDirectoryMissing(
+      (side, path) =>
+        new Promise<boolean>((answer) => {
+          const at = path.lastIndexOf("/");
+          missing = {
+            name: at === -1 ? path : path.slice(at + 1),
+            where: pane(side).path,
+            answer: (make) => {
+              missing = null;
+              answer(make);
+            },
+          };
+        }),
+    );
+  });
 
   /**
    * Starts again on whichever core is now in use.
@@ -425,6 +458,7 @@
       queueHidden,
       showTree: { left: pane("left").showTree, right: pane("right").showTree },
       treeWidth: { left: pane("left").treeWidth, right: pane("right").treeWidth },
+      browseTogether: browsingTogether(),
       showHidden: { left: pane("left").showHidden, right: pane("right").showHidden },
       leftPath: pane("left").endpoint === LOCAL ? pane("left").path : undefined,
       keys: savedKeys(),
@@ -964,6 +998,22 @@
   </footer>
 
 </div>
+
+{#if missing}
+  {@const asked = missing}
+  <div class="backdrop" role="presentation">
+    <div class="ask" use:trap role="dialog" aria-modal="true">
+      <h2>{t("together.title")}</h2>
+      <p>{t("together.body", { name: asked.name, where: asked.where })}</p>
+      <div class="buttons">
+        <button type="button" onclick={() => asked.answer(false)}>{t("together.stay")}</button>
+        <button type="button" class="primary" onclick={() => asked.answer(true)}>
+          {t("together.create")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if serviceOpen}
   <ServiceDialog

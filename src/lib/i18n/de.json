@@ -444,5 +444,10 @@
   "cmd.download": "Herunterladen",
   "error.encryption-required": "{host} spricht nicht ohne Verschlüsselung. Stell die Verbindung auf FTPS (explizit) und versuch es erneut — der Server sagt: {detail}",
   "cmd.not-yet": "Noch nicht gebaut.",
-  "cmd.not-yet.badge": "noch nicht"
+  "cmd.not-yet.badge": "noch nicht",
+  "pane.together": "Beide Seiten gemeinsam bewegen",
+  "together.title": "Drüben nicht vorhanden",
+  "together.body": "In {where} gibt es kein „{name}“. Anlegen?",
+  "together.create": "Anlegen",
+  "together.stay": "Andere Seite stehen lassen"
 }

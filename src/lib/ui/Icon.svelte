@@ -39,6 +39,8 @@
     // Up, not a star: a star is for marking a favourite, and this is about
     // something being newer than what is installed.
     update: ["M8 13V3", "M4 7l4-4 4 4"],
+    // Two paths side by side, stepping together.
+    together: ["M4 2.5v11", "M12 2.5v11", "M2 6h4M2 10h4", "M10 6h4M10 10h4"],
   };
 </script>
 

@@ -16,6 +16,8 @@
     stopRename,
     targets,
     toggleHidden,
+    browsingTogether,
+    setBrowsingTogether,
     setTreeWidth,
     toggleTree,
     visibleEntries,
@@ -399,6 +401,17 @@
     {/if}
     <button type="button" onclick={onservers} title={t("sites.title")}>
       <Icon name="sites" />
+    </button>
+    <!-- One switch for a relation between two panes, shown in both of their
+         headers. Two switches that could disagree would be a state nobody
+         could describe. -->
+    <button
+      type="button"
+      class:on={browsingTogether()}
+      onclick={() => setBrowsingTogether(!browsingTogether())}
+      title={t("pane.together")}
+    >
+      <Icon name="together" />
     </button>
     <button
       type="button"

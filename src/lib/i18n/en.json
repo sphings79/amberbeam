@@ -444,5 +444,10 @@
   "cmd.download": "Download",
   "error.encryption-required": "{host} will not talk without encryption. Set this connection to FTPS (explicit) and try again — the server said: {detail}",
   "cmd.not-yet": "Not built yet.",
-  "cmd.not-yet.badge": "not yet"
+  "cmd.not-yet.badge": "not yet",
+  "pane.together": "Walk both sides together",
+  "together.title": "Not on the other side",
+  "together.body": "There is no “{name}” in {where}. Create it?",
+  "together.create": "Create it",
+  "together.stay": "Leave the other side"
 }
