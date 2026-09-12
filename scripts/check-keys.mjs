@@ -20,7 +20,17 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const { ACTIONS, SCHEMES, schemeBindings, bindingOf, actionFor, label, resolve } = await import(
+const {
+  ACTIONS,
+  SCHEMES,
+  schemeBindings,
+  bindingOf,
+  actionFor,
+  label,
+  resolve,
+  defaultScheme,
+  setupApplies,
+} = await import(
   join(here, "..", "src", "lib", "keys", "schemes.ts")
 );
 
@@ -109,6 +119,21 @@ for (const platform of PLATFORMS) {
   if (actionFor(resolve("mac", {}, platform), "Mod+S") !== "sites") {
     complain(`${platform}: the servers window has no key.`);
   }
+}
+
+// What a new installation starts with, and whether it asks first. The dialog
+// explains Mission Control, so it may only ever appear where that exists.
+if (defaultScheme("mac") !== "mixed") {
+  complain("a new Mac does not start on the compromise.");
+}
+if (defaultScheme("other") !== "classic") {
+  complain("a new Windows or Linux installation does not start on the Windows layout.");
+}
+if (!setupApplies("mac") || setupApplies("other")) {
+  complain("the first-start dialog appears where it has nothing to say.");
+}
+if (!(schemeBindings(defaultScheme("other"), "other").refresh ?? []).includes("F5")) {
+  complain("F5 does not refresh where nothing is standing in its way.");
 }
 
 if (failed) {

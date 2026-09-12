@@ -14,6 +14,7 @@
     label,
     restore as restoreKeys,
     saved as savedKeys,
+    setupApplies,
   } from "./lib/keys/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
@@ -128,7 +129,10 @@
    */
   let setupPutOff = $state(false);
   let keyboardShown = $derived(
-    !isSiteManager && stateRead && (setupOpen || (!hasAnswered() && !setupPutOff)),
+    !isSiteManager &&
+      stateRead &&
+      setupApplies() &&
+      (setupOpen || (!hasAnswered() && !setupPutOff)),
   );
 
   /** A site whose password was never stored, waiting for one. */

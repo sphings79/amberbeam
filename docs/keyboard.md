@@ -6,6 +6,15 @@ AmberBeam is built to be used with the keyboard. Press **F1** in the program
 to see the keys as they are set right now — that window reads the same table
 the keys themselves come from, so it cannot be out of date.
 
+## On Windows and Linux
+
+Nothing below applies. F1 to F12 are function keys, nothing in the system is
+waiting behind them, and AmberBeam starts with the layout of the older Windows
+clients already in place. There is no dialog on the first start and nothing to
+switch off. The command key in every shortcut is **Ctrl**.
+
+The rest of this page is about macOS.
+
 ## The Mac function key problem
 
 On a Mac, F1 to F12 carry brightness and volume. Two separate things stand
@@ -30,6 +39,10 @@ layouts.
 | **Windows style** | The function keys as they are on a PC | F3, F4 and F11 given up in System Settings |
 | **Mixed** | Function keys where the system allows, ⌘ for the three it does not | Nothing |
 | **Mac-friendly** | No function key at all | Nothing |
+
+All three exist on Windows and Linux too, under **Keys**, and read ⌘ as Ctrl
+there. Only the Windows layout has a reason to be chosen; the other two are
+kept so a layout carried over from a Mac still works.
 
 Every key in every layout can be changed: **Keys ▸ Change the keys**, click a
 row, press the key you want. A key taken from another action says which. A

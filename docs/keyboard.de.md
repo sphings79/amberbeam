@@ -6,6 +6,15 @@ AmberBeam ist auf Tastaturbedienung gebaut. **F1** im Programm zeigt die
 Belegung, wie sie gerade eingestellt ist — dieses Fenster liest dieselbe
 Tabelle, aus der auch die Tasten kommen, kann also nicht veralten.
 
+## Unter Windows und Linux
+
+Nichts davon gilt hier. F1 bis F12 sind Funktionstasten, kein Teil des Systems
+wartet dahinter, und AmberBeam startet gleich mit der Belegung der älteren
+Windows-Programme. Beim ersten Start kommt kein Dialog, und es ist nichts
+abzuschalten. Die Befehlstaste ist in allen Kürzeln **Strg**.
+
+Der Rest dieser Seite betrifft macOS.
+
 ## Das F-Tasten-Problem auf dem Mac
 
 Auf dem Mac liegen auf F1 bis F12 Helligkeit und Lautstärke. Zwei getrennte
@@ -30,6 +39,11 @@ Belegungen an.
 | **Windows-Stil** | Die Funktionstasten wie auf einem PC | F3, F4 und F11 in den Systemeinstellungen freigeben |
 | **Gemischt** | Funktionstasten, wo das System sie lässt, ⌘ für die drei anderen | Nichts |
 | **Mac-freundlich** | Gar keine Funktionstaste | Nichts |
+
+Alle drei gibt es auch unter Windows und Linux, unter **Tasten**, und ⌘ liest
+sich dort als Strg. Einen Grund zu wählen hat dort nur die Windows-Belegung;
+die beiden anderen bleiben, damit eine vom Mac mitgebrachte Belegung weiter
+funktioniert.
 
 Jede Taste jeder Belegung lässt sich ändern: **Tasten ▸ Tasten ändern**, Zeile
 anklicken, gewünschte Taste drücken. Eine weggenommene Taste sagt, wem sie

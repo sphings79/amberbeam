@@ -3,7 +3,7 @@
 [Deutsch](importing.de.md)
 
 Nobody types thirty servers in again. AmberBeam reads the lists of six other
-programs — open the server list (**⌘S**) and press the import button.
+programs — open the server list (**⌘S**, **Ctrl+S** on Windows and Linux) and press the import button.
 
 It looks in the usual places by itself and shows what it found. A file that
 lives somewhere else can be chosen, or simply dragged onto the window.

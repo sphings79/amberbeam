@@ -169,8 +169,32 @@ const TABLE: Record<SchemeName, Bindings> = {
   mixed: MIXED,
 };
 
-/** The scheme somebody gets who has not chosen one. */
+/** The scheme somebody gets who has not chosen one, and the last resort. */
 export const FALLBACK: SchemeName = "mixed";
+
+/**
+ * What a new installation starts with.
+ *
+ * The compromise is a compromise with macOS, which keeps F3, F4 and F11 for
+ * itself. No other system does, so nothing there has to be given up and the
+ * layout of the older Windows clients — the whole point of this program — can
+ * simply be the one people get.
+ */
+export function defaultScheme(platform: Platform = PLATFORM): SchemeName {
+  return platform === "mac" ? FALLBACK : "classic";
+}
+
+/**
+ * Whether the first-start dialog has anything to say.
+ *
+ * It exists for one problem and one only: on a Mac the function keys are not
+ * function keys. Where that is not true the dialog has nothing to ask, nothing
+ * to test and no system settings to open — and showing it anyway would explain
+ * Mission Control to somebody sitting in front of Windows.
+ */
+export function setupApplies(platform: Platform = PLATFORM): boolean {
+  return platform === "mac";
+}
 
 export function schemeBindings(name: SchemeName, platform: Platform = PLATFORM): Bindings {
   const base = TABLE[name] ?? TABLE[FALLBACK];

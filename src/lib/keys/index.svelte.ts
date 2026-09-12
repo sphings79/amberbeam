@@ -11,7 +11,7 @@
 import {
   actionFor,
   bindingOf,
-  FALLBACK,
+  defaultScheme,
   resolve,
   schemeBindings,
   type Action,
@@ -34,7 +34,7 @@ function carriedOver(own: Bindings): Bindings {
   return moved;
 }
 
-let scheme = $state<SchemeName>(FALLBACK);
+let scheme = $state<SchemeName>(defaultScheme());
 let own = $state<Bindings>({});
 /** False until somebody has answered the dialog, which is what opens it. */
 let answered = $state(false);
@@ -160,5 +160,5 @@ export function fromFile(text: string): boolean {
 }
 
 export { bindingOf, label } from "./schemes";
-export { ACTIONS, SCHEMES, schemeBindings } from "./schemes";
+export { ACTIONS, SCHEMES, schemeBindings, setupApplies } from "./schemes";
 export type { Action, Bindings, SchemeName } from "./schemes";

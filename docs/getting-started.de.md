@@ -35,7 +35,7 @@ das Protokoll — der Port folgt ihm, solange du keinen selbst getippt hast:
 | **FTPS (implizit)** | 990 | TLS ab dem ersten Byte. Älter und seltener. |
 | **FTP** | 21 | Gar keine Verschlüsselung. Rot gekennzeichnet, solange es offen ist. |
 
-Ein Server, den du wieder brauchst, gehört in die Serverliste: **⌘S** oder der
+Ein Server, den du wieder brauchst, gehört in die Serverliste: **⌘S** (**Strg+S** unter Windows und Linux) oder der
 Knopf *Server*. Einträge dort behalten alles — wo beide Seiten beginnen, wie
 viele Übertragungen gleichzeitig, eine Farbe zum Auseinanderhalten — und ihre
 Passwörter gehen in den Zugangsdatenspeicher dieses Rechners, nicht in eine

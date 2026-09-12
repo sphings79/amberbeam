@@ -3,7 +3,7 @@
 [English](importing.md)
 
 Dreißig Server tippt niemand neu ein. AmberBeam liest die Listen von sechs
-anderen Programmen — Serverliste öffnen (**⌘S**) und auf Importieren.
+anderen Programmen — Serverliste öffnen (**⌘S**, unter Windows und Linux **Strg+S**) und auf Importieren.
 
 Es sucht selbst an den üblichen Orten und zeigt, was es gefunden hat. Eine
 Datei, die woanders liegt, lässt sich wählen oder einfach auf das Fenster

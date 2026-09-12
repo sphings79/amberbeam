@@ -35,7 +35,7 @@ protocol first — the port follows it, unless you typed one yourself:
 | **FTPS (implicit)** | 990 | TLS from the first byte. Older, and rarer. |
 | **FTP** | 21 | No encryption at all. Marked in red for as long as it is open. |
 
-A server you want again belongs in the server list: **⌘S**, or the *Servers*
+A server you want again belongs in the server list: **⌘S** (**Ctrl+S** on Windows and Linux), or the *Servers*
 button. Entries there keep everything — where both sides should start, how
 many transfers at once, a colour to tell them apart — and their passwords go
 to this computer's credential store rather than into any file.
