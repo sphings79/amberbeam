@@ -253,19 +253,22 @@ export const api: AmberBeamApi = {
     return true;
   },
   async onClosing(handler: () => Promise<boolean>): Promise<Unsubscribe> {
-    const window = getCurrentWindow();
-    // Asking again on the way out of the answer would be a window that cannot
-    // be closed. The second request goes straight through.
-    let going = false;
-    const stop = await window.onCloseRequested(async (event) => {
-      if (going) return;
-      event.preventDefault();
-      if (await handler()) {
-        going = true;
-        await window.close();
-      }
+    // Prevented only when the answer is to stay. Tauri waits for this handler
+    // before it looks, so the question can be asked inside it -- and the
+    // window closes by *not* being held back, rather than by being closed
+    // again from in here.
+    //
+    // That second close was the whole of the bug this replaces. A window with
+    // a listener on this event never closes natively (Tauri's own runtime
+    // calls prevent_close for it), so the only thing that ever ends it is the
+    // destroy the API does when nothing prevented the event. Closing it again
+    // from inside the handler went round the same loop, and the destroy at the
+    // end of it needed a permission the capability did not grant -- so the
+    // window stayed, and every later press of the close button did nothing at
+    // all.
+    return await getCurrentWindow().onCloseRequested(async (event) => {
+      if (!(await handler())) event.preventDefault();
     });
-    return stop;
   },
   async closeThisWindow(): Promise<void> {
     await getCurrentWindow().close();

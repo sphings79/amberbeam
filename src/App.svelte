@@ -157,9 +157,10 @@
    * whatever was typed into it and never saved; a copy kept is somebody's file
    * sitting unencrypted in a temporary directory.
    */
-  let leftBehind = $state<{ names: string[]; answer: (deleteCopies: boolean) => void } | null>(
-    null,
-  );
+  let leftBehind = $state<{
+    names: string[];
+    answer: (deleteCopies: boolean) => Promise<void>;
+  } | null>(null);
 
   $effect(() => {
     // Only this window asks. The site manager and the editor windows close on
@@ -173,9 +174,13 @@
         return await new Promise<boolean>((settle) => {
           leftBehind = {
             names: open.map((edit) => edit.name),
-            answer: (deleteCopies) => {
+            answer: async (deleteCopies) => {
               leftBehind = null;
-              void api.endEdits(deleteCopies).catch(() => undefined);
+              // Awaited, not sent off. Saying yes is the last thing that
+              // happens before the window is destroyed, and a command still on
+              // its way out when that happens is a command that never arrives
+              // -- which would be "throw them away" throwing nothing away.
+              await api.endEdits(deleteCopies).catch(() => undefined);
               settle(true);
             },
           };
@@ -1375,10 +1380,10 @@
       <h2>{t("editing.left.title")}</h2>
       <p>{t("editing.left", { names: leftBehind.names.join(", ") })}</p>
       <div class="choices">
-        <button type="button" class="primary" onclick={() => leftBehind?.answer(true)}>
+        <button type="button" class="primary" onclick={() => void leftBehind?.answer(true)}>
           {t("editing.left.delete")}
         </button>
-        <button type="button" onclick={() => leftBehind?.answer(false)}>
+        <button type="button" onclick={() => void leftBehind?.answer(false)}>
           {t("editing.left.keep")}
         </button>
       </div>
