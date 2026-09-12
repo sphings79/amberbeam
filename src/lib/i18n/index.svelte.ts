@@ -43,6 +43,16 @@ function detect(): Locale {
 
 let current = $state<Locale>(detect());
 
+/**
+ * Back to whatever the system says, which is where this started.
+ *
+ * Not the fallback: somebody on a German system who reset the language and
+ * got English would have been handed a preference, not had one taken away.
+ */
+export function resetLocale(): void {
+  setLocale(detect());
+}
+
 export function locale(): Locale {
   return current;
 }

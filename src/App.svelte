@@ -7,7 +7,8 @@
     type Site,
     type Unsubscribe,
   } from "./lib/bridge";
-  import { t } from "./lib/i18n/index.svelte";
+  import { resetLocale, t } from "./lib/i18n/index.svelte";
+  import { DEFAULT_ACCENT, DEFAULT_THEME, setAccent, setTheme } from "./lib/theme/index.svelte";
   import {
     actionOf,
     hasAnswered,
@@ -38,6 +39,7 @@
     setFiltering,
     setTreeVisible,
     setTreeWidth,
+    TREE_DEFAULT,
     startRename,
     switchFocus,
     toggleSelection,
@@ -76,9 +78,30 @@
   const isSiteManager = api.windowLabel() === "sites";
 
   /** Heights, split and where each region sits — all kept across restarts. */
-  let logHeight = $state(120);
-  let queueHeight = $state(96);
-  let splitRatio = $state(0.5);
+  /**
+   * What the window looks like before anybody drags anything.
+   *
+   * Named because two places need them: the state below, and the reset button
+   * in the appearance settings. A default written out twice is a default that
+   * disagrees with itself the first time one copy is changed.
+   */
+  const START: {
+    logHeight: number;
+    queueHeight: number;
+    splitRatio: number;
+    logPosition: Position;
+    queuePosition: Position;
+  } = {
+    logHeight: 120,
+    queueHeight: 96,
+    splitRatio: 0.5,
+    logPosition: "bottom",
+    queuePosition: "bottom",
+  };
+
+  let logHeight = $state(START.logHeight);
+  let queueHeight = $state(START.queueHeight);
+  let splitRatio = $state(START.splitRatio);
   let settingsOpen = $state(false);
   let transferSettingsOpen = $state(false);
 
@@ -91,8 +114,8 @@
    * the panes.
    */
   type Position = "top" | "bottom";
-  let logPosition = $state<Position>("bottom");
-  let queuePosition = $state<Position>("bottom");
+  let logPosition = $state<Position>(START.logPosition);
+  let queuePosition = $state<Position>(START.queuePosition);
   /**
    * Kept apart from the position rather than folded into it as a third value.
    *
@@ -116,6 +139,32 @@
         : queuePosition === "bottom" && !queueHidden,
     ),
   );
+
+  /**
+   * Everything the window remembers about how it looks, back to the start.
+   *
+   * Sizes, sides, colours, language, and what is hidden. Not what anybody has
+   * connected to or saved: this is a reset of the furniture, not of the work,
+   * and a button in the appearance settings must not quietly be more than it
+   * says.
+   */
+  function resetLook(): void {
+    logHeight = START.logHeight;
+    queueHeight = START.queueHeight;
+    splitRatio = START.splitRatio;
+    logPosition = START.logPosition;
+    queuePosition = START.queuePosition;
+    logHidden = false;
+    queueHidden = false;
+    rawOpen = false;
+    for (const side of ["left", "right"] as const) {
+      setTreeVisible(side, true);
+      setTreeWidth(side, TREE_DEFAULT);
+    }
+    setTheme(DEFAULT_THEME);
+    setAccent(DEFAULT_ACCENT);
+    resetLocale();
+  }
 
   /** The three answers the settings offer for one region, as one value. */
   type Where = Position | "off";
@@ -838,6 +887,7 @@
       queueHidden = where === "off";
       if (where !== "off") queuePosition = where;
     }}
+    onreset={resetLook}
     onclose={() => (settingsOpen = false)}
   />
 {/if}

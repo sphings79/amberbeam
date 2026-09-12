@@ -76,6 +76,11 @@ export interface PaneState {
   expanded: Set<string>;
 }
 
+/** The narrowest and widest the tree may be dragged, and where it starts. */
+export const TREE_MIN = 120;
+export const TREE_MAX = 480;
+export const TREE_DEFAULT = 186;
+
 function emptyPane(): PaneState {
   return {
     endpoint: LOCAL,
@@ -94,7 +99,7 @@ function emptyPane(): PaneState {
     // Hiding them by default would hide the point of the program.
     showHidden: true,
     showTree: true,
-    treeWidth: 186,
+    treeWidth: TREE_DEFAULT,
     renaming: null,
     requested: null,
     filter: "",
@@ -347,10 +352,6 @@ export function toggleTree(side: Side): void {
 export function setTreeVisible(side: Side, visible: boolean): void {
   panes[side].showTree = visible;
 }
-
-/** The narrowest and widest the tree may be dragged. */
-export const TREE_MIN = 120;
-export const TREE_MAX = 480;
 
 export function setTreeWidth(side: Side, width: number): void {
   panes[side].treeWidth = Math.min(TREE_MAX, Math.max(TREE_MIN, Math.round(width)));

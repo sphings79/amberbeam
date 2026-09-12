@@ -25,8 +25,18 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 }
 
-let theme = $state<Theme>(stored(THEME_KEY, THEMES, "system"));
-let accent = $state<Accent>(stored(ACCENT_KEY, ACCENTS, "amber"));
+/**
+ * What somebody gets who has never chosen, and what "reset" means.
+ *
+ * Named rather than written twice. A default that appears once at startup and
+ * again in a reset button is a default that will disagree with itself the
+ * first time one of them is changed.
+ */
+export const DEFAULT_THEME: Theme = "system";
+export const DEFAULT_ACCENT: Accent = "amber";
+
+let theme = $state<Theme>(stored(THEME_KEY, THEMES, DEFAULT_THEME));
+let accent = $state<Accent>(stored(ACCENT_KEY, ACCENTS, DEFAULT_ACCENT));
 
 const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
 

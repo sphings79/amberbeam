@@ -417,5 +417,9 @@
   "splitter.tree": "Resize the folder tree",
   "pane.path.placeholder": "Path",
   "layout.hint": "Where the server log and the transfer queue sit, or whether they are shown at all.",
-  "layout.off": "Off"
+  "layout.off": "Off",
+  "appearance.reset": "Back to the start",
+  "appearance.reset.do": "Reset",
+  "appearance.reset.sure": "Really reset?",
+  "appearance.reset.hint": "Sizes, sides, colours, language and what is hidden. Servers, settings and the queue are left alone."
 }

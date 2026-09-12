@@ -22,10 +22,36 @@
     queueWhere: Where;
     onlog: (where: Where) => void;
     onqueue: (where: Where) => void;
+    onreset: () => void;
     onclose: () => void;
   }
 
-  let { logWhere, queueWhere, onlog, onqueue, onclose }: Props = $props();
+  let { logWhere, queueWhere, onlog, onqueue, onreset, onclose }: Props = $props();
+
+  /**
+   * Asked twice, without a dialog on top of a dialog.
+   *
+   * Resetting throws away every deliberate choice somebody has made about the
+   * window, and four splitters dragged back into place is a real cost. A
+   * second click is enough of a pause; a second window to click through would
+   * be more ceremony than the thing deserves.
+   */
+  let sure = $state(false);
+  let asked: number | null = null;
+
+  function reset(): void {
+    if (!sure) {
+      sure = true;
+      if (asked !== null) clearTimeout(asked);
+      // Long enough to read the question, short enough that a stray click
+      // minutes later is not taken as the answer to it.
+      asked = window.setTimeout(() => (sure = false), 5000);
+      return;
+    }
+    if (asked !== null) clearTimeout(asked);
+    sure = false;
+    onreset();
+  }
 
   /**
    * Off last, after the two places.
@@ -133,6 +159,18 @@
         </div>
       </div>
       <p class="hint">{t("layout.hint")}</p>
+
+      <hr />
+
+      <div class="row">
+        <span class="label">{t("appearance.reset")}</span>
+        <div class="choice">
+          <button type="button" class:asking={sure} onclick={reset}>
+            {sure ? t("appearance.reset.sure") : t("appearance.reset.do")}
+          </button>
+        </div>
+      </div>
+      <p class="hint">{t("appearance.reset.hint")}</p>
     </div>
   </div>
 </div>
@@ -215,6 +253,11 @@
   .choice button:hover {
     border-color: var(--border-strong);
     color: var(--text);
+  }
+
+  .choice button.asking {
+    border-color: var(--danger);
+    color: var(--danger);
   }
 
   .choice button.active {

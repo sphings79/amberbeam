@@ -417,5 +417,9 @@
   "splitter.tree": "Breite des Ordnerbaums ändern",
   "pane.path.placeholder": "Pfad",
   "layout.hint": "Wo Server-Log und Warteschlange sitzen — oder ob sie überhaupt zu sehen sind.",
-  "layout.off": "Aus"
+  "layout.off": "Aus",
+  "appearance.reset": "Auf Anfang",
+  "appearance.reset.do": "Zurücksetzen",
+  "appearance.reset.sure": "Wirklich zurücksetzen?",
+  "appearance.reset.hint": "Größen, Seiten, Farben, Sprache und was ausgeblendet ist. Server, Einstellungen und Warteschlange bleiben unberührt."
 }
