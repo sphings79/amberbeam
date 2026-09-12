@@ -125,7 +125,6 @@
   "cmd.delete": "Delete",
   "cmd.transfer": "Transfer marked",
   "cmd.edit-remote": "Edit remotely",
-  "cmd.coming": "Arrives with milestone {milestone}",
   "cmd.new-folder.ask": "Name of the new folder",
   "cmd.new-file.ask": "Name of the new file",
   "perm.title": "Permissions",
@@ -443,5 +442,7 @@
   "upload.local-only": "A browser cannot put a file straight onto a server. Drop it here first, then transfer it.",
   "upload.arriving": "{count} arriving…",
   "cmd.download": "Download",
-  "error.encryption-required": "{host} will not talk without encryption. Set this connection to FTPS (explicit) and try again — the server said: {detail}"
+  "error.encryption-required": "{host} will not talk without encryption. Set this connection to FTPS (explicit) and try again — the server said: {detail}",
+  "cmd.not-yet": "Not built yet.",
+  "cmd.not-yet.badge": "not yet"
 }

@@ -52,8 +52,8 @@
     >
       <span class="glyph"><Icon name={item.command.icon} size={14} /></span>
       <span class="label">{t(item.command.key)}</span>
-      {#if item.command.comingIn}
-        <span class="soon">{item.command.comingIn}</span>
+      {#if item.command.notYet}
+        <span class="soon">{t("cmd.not-yet.badge")}</span>
       {/if}
     </button>
   {/each}
@@ -82,7 +82,11 @@
     outline: none;
   }
 
-  button {
+  /* Inside the menu, and said so. The sheet that catches a click anywhere
+     else is a button too — it has to be, so that clicking anything closes the
+     menu — and it covers the whole window. An unscoped hover colour therefore
+     painted the entire program amber the moment the pointer left the menu. */
+  .menu button {
     display: flex;
     align-items: center;
     gap: 9px;
@@ -98,12 +102,12 @@
     text-align: left;
   }
 
-  button:hover:not(:disabled) {
+  .menu button:hover:not(:disabled) {
     background: var(--accent-soft);
     color: var(--accent);
   }
 
-  button:disabled {
+  .menu button:disabled {
     color: var(--text-faint);
   }
 

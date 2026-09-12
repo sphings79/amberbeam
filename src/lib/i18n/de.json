@@ -125,7 +125,6 @@
   "cmd.delete": "Löschen",
   "cmd.transfer": "Markierte übertragen",
   "cmd.edit-remote": "Remote bearbeiten",
-  "cmd.coming": "Kommt mit Meilenstein {milestone}",
   "cmd.new-folder.ask": "Name des neuen Ordners",
   "cmd.new-file.ask": "Name der neuen Datei",
   "perm.title": "Rechte",
@@ -443,5 +442,7 @@
   "upload.local-only": "Ein Browser kann eine Datei nicht direkt auf einen Server legen. Erst hierher, dann übertragen.",
   "upload.arriving": "{count} kommen an…",
   "cmd.download": "Herunterladen",
-  "error.encryption-required": "{host} spricht nicht ohne Verschlüsselung. Stell die Verbindung auf FTPS (explizit) und versuch es erneut — der Server sagt: {detail}"
+  "error.encryption-required": "{host} spricht nicht ohne Verschlüsselung. Stell die Verbindung auf FTPS (explizit) und versuch es erneut — der Server sagt: {detail}",
+  "cmd.not-yet": "Noch nicht gebaut.",
+  "cmd.not-yet.badge": "noch nicht"
 }

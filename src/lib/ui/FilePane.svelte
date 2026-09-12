@@ -423,8 +423,8 @@
       <button
         type="button"
         disabled={!item.usable}
-        title={item.command.comingIn
-          ? t("cmd.coming", { milestone: item.command.comingIn })
+        title={item.command.notYet
+          ? t("cmd.not-yet")
           : t(item.command.key)}
         onclick={() => invoke(item.command)}
       >

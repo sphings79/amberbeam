@@ -41,8 +41,15 @@ export interface Command {
   awayOnly?: boolean;
   /** Only offered on a single row, not a selection. */
   singleOnly?: boolean;
-  /** Not available yet, and says which milestone brings it. */
-  comingIn?: string;
+  /**
+   * Offered, but not built.
+   *
+   * It used to name the milestone that would bring it, and said "M2" long
+   * after M2 had shipped without it — a promise in the interface that had
+   * quietly become untrue. A date nobody is holding to is worse than no date:
+   * it says the program knows something it does not.
+   */
+  notYet?: boolean;
 }
 
 export const COMMANDS: Command[] = [
@@ -69,7 +76,7 @@ export const COMMANDS: Command[] = [
     needsTarget: true,
     remoteOnly: true,
     singleOnly: true,
-    comingIn: "M2",
+    notYet: true,
   },
 ];
 
@@ -78,7 +85,7 @@ export function availability(
   command: Command,
   options: { remote: boolean; targets: DirEntry[]; away?: boolean },
 ): { usable: boolean; reason: "coming" | "needs-target" | "single-only" | "remote-only" | null } {
-  if (command.comingIn) return { usable: false, reason: "coming" };
+  if (command.notYet) return { usable: false, reason: "coming" };
   if (command.remoteOnly && !options.remote) return { usable: false, reason: "remote-only" };
   if (command.awayOnly && !options.away) return { usable: false, reason: "remote-only" };
   if (command.needsTarget && options.targets.length === 0) {
