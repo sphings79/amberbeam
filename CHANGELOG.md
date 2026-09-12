@@ -7,6 +7,39 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.1
+
+Windows was unusable in 0.1.0, and this is why.
+
+### Fixed
+
+- **The server window opened empty and froze, and took the rest of the program
+  with it.** A window is given a *path* to load, and the path was
+  `index.html?view=sites`. A question mark is an ordinary character in a path
+  on macOS and an illegal one on Windows, so the window had nowhere to load
+  from. Which view a window shows now comes from its label instead.
+
+  That one mistake caused all three of the things reported. Every command's
+  answer travels back to the window through the same thread the frozen window
+  had blocked — so the settings dialog stayed empty, and connecting sat at
+  "connecting…" even when the connection itself had long since been made.
+- **Connecting could wait for ever**, and that was never a Windows problem. A
+  server that accepts the connection and then says nothing — a firewall that
+  swallows rather than refuses, a port belonging to some other program — was
+  waited for until somebody gave up. Twenty seconds now covers the whole of
+  saying hello, and the message says that something *did* answer, which is what
+  tells you to look at a firewall rather than at the address.
+- **Listing servers and looking for importable files** no longer run on the
+  thread that draws. The first asks the credential store once per entry; the
+  second walks Downloads, Desktop and Documents two levels deep.
+
+### Changed
+
+- The macOS disk image no longer demands agreement to the whole AGPL before it
+  will open. The licence governs distribution, not use.
+- The Linux package files its 256-pixel icon under `256x256` rather than
+  `256x256@2`, which is a directory name no desktop recognises.
+
 ## 0.1.0
 
 The first public build. Everything below works and has been used; what is

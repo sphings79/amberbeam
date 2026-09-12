@@ -7,6 +7,40 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.1
+
+Unter Windows war 0.1.0 unbenutzbar, und das ist der Grund.
+
+### Behoben
+
+- **Das Serverfenster ging leer auf, fror ein und riss den Rest mit.** Einem
+  Fenster wird ein *Pfad* zum Laden gegeben, und der Pfad lautete
+  `index.html?view=sites`. Ein Fragezeichen ist in einem Pfad unter macOS ein
+  gewöhnliches Zeichen und unter Windows ein verbotenes — das Fenster hatte
+  also nichts zu laden. Welche Ansicht ein Fenster zeigt, entscheidet jetzt
+  seine Beschriftung.
+
+  Dieser eine Fehler hat alle drei gemeldeten Erscheinungen verursacht. Die
+  Antwort jedes Befehls läuft über denselben Faden zurück ins Fenster, den das
+  eingefrorene Fenster blockiert hatte — deshalb blieb der Einstellungsdialog
+  leer, und „verbindet …" stand still, obwohl die Verbindung längst stand.
+- **Verbinden konnte ewig warten**, und das war nie ein Windows-Problem. Ein
+  Server, der die Verbindung annimmt und dann schweigt — eine Firewall, die
+  verschluckt statt abzulehnen; ein Port, hinter dem ein anderes Programm sitzt
+  — wurde abgewartet, bis jemand aufgab. Zwanzig Sekunden decken jetzt das
+  ganze Hallo ab, und die Meldung sagt, dass da *etwas* geantwortet hat: genau
+  das schickt dich zur Firewall statt zur Adresse.
+- **Serverliste und Importsuche** laufen nicht mehr auf dem Faden, der zeichnet.
+  Die eine fragt den Zugangsdatenspeicher je Eintrag, die andere läuft
+  Downloads, Schreibtisch und Dokumente zwei Ebenen tief ab.
+
+### Geändert
+
+- Das macOS-Abbild verlangt beim Öffnen keine Zustimmung zur ganzen AGPL mehr.
+  Die Lizenz regelt die Weitergabe, nicht die Benutzung.
+- Das Linux-Paket legt sein 256-Pixel-Symbol unter `256x256` ab statt unter
+  `256x256@2` — ein Verzeichnisname, den keine Oberfläche kennt.
+
 ## 0.1.0
 
 Der erste öffentliche Stand. Alles unten funktioniert und ist benutzt worden;

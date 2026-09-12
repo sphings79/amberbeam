@@ -39,10 +39,20 @@ fn somebody_running_that_very_version_is_not_told_to_update() {
 }
 
 #[test]
-fn the_version_in_the_release_is_the_version_this_crate_calls_itself() {
-    // If these drift, the notice tells everybody about an update they have.
-    // The release workflow refuses to build when they disagree; this says the
-    // same thing here, where it is cheap to notice.
+fn this_build_never_thinks_it_is_older_than_the_last_release() {
+    // Not "the two are equal" — that was the first shape of this test, and it
+    // blocked the very next version bump, correctly refusing something that was
+    // perfectly fine. Between releases the crate is ahead of the newest
+    // published one, and that is the ordinary state of a repository.
+    //
+    // What must never happen is the other direction: a build that would tell
+    // its own user about an update, meaning somebody shipped a program older
+    // than what is already out.
     let found = read_answer(&answer()).expect("a release");
-    assert_eq!(found.version, env!("CARGO_PKG_VERSION"));
+    assert!(
+        !is_newer(env!("CARGO_PKG_VERSION"), &found.version),
+        "this build calls itself {} while {} is published",
+        env!("CARGO_PKG_VERSION"),
+        found.version
+    );
 }
