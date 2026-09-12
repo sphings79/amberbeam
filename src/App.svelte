@@ -108,10 +108,14 @@
   /**
    * Where the server log and the queue sit relative to the file panes.
    *
-   * The tradition puts the log on top and the queue at the bottom, and that is
-   * the default. It is a preference, not a law, so it is settable: with both on
-   * the same side the log is the outer one, which keeps it out of the way of
-   * the panes.
+   * The older Windows clients put the log above the panes. Both start below
+   * them here, and that is a decision rather than an oversight: the two panes
+   * are what somebody looks at all day, and anything above them pushes the
+   * thing they came for further down the window. A log is glanced at when
+   * something goes wrong, not read while working.
+   *
+   * A preference, not a law, so both are settable — and with both on the same
+   * side the log is the outer one, which keeps it out of the way of the panes.
    */
   type Position = "top" | "bottom";
   let logPosition = $state<Position>(START.logPosition);
