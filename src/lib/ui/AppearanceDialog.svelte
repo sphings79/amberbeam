@@ -15,19 +15,25 @@
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "../theme/index.svelte";
   import { trap } from "./trap";
 
-  type Where = "top" | "bottom";
+  type Where = "top" | "bottom" | "off";
 
   interface Props {
-    logPosition: Where;
-    queuePosition: Where;
+    logWhere: Where;
+    queueWhere: Where;
     onlog: (where: Where) => void;
     onqueue: (where: Where) => void;
     onclose: () => void;
   }
 
-  let { logPosition, queuePosition, onlog, onqueue, onclose }: Props = $props();
+  let { logWhere, queueWhere, onlog, onqueue, onclose }: Props = $props();
 
-  const PLACES: Where[] = ["top", "bottom"];
+  /**
+   * Off last, after the two places.
+   *
+   * Putting it away is a different kind of answer from where to put it, and it
+   * belongs at the end of the row rather than in the middle of the choice.
+   */
+  const PLACES: Where[] = ["top", "bottom", "off"];
 </script>
 
 <svelte:window onkeydown={(event) => event.key === "Escape" && onclose()} />
@@ -105,7 +111,7 @@
         <span class="label">{t("layout.log")}</span>
         <div class="choice">
           {#each PLACES as where (where)}
-            <button type="button" class:active={logPosition === where} onclick={() => onlog(where)}>
+            <button type="button" class:active={logWhere === where} onclick={() => onlog(where)}>
               {t(`layout.${where}`)}
             </button>
           {/each}
@@ -118,7 +124,7 @@
           {#each PLACES as where (where)}
             <button
               type="button"
-              class:active={queuePosition === where}
+              class:active={queueWhere === where}
               onclick={() => onqueue(where)}
             >
               {t(`layout.${where}`)}

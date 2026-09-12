@@ -416,5 +416,6 @@
   "update.dialog.retry": "Try again",
   "splitter.tree": "Resize the folder tree",
   "pane.path.placeholder": "Path",
-  "layout.hint": "Where the server log and the transfer queue sit, above or below the panes."
+  "layout.hint": "Where the server log and the transfer queue sit, or whether they are shown at all.",
+  "layout.off": "Off"
 }

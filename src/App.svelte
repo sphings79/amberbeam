@@ -93,17 +93,36 @@
   type Position = "top" | "bottom";
   let logPosition = $state<Position>("bottom");
   let queuePosition = $state<Position>("bottom");
+  /**
+   * Kept apart from the position rather than folded into it as a third value.
+   *
+   * Hiding a region and moving it are different decisions, and somebody who
+   * puts the log away still meant it to come back where they had it. A single
+   * "off" would forget that.
+   */
+  let logHidden = $state(false);
 
   let topRegions = $derived(
     (["log", "queue"] as const).filter((region) =>
-      region === "log" ? logPosition === "top" : queuePosition === "top" && !queueHidden,
+      region === "log"
+        ? logPosition === "top" && !logHidden
+        : queuePosition === "top" && !queueHidden,
     ),
   );
   let bottomRegions = $derived(
     (["queue", "log"] as const).filter((region) =>
-      region === "log" ? logPosition === "bottom" : queuePosition === "bottom" && !queueHidden,
+      region === "log"
+        ? logPosition === "bottom" && !logHidden
+        : queuePosition === "bottom" && !queueHidden,
     ),
   );
+
+  /** The three answers the settings offer for one region, as one value. */
+  type Where = Position | "off";
+
+  function place(position: Position, hidden: boolean): Where {
+    return hidden ? "off" : position;
+  }
 
   let quickFor = $state<Side | null>(null);
   /** The release the check found, if it found one. */
@@ -221,6 +240,8 @@
             leftPath?: string;
             logPosition?: Position;
             queuePosition?: Position;
+            logHidden?: boolean;
+            queueHidden?: boolean;
             showTree?: { left?: boolean; right?: boolean };
             treeWidth?: { left?: number; right?: number };
             showHidden?: { left?: boolean; right?: boolean };
@@ -232,6 +253,8 @@
       if (saved?.splitRatio) splitRatio = saved.splitRatio;
       if (saved?.logPosition) logPosition = saved.logPosition;
       if (saved?.queuePosition) queuePosition = saved.queuePosition;
+      logHidden = saved?.logHidden === true;
+      queueHidden = saved?.queueHidden === true;
       if (saved?.treeWidth) {
         if (saved.treeWidth.left) setTreeWidth("left", saved.treeWidth.left);
         if (saved.treeWidth.right) setTreeWidth("right", saved.treeWidth.right);
@@ -285,6 +308,8 @@
       splitRatio,
       logPosition,
       queuePosition,
+      logHidden,
+      queueHidden,
       showTree: { left: pane("left").showTree, right: pane("right").showTree },
       treeWidth: { left: pane("left").treeWidth, right: pane("right").treeWidth },
       showHidden: { left: pane("left").showHidden, right: pane("right").showHidden },
@@ -610,6 +635,9 @@
         break;
       case "raw":
         rawOpen = !rawOpen;
+        // Typing commands at a log that is hidden would be typing into
+        // nothing, and the answers would arrive somewhere nobody is looking.
+        if (rawOpen) logHidden = false;
         break;
       case "search":
         setFiltering(side, !view.filtering);
@@ -800,10 +828,16 @@
 
 {#if settingsOpen}
   <AppearanceDialog
-    {logPosition}
-    {queuePosition}
-    onlog={(where) => (logPosition = where)}
-    onqueue={(where) => (queuePosition = where)}
+    logWhere={place(logPosition, logHidden)}
+    queueWhere={place(queuePosition, queueHidden)}
+    onlog={(where) => {
+      logHidden = where === "off";
+      if (where !== "off") logPosition = where;
+    }}
+    onqueue={(where) => {
+      queueHidden = where === "off";
+      if (where !== "off") queuePosition = where;
+    }}
     onclose={() => (settingsOpen = false)}
   />
 {/if}
