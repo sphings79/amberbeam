@@ -28,7 +28,7 @@
     saved as savedKeys,
     setupApplies,
   } from "./lib/keys/index.svelte";
-  import { clearLog, recordEvent } from "./lib/state/log.svelte";
+  import { clearLog, note, recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
   import {
     availableUpdate,
@@ -77,7 +77,7 @@
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
-  import { certificateQuestion, hostKeyQuestion } from "./lib/ui/errors";
+  import { certificateQuestion, describe, hostKeyQuestion } from "./lib/ui/errors";
   import FilePane from "./lib/ui/FilePane.svelte";
   import CertificateDialog from "./lib/ui/CertificateDialog.svelte";
   import HostKeyDialog from "./lib/ui/HostKeyDialog.svelte";
@@ -113,24 +113,36 @@
   let editingHere = $state<string | null>(null);
 
   /**
-   * Takes a copy of a server's file and shows it.
+   * Takes a copy of a server's file and puts it in front of somebody.
    *
-   * Whether the copy may be taken at all is the core's answer, and its refusal
-   * is what says why. Nothing is decided here beyond where to show it.
+   * Whether the copy may be taken at all is the core's answer and its refusal
+   * says why. What opens it is the table's answer. Nothing is decided here
+   * beyond falling back when the answer cannot be carried out — a browser has
+   * no program of this person's to start, and an editor that does not appear
+   * is worse than one they did not pick.
    */
   async function edit(path: string, side: Side): Promise<void> {
     const started = await api.startEdit(pane(side).endpoint, path);
     const rule = await api.howToEdit(started.name);
+
     if (rule && rule.openWith !== "own") {
-      // Opening it elsewhere arrives with the next step; until then the file is
-      // open in the register either way, and showing it here is better than
-      // showing nothing.
-      // TODO(step 4): hand it to the system or to the named program.
+      const program = rule.openWith === "program" ? rule.program : null;
+      if (await api.openWith(started.localPath, program)) return;
     }
+
     if (!(await api.openEditor(started.id, started.name))) {
       editingHere = started.id;
     }
   }
+
+  /**
+   * A file another program is editing, whose write-back the server refused.
+   *
+   * Asked here because there is no window of ours to ask in: the file is open
+   * somewhere else entirely, and the person is looking at that. Nothing was
+   * written, and the copy still holds what they saved.
+   */
+  let editChanged = $state<{ id: string; name: string; path: string } | null>(null);
 
   /** Heights, split and where each region sits — all kept across restarts. */
   /**
@@ -469,7 +481,28 @@
     unsubscribe = await api.subscribe((event: CoreEvent) => {
       recordEvent(event);
       recordQueueEvent(event);
+      recordEditEvent(event);
     });
+  }
+
+  /**
+   * What became of a file another program is editing.
+   *
+   * Everything but a refusal goes to the log, where the rest of what happened
+   * to a server already is. A refusal has to be asked about, and there is no
+   * window of ours to ask in — the file is open somewhere else entirely.
+   */
+  function recordEditEvent(event: CoreEvent): void {
+    if (event.event !== "edited") return;
+    if (event.what === "changed") {
+      editChanged = { id: event.id, name: event.name, path: event.path };
+      return;
+    }
+    note(
+      event.what === "pushed"
+        ? t("editing.sent", { name: event.name })
+        : t("editing.failed", { name: event.name, why: describe(event.error) }),
+    );
   }
 
   let unsubscribe: Unsubscribe | null = null;
@@ -478,6 +511,7 @@
       .subscribe((event: CoreEvent) => {
         recordEvent(event);
         recordQueueEvent(event);
+        recordEditEvent(event);
       })
       .then((stop) => {
         unsubscribe = stop;
@@ -1294,6 +1328,34 @@
   />
 {/if}
 
+{#if editChanged}
+  <!-- No editor window of ours to ask in: the file is open in another program
+       and that is where the person is looking. Nothing was written, and what
+       they saved is still in the copy either way. -->
+  <div class="backdrop" role="presentation">
+    <div class="box" use:trap role="dialog" aria-modal="true">
+      <h2>{t("editing.changed.title", { name: editChanged.name })}</h2>
+      <p>{t("editing.changed", { path: editChanged.path })}</p>
+      <div class="choices">
+        <button
+          type="button"
+          class="primary"
+          onclick={() => {
+            const waiting = editChanged;
+            editChanged = null;
+            if (waiting) void api.pushEdit(waiting.id, true).catch(() => undefined);
+          }}
+        >
+          {t("editor.changed.overwrite")}
+        </button>
+        <button type="button" onclick={() => (editChanged = null)}>
+          {t("editor.changed.leave")}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 {#if editingHere}
   <!-- Where a window of its own is not possible. It covers the page rather
        than floating over it: an editor with the file list showing round the
@@ -1305,6 +1367,63 @@
 {/if}
 
 <style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgb(0 0 0 / 45%);
+    display: grid;
+    place-items: center;
+    /* Above everything, which no other dialog here needs to be. This is the
+       only one that arrives without anybody having asked for it — a file was
+       saved in another program — so it cannot rely on being the most recent
+       thing opened. It was found sitting behind the keyboard dialog. */
+    z-index: 72;
+  }
+
+  .box {
+    width: min(420px, 92vw);
+    background: var(--surface-1);
+    border: 1px solid var(--border-strong);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    padding: 18px;
+  }
+
+  .box h2 {
+    margin: 0 0 6px;
+    font-size: 0.94rem;
+  }
+
+  .box p {
+    margin: 0 0 14px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .choices {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .choices button {
+    border: 1px solid var(--border-strong);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+
+  .choices .primary {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
   .editing {
     position: fixed;
     inset: 0;

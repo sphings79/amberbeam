@@ -182,6 +182,14 @@ export type LogDirection = "sent" | "received" | "note";
 
 export type CoreEvent =
   | { event: "log"; endpoint: string; direction: LogDirection; text: string }
+  | {
+      event: "edited";
+      id: string;
+      name: string;
+      what: "pushed";
+    }
+  | { event: "edited"; id: string; name: string; what: "changed"; path: string }
+  | { event: "edited"; id: string; name: string; what: "failed"; error: CoreError }
   | ({ event: "connection"; endpoint: string } & ConnectionState)
   | { event: "listed"; endpoint: string; path: string }
   | { event: "progress"; jobs: JobProgress[] }
@@ -851,6 +859,14 @@ export interface AmberBeamApi {
    * not part of its default permissions, so the capability names it.
    */
   closeThisWindow(): Promise<void>;
+  /**
+   * Hands a copy that is being edited to another program.
+   *
+   * False where there is no other program to hand it to, which is a browser:
+   * the service is on a different machine, and what it could start there is
+   * not what somebody sitting here meant.
+   */
+  openWith(path: string, program: string | null): Promise<boolean>;
   /** Asks the main window to open this entry on that side. */
   openSite(id: string, side: OpenSide): Promise<void>;
   /** Heard by the main window when the site manager asks for a connection. */

@@ -390,6 +390,63 @@ fn open_url(url: String) -> Result<(), Error> {
     command.arg(&url).spawn().map(|_| ()).map_err(Error::other)
 }
 
+/// Hands a file to another program.
+///
+/// Only ever a copy this program made, and only ever one of the paths in the
+/// edit register -- checked here rather than trusted, because this takes a
+/// path and a program name and starts a process with them. A window asking for
+/// anything else is a window that has been made to ask.
+///
+/// The program is whatever the table of file types says. Empty means the
+/// system's own choice, which is the same `open`, `start` and `xdg-open` a
+/// link goes through.
+#[tauri::command]
+async fn open_with(
+    state: tauri::State<'_, Arc<Service>>,
+    path: String,
+    program: Option<String>,
+) -> Result<(), Error> {
+    let known = state
+        .edits
+        .list()
+        .await
+        .into_iter()
+        .any(|edit| edit.local_path == path);
+    if !known {
+        return Err(Error::other("that is not a file this program is editing"));
+    }
+
+    let program = program
+        .map(|name| name.trim().to_string())
+        .filter(|name| !name.is_empty());
+    let mut command = match program {
+        // A macOS application is a directory, not something that can be
+        // executed. `open -a` is how one is asked to take a file.
+        #[cfg(target_os = "macos")]
+        Some(app) if app.ends_with(".app") || !app.contains('/') => {
+            let mut command = std::process::Command::new("open");
+            command.args(["-a", &app]);
+            command
+        }
+        Some(program) => std::process::Command::new(program),
+        None => {
+            #[cfg(target_os = "macos")]
+            let command = std::process::Command::new("open");
+            #[cfg(target_os = "windows")]
+            let command = {
+                let mut command = std::process::Command::new("cmd");
+                command.args(["/C", "start", ""]);
+                command
+            };
+            #[cfg(all(unix, not(target_os = "macos")))]
+            let command = std::process::Command::new("xdg-open");
+            command
+        }
+    };
+
+    command.arg(&path).spawn().map(|_| ()).map_err(Error::other)
+}
+
 /// Which pane of the system's settings a key scheme needs.
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -489,9 +546,12 @@ pub fn run() {
             }
 
             // Inside an async block, so the queue's loops are spawned where a
-            // runtime exists.
+            // runtime exists. The same goes for the watcher over the files
+            // another program is editing.
             let queue = Arc::clone(&started.queue);
             let settings = started.config.settings();
+            let watching = events.clone();
+            let service = Arc::clone(&started);
             tauri::async_runtime::spawn(async move {
                 // What was chosen last time applies from the first second of
                 // this run, not from the next time the settings are touched.
@@ -499,6 +559,7 @@ pub fn run() {
                     .set_clear_after(amberbeam_commands::clearing(&settings))
                     .await;
                 queue.start();
+                amberbeam_commands::watch_edits(&service, watching);
             });
 
             // The core's event stream is pumped into the webview here. This is
@@ -545,6 +606,7 @@ pub fn run() {
             import_preview,
             import_apply,
             open_url,
+            open_with,
             open_system_keyboard,
             write_text_file,
             read_text_file,

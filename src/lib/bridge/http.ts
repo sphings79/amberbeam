@@ -329,6 +329,11 @@ export function makeApi(target: Target): AmberBeamApi {
       // the site manager as a view of the same page instead.
       window.location.search = "?view=sites";
     },
+    async openWith(): Promise<boolean> {
+      // The service runs on another machine. Starting a program over there
+      // would not put it in front of the person who asked.
+      return false;
+    },
     async closeThisWindow(): Promise<void> {
       // A browser tab that closed itself would take the whole session with it.
     },

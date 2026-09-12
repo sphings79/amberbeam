@@ -237,6 +237,7 @@ async fn main() {
         .set_clear_after(amberbeam_commands::clearing(&service.config.settings()))
         .await;
     service.queue.start();
+    amberbeam_commands::watch_edits(&service, events.clone());
 
     let web = env("AMBERBEAM_WEB").unwrap_or_else(|| "/web".into());
     let index = std::path::Path::new(&web).join("index.html");

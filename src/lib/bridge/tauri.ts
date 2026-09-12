@@ -248,6 +248,10 @@ export const api: AmberBeamApi = {
     }
   },
   openSiteManager: () => invoke<void>("open_site_manager"),
+  async openWith(path: string, program: string | null): Promise<boolean> {
+    await invoke<void>("open_with", { path, program });
+    return true;
+  },
   async closeThisWindow(): Promise<void> {
     await getCurrentWindow().close();
   },

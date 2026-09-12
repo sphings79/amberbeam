@@ -44,3 +44,22 @@ export function recordEvent(event: CoreEvent): void {
   };
   lines = lines.length >= LIMIT ? [...lines.slice(1), line] : [...lines, line];
 }
+
+/**
+ * A line the window itself has to say.
+ *
+ * The log is where what happened to a server is written down, and a file
+ * another program saved and this one sent up happened to a server. It belongs
+ * with the rest of it rather than in a notice that disappears.
+ */
+export function note(text: string): void {
+  counter += 1;
+  const line: LogLine = {
+    id: counter,
+    endpoint: "",
+    direction: "note",
+    text,
+    at: new Date(),
+  };
+  lines = lines.length >= LIMIT ? [...lines.slice(1), line] : [...lines, line];
+}

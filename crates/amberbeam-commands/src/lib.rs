@@ -25,11 +25,13 @@
 //! human chose the path.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
 use amberbeam_core::editing::{how_to_open, Edits};
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
+use amberbeam_core::events::{Edited, Event, Events};
 use amberbeam_core::ftp::tls::{CertificateDecision, Exceptions};
 use amberbeam_core::ftp::{Encryption, FtpParams};
 use amberbeam_core::ops::{is_usable_name, Measurement};
@@ -979,6 +981,41 @@ fn remember_path(
         last_used: now(),
         ..entry
     })
+}
+
+/// How often the copies are looked at while something else is editing them.
+///
+/// A second is short enough that saving in another program and switching back
+/// feels like it already happened, and long enough that a handful of file
+/// stats a second is nothing. There is no cheaper way to know: a program
+/// opening a file does not tell anybody, and neither does it closing one.
+const LOOK_EVERY: Duration = Duration::from_secs(1);
+
+/// Watches the copies that other programs are editing, and sends up what they
+/// save.
+///
+/// Only started where there is something to watch. The check itself is a
+/// `metadata` call per open file, so an idle program with nothing open does no
+/// work at all beyond waking once a second to find that out.
+pub fn watch_edits(service: &Arc<Service>, events: Events) {
+    let service = Arc::clone(service);
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(LOOK_EVERY).await;
+            for edit in service.edits.saved_elsewhere().await {
+                let what = match service.edits.push(&service.sessions, &edit.id, false).await {
+                    Ok(_) => Edited::Pushed,
+                    Err(Error::EditChangedOnServer { path }) => Edited::Changed { path },
+                    Err(error) => Edited::Failed { error },
+                };
+                events.emit(Event::Edited {
+                    id: edit.id,
+                    name: edit.name,
+                    what,
+                });
+            }
+        }
+    });
 }
 
 /// What happened to something that was deleted.

@@ -73,6 +73,30 @@ pub enum Event {
     /// The queue changed in a way the window cannot infer from progress alone:
     /// a job finished, failed, was added or needs an answer.
     Queue,
+    /// Something happened to a file that is open for editing.
+    ///
+    /// Its own event because nobody is looking: the file is open in another
+    /// program, and a write-back that silently failed there would be found out
+    /// the next time somebody wondered why the site still looks the same.
+    Edited {
+        id: String,
+        name: String,
+        #[serde(flatten)]
+        what: Edited,
+    },
+}
+
+/// What happened to a file that is open for editing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "what", rename_all = "kebab-case")]
+pub enum Edited {
+    /// Saved somewhere else and sent up.
+    Pushed,
+    /// Saved, but the server's copy is no longer the one that was taken. The
+    /// window has to ask; nothing was written.
+    Changed { path: String },
+    /// Saved, and the write-back failed for some other reason.
+    Failed { error: Error },
 }
 
 /// One running transfer, as the queue reports it.
