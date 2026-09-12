@@ -36,41 +36,54 @@ import type {
 /** Matches EVENT_CHANNEL in the desktop shell. */
 const EVENT_CHANNEL = "amberbeam://event";
 
+/**
+ * Everything the core does, through the one command that carries the rest.
+ *
+ * The shell used to declare a Tauri command per operation, and the container
+ * service would have had to declare the same list again. They are one list now,
+ * in `amberbeam-commands`, and both shells hand it a name and the arguments as
+ * sent. `invoke` stays for the handful that are about windows, or about a path
+ * a person chose in a dialog — those exist here and nowhere else.
+ */
+function send<T>(command: string, args: Record<string, unknown> = {}): Promise<T> {
+  return invoke<T>("run_command", { command, args });
+}
+
 export const api: AmberBeamApi = {
   shell: "desktop",
 
-  coreInfo: () => invoke<CoreInfo>("core_info"),
+  coreInfo: () => send<CoreInfo>("core_info"),
 
   async subscribe(handler: (event: CoreEvent) => void): Promise<Unsubscribe> {
     return await listen<CoreEvent>(EVENT_CHANNEL, (message) => handler(message.payload));
   },
 
-  localSession: () => invoke<Connected>("local_session"),
-  connect: (request: ConnectRequest) => invoke<Connected>("connect", { request }),
-  disconnect: (endpoint: string) => invoke<void>("disconnect", { endpoint }),
+  localSession: () => send<Connected>("local_session"),
+  connect: (request: ConnectRequest) => send<Connected>("connect", { request }),
+  disconnect: (endpoint: string) => send<void>("disconnect", { endpoint }),
 
-  listDir: (endpoint: string, path: string) => invoke<Listing>("list_dir", { endpoint, path }),
+  listDir: (endpoint: string, path: string) => send<Listing>("list_dir", { endpoint, path }),
   parentOf: (endpoint: string, path: string) =>
-    invoke<string | null>("parent_of", { endpoint, path }),
+    send<string | null>("parent_of", { endpoint, path }),
   joinPath: (endpoint: string, directory: string, name: string) =>
-    invoke<string>("join_path", { endpoint, directory, name }),
+    send<string>("join_path", { endpoint, directory, name }),
 
   createDir: (endpoint: string, directory: string, name: string) =>
-    invoke<void>("create_dir", { endpoint, directory, name }),
+    send<void>("create_dir", { endpoint, directory, name }),
   createFile: (endpoint: string, directory: string, name: string) =>
-    invoke<void>("create_file", { endpoint, directory, name }),
+    send<void>("create_file", { endpoint, directory, name }),
   renameEntry: (endpoint: string, directory: string, from: string, to: string) =>
-    invoke<void>("rename_entry", { endpoint, directory, from, to }),
-  measure: (endpoint: string, path: string) => invoke<Measurement>("measure", { endpoint, path }),
+    send<void>("rename_entry", { endpoint, directory, from, to }),
+  measure: (endpoint: string, path: string) => send<Measurement>("measure", { endpoint, path }),
   removeEntry: (endpoint: string, path: string) =>
-    invoke<void>("remove_entry", { endpoint, path }),
+    send<void>("remove_entry", { endpoint, path }),
   setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
-    invoke<void>("set_permissions", { endpoint, path, mode, recursive }),
+    send<void>("set_permissions", { endpoint, path, mode, recursive }),
 
-  quickConnectHistory: () => invoke<QuickConnectEntry[]>("quick_connect_history"),
-  forgetQuickConnect: (id: string) => invoke<void>("forget_quick_connect", { id }),
-  saveAsSite: (id: string) => invoke<string>("save_as_site", { id }),
-  rememberPath: (id: string, path: string) => invoke<void>("remember_path", { id, path }),
+  quickConnectHistory: () => send<QuickConnectEntry[]>("quick_connect_history"),
+  forgetQuickConnect: (id: string) => send<void>("forget_quick_connect", { id }),
+  saveAsSite: (id: string) => send<string>("save_as_site", { id }),
+  rememberPath: (id: string, path: string) => send<void>("remember_path", { id, path }),
 
   async onFileDrop(handler): Promise<Unsubscribe> {
     return await getCurrentWebview().onDragDropEvent((event) => {
@@ -79,33 +92,33 @@ export const api: AmberBeamApi = {
     });
   },
 
-  enqueue: (request: EnqueueRequest) => invoke<number>("enqueue", { request }),
-  queueSnapshot: () => invoke<Queue>("queue_snapshot"),
-  queueTotals: () => invoke<Totals>("queue_totals"),
-  queuePause: (paused: boolean) => invoke<void>("queue_pause", { paused }),
-  queueHold: (id: string) => invoke<void>("queue_hold", { id }),
-  queueResume: (id: string) => invoke<void>("queue_resume", { id }),
-  queueRemove: (id: string) => invoke<void>("queue_remove", { id }),
-  queueClearFinished: () => invoke<void>("queue_clear_finished"),
-  queueClearAll: () => invoke<void>("queue_clear_all"),
-  queueMove: (id: string, by?: number, to?: number) => invoke<void>("queue_move", { id, by, to }),
+  enqueue: (request: EnqueueRequest) => send<number>("enqueue", { request }),
+  queueSnapshot: () => send<Queue>("queue_snapshot"),
+  queueTotals: () => send<Totals>("queue_totals"),
+  queuePause: (paused: boolean) => send<void>("queue_pause", { paused }),
+  queueHold: (id: string) => send<void>("queue_hold", { id }),
+  queueResume: (id: string) => send<void>("queue_resume", { id }),
+  queueRemove: (id: string) => send<void>("queue_remove", { id }),
+  queueClearFinished: () => send<void>("queue_clear_finished"),
+  queueClearAll: () => send<void>("queue_clear_all"),
+  queueMove: (id: string, by?: number, to?: number) => send<void>("queue_move", { id, by, to }),
   queueDecide: (id: string, policy: ConflictPolicy, forAll: boolean) =>
-    invoke<void>("queue_decide", { id, policy, forAll }),
+    send<void>("queue_decide", { id, policy, forAll }),
 
   openUrl: (url: string) => invoke<void>("open_url", { url }),
-  updateSource: () => invoke<string>("update_source"),
-  newerRelease: (answer: string) => invoke<Release | null>("newer_release", { answer }),
+  updateSource: () => send<string>("update_source"),
+  newerRelease: (answer: string) => send<Release | null>("newer_release", { answer }),
 
-  settings: () => invoke<Settings>("settings"),
-  setSettings: (value: Settings) => invoke<void>("set_settings", { value }),
+  settings: () => send<Settings>("settings"),
+  setSettings: (value: Settings) => send<void>("set_settings", { value }),
 
-  sites: () => invoke<Site[]>("sites"),
-  siteFolders: () => invoke<string[]>("site_folders"),
-  saveSite: (folder: string, site: Site) => invoke<string>("save_site", { folder, site }),
-  deleteSite: (id: string) => invoke<void>("delete_site", { id }),
-  createSiteFolder: (folder: string) => invoke<void>("create_site_folder", { folder }),
-  renameSiteFolder: (from: string, to: string) => invoke<void>("rename_site_folder", { from, to }),
-  deleteSiteFolder: (folder: string) => invoke<void>("delete_site_folder", { folder }),
+  sites: () => send<Site[]>("sites"),
+  siteFolders: () => send<string[]>("site_folders"),
+  saveSite: (folder: string, site: Site) => send<string>("save_site", { folder, site }),
+  deleteSite: (id: string) => send<void>("delete_site", { id }),
+  createSiteFolder: (folder: string) => send<void>("create_site_folder", { folder }),
+  renameSiteFolder: (from: string, to: string) => send<void>("rename_site_folder", { from, to }),
+  deleteSiteFolder: (folder: string) => send<void>("delete_site_folder", { folder }),
   /**
    * Asking the updater whether there is something it could install.
    *
@@ -150,13 +163,13 @@ export const api: AmberBeamApi = {
   restart: () => invoke<void>("restart"),
 
   setSiteSecret: (id: string, kind: SecretKind, value: string) =>
-    invoke<void>("set_site_secret", { id, kind, value }),
+    send<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
-    invoke<void>("forget_site_secret", { id, kind }),
+    send<void>("forget_site_secret", { id, kind }),
   setSessionSecret: (id: string, kind: SecretKind, value: string) =>
-    invoke<void>("set_session_secret", { id, kind, value }),
+    send<void>("set_session_secret", { id, kind, value }),
   forgetSessionSecret: (id: string, kind: SecretKind) =>
-    invoke<void>("forget_session_secret", { id, kind }),
+    send<void>("forget_session_secret", { id, kind }),
 
   async chooseFile(title: string): Promise<string | null> {
     const chosen = await openDialog({ title, multiple: false, directory: false });
@@ -186,9 +199,9 @@ export const api: AmberBeamApi = {
   ) => invoke<number>("import_apply", { source, path, chosen, expected, takePasswords, into }),
 
   search: (endpoint: string, root: string, needle: string, limit: number) =>
-    invoke<SearchResult>("search", { endpoint, root, needle, limit }),
+    send<SearchResult>("search", { endpoint, root, needle, limit }),
   rawCommand: (endpoint: string, command: string) =>
-    invoke<RawReply>("raw_command", { endpoint, command }),
+    send<RawReply>("raw_command", { endpoint, command }),
 
   openSystemKeyboard: (pane: "function-keys" | "shortcuts") =>
     invoke<void>("open_system_keyboard", { pane }),
@@ -222,6 +235,6 @@ export const api: AmberBeamApi = {
     );
   },
 
-  uiState: () => invoke<unknown>("ui_state"),
-  setUiState: (value: unknown) => invoke<void>("set_ui_state", { value }),
+  uiState: () => send<unknown>("ui_state"),
+  setUiState: (value: unknown) => send<void>("set_ui_state", { value }),
 };

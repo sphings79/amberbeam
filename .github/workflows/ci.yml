@@ -76,6 +76,8 @@ jobs:
         run: npm run check:seams
       # Two actions on one key is not a compile error; it is a key that does
       # one of two things depending on the order they happen to be listed in.
+      - name: Every command a bridge asks for exists
+        run: npm run check:commands
       - name: Keyboard table without collisions
         run: npm run check:keys
       # Markdown renders a link to a file that is not there exactly like a

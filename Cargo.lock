@@ -70,6 +70,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "amberbeam-commands"
+version = "0.1.4"
+dependencies = [
+ "amberbeam-core",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "amberbeam-core"
 version = "0.1.4"
 dependencies = [
@@ -91,6 +101,7 @@ dependencies = [
 name = "amberbeam-desktop"
 version = "0.1.4"
 dependencies = [
+ "amberbeam-commands",
  "amberbeam-core",
  "serde",
  "serde_json",
