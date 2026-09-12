@@ -25,6 +25,18 @@ export type UpdateStatus = "idle" | "checking" | "current" | "available" | "unre
 
 let found = $state<Release | null>(null);
 let status = $state<UpdateStatus>("idle");
+let checkedAt = $state<number | null>(null);
+
+/**
+ * The shortest a check is allowed to appear to take.
+ *
+ * A press that answers in forty milliseconds looks like a press that did
+ * nothing: the button says the same word before and after, and the moment in
+ * between is too short to see. This is not a pretend delay to seem busy — the
+ * work is real and usually just fast — it is the difference between "checked,
+ * still current" and "broken".
+ */
+const VISIBLE = 600;
 
 export function availableUpdate(): Release | null {
   return found;
@@ -32,6 +44,11 @@ export function availableUpdate(): Release | null {
 
 export function updateStatus(): UpdateStatus {
   return status;
+}
+
+/** When the last check finished, so the button can say so. */
+export function updateCheckedAt(): number | null {
+  return checkedAt;
 }
 
 /**
@@ -44,6 +61,7 @@ export function updateStatus(): UpdateStatus {
  */
 export async function checkForUpdate(onDemand = false): Promise<void> {
   if (status === "checking") return;
+  const began = Date.now();
   try {
     if (!onDemand) {
       const settings = await api.settings();
@@ -56,16 +74,27 @@ export async function checkForUpdate(onDemand = false): Promise<void> {
       headers: { accept: "application/vnd.github+json" },
     });
     if (!response.ok) {
+      await settle(began);
       status = "unreachable";
       return;
     }
 
-    found = await api.newerRelease(await response.text());
-    status = found ? "available" : "current";
+    const release = await api.newerRelease(await response.text());
+    await settle(began);
+    found = release;
+    checkedAt = Date.now();
+    status = release ? "available" : "current";
   } catch {
     // No network, a rate limit, a redesigned answer. None of it is worth a
     // dialog, but it is worth not claiming to be up to date: the button says
     // it could not ask, and pressing it again tries once more.
+    await settle(began);
     status = "unreachable";
   }
+}
+
+/** Waits out the rest of the shortest visible check, if any is left. */
+async function settle(began: number): Promise<void> {
+  const left = VISIBLE - (Date.now() - began);
+  if (left > 0) await new Promise((done) => setTimeout(done, left));
 }

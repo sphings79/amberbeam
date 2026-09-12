@@ -165,3 +165,25 @@ kbd,
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * The tooltip, drawn by `lib/ui/tips.ts`.
+ *
+ * Global rather than scoped to a component: one box is created per window and
+ * lives on `body`, outside every component's tree, so a label is never clipped
+ * by the pane it belongs to.
+ */
+.amberbeam-tip {
+  position: fixed;
+  z-index: 200;
+  max-width: 280px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0.4rem;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 0.74rem;
+  line-height: 1.35;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}

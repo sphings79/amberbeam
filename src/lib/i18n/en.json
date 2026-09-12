@@ -405,5 +405,6 @@
   "update.dialog.nothing": "This release says nothing about itself.",
   "update.dialog.where": "Opens the release page in your browser.",
   "update.dialog.later": "Later",
-  "update.dialog.download": "Download"
+  "update.dialog.download": "Download",
+  "update.checked": "Last checked at {time}. Press to ask again."
 }

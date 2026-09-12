@@ -253,7 +253,7 @@ async fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
         // has to have finished initialising before the first line of the view
         // can run.
         .initialization_script("window.__AMBERBEAM_VIEW__ = 'sites';")
-        .title("AmberBeam")
+        .title(format!("AmberBeam {}", env!("CARGO_PKG_VERSION")))
         .inner_size(980.0, 660.0)
         .min_inner_size(700.0, 460.0)
         .center()
@@ -1178,6 +1178,15 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(move |app| {
+            // The version belongs where somebody would look for it, and the
+            // title bar is the one strip of the window that is always visible
+            // whatever is open inside it. Set here rather than in the config
+            // because the config cannot read the version it was built with,
+            // and a number typed in twice is a number that will disagree.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_title(&format!("AmberBeam {}", env!("CARGO_PKG_VERSION")));
+            }
+
             // Inside an async block, so the queue's loops are spawned where a
             // runtime exists.
             let queue = Arc::clone(&started.queue);

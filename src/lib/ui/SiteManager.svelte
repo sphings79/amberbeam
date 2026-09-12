@@ -16,6 +16,7 @@
   import { api, type OpenSide, type ProtocolInfo, type Protocol, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import { label } from "../keys/index.svelte";
+  import { tips } from "./tips";
   import { trap } from "./trap";
   import { ACCENTS } from "../theme/index.svelte";
   import { describe } from "./errors";
@@ -442,7 +443,7 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="manager">
+<div class="manager" use:tips>
   <aside>
     <div class="tools">
       <input

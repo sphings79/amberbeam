@@ -18,7 +18,12 @@
   } from "./lib/keys/index.svelte";
   import { recordEvent } from "./lib/state/log.svelte";
   import { queueState, recordQueueEvent, refreshQueue } from "./lib/state/queue.svelte";
-  import { availableUpdate, checkForUpdate, updateStatus } from "./lib/state/update.svelte";
+  import {
+    availableUpdate,
+    checkForUpdate,
+    updateCheckedAt,
+    updateStatus,
+  } from "./lib/state/update.svelte";
   import {
     focusedSide,
     focusPane,
@@ -41,6 +46,7 @@
   } from "./lib/state/panes.svelte";
   import { ACCENTS, currentAccent, currentTheme, setAccent, setTheme, THEMES } from "./lib/theme/index.svelte";
   import ConflictDialog from "./lib/ui/ConflictDialog.svelte";
+  import { tips } from "./lib/ui/tips";
   import { trap } from "./lib/ui/trap";
   import KeyboardHelp from "./lib/ui/KeyboardHelp.svelte";
   import KeyboardSettings from "./lib/ui/KeyboardSettings.svelte";
@@ -103,6 +109,20 @@
   let newer = $derived(availableUpdate());
   /** Whether its notes are being read. */
   let updateOpen = $state(false);
+
+  /**
+   * What the update button says when the pointer rests on it.
+   *
+   * When a check has run, the time it ran is the useful thing: it turns
+   * "Aktuell" from a claim into a claim with a date on it.
+   */
+  function lastCheck(): string {
+    const at = updateCheckedAt();
+    if (at === null) return t("update.check.hint");
+    return t("update.checked", {
+      time: new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }),
+    });
+  }
 
   /** The connect menu, and which side asked for it. */
   let connectMenu = $state<{ side: Side; x: number; y: number } | null>(null);
@@ -621,7 +641,7 @@
 {#if isSiteManager}
   <SiteManager />
 {:else}
-<div class="window">
+<div class="window" use:tips>
   <!-- The one button this program exists for, where a program's main button
        belongs. It sat in the footer between appearance and help, among the
        things nobody opens twice a week. -->
@@ -642,7 +662,7 @@
       class="update"
       class:news={updateStatus() === "available"}
       onclick={() => (newer ? (updateOpen = true) : void checkForUpdate(true))}
-      title={newer ? t("update.hint", { version: newer.version }) : t("update.check.hint")}
+      title={newer ? t("update.hint", { version: newer.version }) : lastCheck()}
     >
       {#if newer}
         <Icon name="update" size={13} />
