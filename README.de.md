@@ -228,6 +228,11 @@ python3 dev/make-screenshots.py
 dev/render-png.py assets/social-preview.svg assets/social-preview.png 1280 640
 dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
+# Das schreibt 128x128@2x.png, was Tauri unter hicolor/256x256@2 ablegt —
+# einen Buchstaben zu kurz für die Spezifikation, weshalb Linux-Oberflächen
+# es ignorieren. src-tauri/icons/256x256.png ist dasselbe Bild unter einem
+# Namen, der funktioniert, und steht so in tauri.conf.json. Behalten.
+sips -z 256 256 src-tauri/icons/256x256.png
 ```
 
 `make-screenshots.py` zeichnet das Fenster je Sprache einmal — Beschriftungen,

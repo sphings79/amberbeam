@@ -221,6 +221,11 @@ python3 dev/make-screenshots.py
 dev/render-png.py assets/social-preview.svg assets/social-preview.png 1280 640
 dev/render-png.py assets/icon.svg assets/icon.png 1024 1024
 npm run tauri icon assets/icon.png
+# That writes 128x128@2x.png, which Tauri files under hicolor/256x256@2 —
+# one letter short of the name the specification uses, so Linux desktops
+# ignore it. src-tauri/icons/256x256.png is the same picture under a name
+# that works, and it is what tauri.conf.json lists. Keep it.
+sips -z 256 256 src-tauri/icons/256x256.png
 ```
 
 `make-screenshots.py` draws the window once per language — every label, file
