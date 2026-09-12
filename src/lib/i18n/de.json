@@ -90,7 +90,7 @@
   "error.path.permission-denied": "Keine Berechtigung für {path}.",
   "error.path.not-a-directory": "{path} ist kein Verzeichnis.",
   "error.path.already-exists": "{path} gibt es bereits.",
-  "error.path.unknown": "{path} ließ sich nicht lesen.",
+  "error.path.unknown": "{path} ließ sich nicht verwenden. Der Server sagt nicht, warum.",
   "error.path": "{path} ließ sich nicht lesen.",
   "error.disconnected": "Die Verbindung ist abgerissen.",
   "error.not-connected": "Nicht verbunden.",

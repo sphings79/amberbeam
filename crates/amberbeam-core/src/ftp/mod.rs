@@ -1238,7 +1238,13 @@ fn now_seconds() -> i64 {
 fn ftp_error(path: &str, source: FtpError) -> Error {
     let reason = match &source {
         FtpError::UnexpectedResponse(response) => match response.status {
-            Status::FileUnavailable => PathProblem::NotFound,
+            // 550 is, in the RFC's own words, "file not found, no access" --
+            // one code for two entirely different problems. 553 is about the
+            // name, and is what pure-ftpd answers a refused upload with. In
+            // both cases the only thing telling them apart is what the server
+            // wrote after the number.
+            Status::FileUnavailable => said(response).unwrap_or(PathProblem::NotFound),
+            Status::BadFilename => said(response).unwrap_or(PathProblem::Unknown),
             Status::NotLoggedIn => PathProblem::PermissionDenied,
             _ => PathProblem::Unknown,
         },
@@ -1250,9 +1256,68 @@ fn ftp_error(path: &str, source: FtpError) -> Error {
     }
 }
 
+/// What the server's own words say the problem was, where they say anything.
+///
+/// English, because that is what an FTP server writes after a status code --
+/// the numbers are the protocol and the sentence is a courtesy. A server that
+/// phrases it some other way falls through to what the code alone implies,
+/// which is where this started.
+fn said(response: &suppaftp::types::Response) -> Option<PathProblem> {
+    let text = String::from_utf8_lossy(&response.body).to_lowercase();
+    if text.contains("permission") || text.contains("denied") || text.contains("not allowed") {
+        return Some(PathProblem::PermissionDenied);
+    }
+    if text.contains("no such") || text.contains("not found") || text.contains("does not exist") {
+        return Some(PathProblem::NotFound);
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refused_write_says_it_was_refused_and_not_that_it_was_missing() {
+        use suppaftp::types::Response;
+
+        let of = |status, text: &str| {
+            let response = Response::new(status, text.as_bytes().to_vec());
+            match ftp_error("/var/www/index.php", FtpError::UnexpectedResponse(response)) {
+                Error::Path { reason, .. } => reason,
+                other => panic!("not a path problem: {other:?}"),
+            }
+        };
+
+        // What pure-ftpd answers an upload it will not take. It used to arrive
+        // as "could not be read", which is wrong about the direction and about
+        // the cause, and sends somebody looking for a file that is right there.
+        assert_eq!(
+            of(
+                Status::BadFilename,
+                "553 Can't open that file: Permission denied"
+            ),
+            PathProblem::PermissionDenied
+        );
+        assert_eq!(
+            of(Status::FileUnavailable, "550 Permission denied"),
+            PathProblem::PermissionDenied
+        );
+        assert_eq!(
+            of(Status::FileUnavailable, "550 No such file or directory"),
+            PathProblem::NotFound
+        );
+        // A server that says nothing useful falls back to what the number
+        // alone implies, which is where this behaved acceptably all along.
+        assert_eq!(
+            of(Status::FileUnavailable, "550 Requested action not taken"),
+            PathProblem::NotFound
+        );
+        assert_eq!(
+            of(Status::BadFilename, "553 Requested action not taken"),
+            PathProblem::Unknown
+        );
+    }
 
     #[test]
     fn the_commands_that_open_a_second_connection_are_known() {
