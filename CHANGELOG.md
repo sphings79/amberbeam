@@ -7,6 +7,60 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.4
+
+Updating from inside the program, and a window that can be put back the way it
+was.
+
+### Added
+
+- **Updates install themselves.** The button in the top bar opens what the new
+  version says about itself, and from there it can be fetched, checked and
+  installed without a browser, a file in Downloads and an installer to find.
+
+  The checking is the point rather than the convenience. A program that
+  replaces itself has to answer "where did this come from" without trusting
+  the network, so every update is signed with a key that is not in this
+  repository and refused if it does not match. That cannot be switched off.
+
+  Not every installation can replace itself: a Debian package under `/usr`
+  needs root. There the dialog says so and offers the download page instead of
+  failing halfway through.
+- **Tooltips.** Every button without words on it explains itself when the
+  pointer rests on it. They were supposed to already — the labels were all
+  written — but the built-in tooltip shows nothing in the webview this program
+  runs in, so the labels were decoration. This one is drawn by the program and
+  looks the same on all three systems.
+- **Back to the start**, under the appearance settings: sizes, sides, colours,
+  language and what is hidden, in one button. It asks twice. Servers, transfer
+  settings and the queue are left alone — it is a reset of the furniture, not
+  of the work.
+- **The version is in the title bar.** It was in no window at all.
+- **The server log and the transfer queue can be switched off**, in the same
+  row that says where they go.
+
+### Changed
+
+- **The address line is a field.** A path you already have — in a mail, in a
+  terminal — can be pasted in. Nothing happens while it is typed: navigating
+  on every keystroke would walk off to "/v" and "/va" on the way to anywhere,
+  and on a remote that is three round trips nobody asked for.
+- **The folder tree can be dragged wider**, with the same splitter that divides
+  the panes. Its width is kept per side: a deep tree on the remote and a flat
+  one locally want two different widths.
+- **The appearance settings open as a dialog** instead of unfolding as two rows
+  of buttons under the footer, where four groups sat in a strip with nothing to
+  separate one from the next.
+- **The server button no longer glows.** An outlined accent pill at the top of
+  the window sits in the corner of the eye all day. The icon keeps the accent;
+  the button does not.
+- The update button offers "Update to 0.1.5" rather than stating "Version
+  0.1.5", and wears an arrow rather than a star — a star marks a favourite,
+  and this is about something being newer.
+- Pressing it when it already says "up to date" now visibly does something.
+  The answer arrives in about forty milliseconds and the word does not change,
+  which looked like a dead button.
+
 ## 0.1.3
 
 Getting to a saved server, which until now meant knowing where to look.

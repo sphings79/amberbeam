@@ -7,6 +7,63 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.4
+
+Updates aus dem Programm heraus, und ein Fenster, das sich wieder herrichten
+lässt.
+
+### Neu
+
+- **Updates installieren sich selbst.** Der Knopf in der oberen Leiste zeigt,
+  was die neue Fassung über sich sagt, und von dort wird sie geholt, geprüft
+  und installiert — ohne Browser, ohne Datei im Download-Ordner, ohne
+  Installationsprogramm, das man suchen muss.
+
+  Das Prüfen ist der Punkt, nicht die Bequemlichkeit. Ein Programm, das sich
+  selbst ersetzt, muss „woher kommt das" beantworten können, ohne dem Netz zu
+  vertrauen. Jedes Update ist mit einem Schlüssel signiert, der nicht in diesem
+  Repository liegt, und wird abgelehnt, wenn es nicht passt. Abschalten lässt
+  sich das nicht.
+
+  Nicht jede Installation kann sich selbst ersetzen: ein Debian-Paket unter
+  `/usr` braucht Root. Dort sagt der Dialog das und bietet die Release-Seite
+  an, statt auf halbem Weg zu scheitern.
+- **Tooltips.** Jeder Knopf ohne Beschriftung erklärt sich, wenn der Zeiger
+  einen Moment darauf steht. Eigentlich sollte er das längst — die Texte waren
+  alle geschrieben —, aber der eingebaute Tooltip zeigt in der WebView dieses
+  Programms gar nichts, die Texte waren also Dekoration. Dieser wird vom
+  Programm selbst gezeichnet und sieht auf allen drei Systemen gleich aus.
+- **Auf Anfang**, unter Darstellung: Größen, Seiten, Farben, Sprache und was
+  ausgeblendet ist, in einem Knopf. Er fragt zweimal. Server,
+  Übertragungseinstellungen und Warteschlange bleiben unberührt — das ist ein
+  Zurücksetzen der Möbel, nicht der Arbeit.
+- **Die Version steht in der Titelleiste.** Vorher stand sie in keinem Fenster.
+- **Server-Log und Warteschlange lassen sich ausschalten**, in derselben Zeile,
+  die sagt, wohin sie gehören.
+
+### Geändert
+
+- **Die Adresszeile ist ein Eingabefeld.** Ein Pfad, den man schon hat — aus
+  einer Mail, aus einem Terminal —, lässt sich hineinkopieren. Während des
+  Tippens passiert nichts: auf jedem Tastendruck zu navigieren liefe auf dem
+  Weg nach irgendwo erst nach „/v" und „/va", und auf einem entfernten Server
+  sind das drei Anfragen, die niemand wollte.
+- **Der Ordnerbaum lässt sich breiter ziehen**, mit demselben Splitter wie
+  zwischen den Seiten. Die Breite wird pro Seite gemerkt: ein tiefer Baum auf
+  dem Server und ein flacher lokal wollen zwei verschiedene Breiten.
+- **Die Darstellungseinstellungen öffnen als Dialog**, statt sich als zwei
+  Knopfreihen unter der Fußzeile aufzuklappen, wo vier Gruppen ohne jede
+  Trennung nebeneinander standen.
+- **Der Server-Knopf leuchtet nicht mehr.** Ein umrandeter Akzent-Knopf oben im
+  Fenster sitzt den ganzen Tag im Augenwinkel. Der Akzent steckt jetzt im
+  Symbol, nicht im Knopf.
+- Der Update-Knopf bietet „Update auf 0.1.5" an, statt „Fassung 0.1.5"
+  festzustellen, und trägt einen Pfeil statt eines Sterns — ein Stern markiert
+  einen Favoriten, hier geht es um etwas Neueres.
+- Ein Klick darauf tut jetzt sichtbar etwas, wenn dort schon „Aktuell" steht.
+  Die Antwort kommt nach vierzig Millisekunden und das Wort ändert sich nicht,
+  das sah aus wie ein toter Knopf.
+
 ## 0.1.3
 
 Der Weg zu einem gespeicherten Server, der bisher voraussetzte, dass man weiß,

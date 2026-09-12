@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-core"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "dirs 7.0.0",
  "keyring",
@@ -89,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-desktop"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "amberbeam-core",
  "serde",
