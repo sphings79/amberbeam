@@ -69,6 +69,8 @@ pub enum Error {
     /// setting the person can change in five seconds, and "the server refused
     /// the login" sends them to check a password that was never wrong.
     EncryptionRequired { host: String, detail: String },
+    /// The wastebasket could not take something, so nothing was deleted.
+    WastebasketFailed { detail: String },
     /// A path could not be listed, read or written.
     Path { path: String, reason: PathProblem },
     /// The source changed since the transfer broke off, so continuing would
@@ -120,6 +122,7 @@ impl Error {
             Error::TimedOut { .. } => "error.timed-out",
             Error::EncryptionRefused { .. } => "error.encryption-refused",
             Error::EncryptionRequired { .. } => "error.encryption-required",
+            Error::WastebasketFailed { .. } => "error.wastebasket-failed",
             Error::Path { .. } => "error.path",
             Error::SourceChanged => "error.source-changed",
             Error::Disconnected => "error.disconnected",

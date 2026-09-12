@@ -65,6 +65,16 @@ pub struct Site {
     /// Off by default: remembering a password is a choice, not a default.
     #[serde(default)]
     pub remember_password: bool,
+    /// A directory on the server that deleted files are moved into instead.
+    ///
+    /// `None` deletes for good, which stays the default: a program that
+    /// quietly kept everything somebody deleted would be filling a disk they
+    /// thought they were clearing.
+    ///
+    /// It carries no secret — a path on a server whose address is already in
+    /// this file.
+    #[serde(default)]
+    pub wastebasket: Option<String>,
     /// Colour marking in the list, one of the interface's accents.
     pub colour: Option<String>,
 }
@@ -391,6 +401,7 @@ mod tests {
             latin1: None,
             keep_alive: None,
             remember_password: false,
+            wastebasket: None,
             colour: None,
         }
     }
@@ -502,7 +513,10 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 19] = [
+        const ALLOWED: [&str; 20] = [
+            // A path on a server whose address is already in this file, so it
+            // gives away nothing that was not already here.
+            "wastebasket",
             "id",
             "name",
             "protocol",

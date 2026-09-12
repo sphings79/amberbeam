@@ -461,5 +461,9 @@
   "size.1": "Normal",
   "size.1-15": "Large",
   "size.1-3": "Larger",
-  "cmd.enqueue": "Add to the queue"
+  "cmd.enqueue": "Add to the queue",
+  "error.wastebasket-failed": "Nothing was deleted: the wastebasket on the server could not take it. It has been switched off for this server, so deleting means deleting again — check the folder before you try once more.",
+  "sites.wastebasket": "Wastebasket on the server",
+  "sites.wastebasket.placeholder": "empty: delete for good",
+  "sites.wastebasket.hint": "A directory deleted files are moved into, named by the time they were thrown away. Deleting something inside it is final. Local files are never moved — this is the server side only."
 }

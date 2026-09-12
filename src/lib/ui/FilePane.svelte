@@ -254,7 +254,7 @@
     await run(async () => {
       for (const entry of entries) {
         const path = await api.joinPath(view.endpoint, view.path, entry.name);
-        await api.removeEntry(view.endpoint, path);
+        await api.removeEntry(view.endpoint, path, view.siteId);
       }
       await reload(side);
     });

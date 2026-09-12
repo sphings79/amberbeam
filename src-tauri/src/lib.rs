@@ -297,6 +297,7 @@ fn import_apply(
             latin1: None,
             keep_alive: None,
             remember_password: take_passwords && entry.has_password,
+            wastebasket: None,
             colour: None,
         };
 

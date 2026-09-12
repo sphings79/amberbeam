@@ -26,6 +26,7 @@ import type {
   RawReply,
   SearchResult,
   Release,
+  Removed,
   SecretKind,
   Site,
   Totals,
@@ -75,8 +76,8 @@ export const api: AmberBeamApi = {
   renameEntry: (endpoint: string, directory: string, from: string, to: string) =>
     send<void>("rename_entry", { endpoint, directory, from, to }),
   measure: (endpoint: string, path: string) => send<Measurement>("measure", { endpoint, path }),
-  removeEntry: (endpoint: string, path: string) =>
-    send<void>("remove_entry", { endpoint, path }),
+  removeEntry: (endpoint: string, path: string, siteId?: string | null) =>
+    send<Removed>("remove_entry", { endpoint, path, siteId: siteId ?? null }),
   setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
     send<void>("set_permissions", { endpoint, path, mode, recursive }),
 

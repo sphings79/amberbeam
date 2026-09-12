@@ -40,6 +40,16 @@ export function describe(failure: unknown): string {
       });
     case "encryption-refused":
       return t("error.encryption-refused");
+    case "encryption-required":
+      return t("error.encryption-required", { host: error.host, detail: error.detail });
+    case "wastebasket-failed":
+      // Deliberately without the cause. It arrives as the key of another
+      // failure, and those keys carry placeholders of their own — translating
+      // one here would put a literal "{path}" in front of somebody. The
+      // sentence says the two things that matter: nothing was deleted, and the
+      // wastebasket is off. The cause is in the failure itself for anyone
+      // looking.
+      return t("error.wastebasket-failed");
     case "path":
       return t(`error.path.${error.reason}`, { path: error.path });
     case "source-changed":

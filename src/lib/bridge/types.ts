@@ -158,6 +158,8 @@ export type CoreError =
     }
   | { kind: "timed-out"; host: string; port: number; seconds: number }
   | { kind: "encryption-refused"; detail: string }
+  | { kind: "encryption-required"; host: string; detail: string }
+  | { kind: "wastebasket-failed"; detail: string }
   | { kind: "path"; path: string; reason: PathProblem }
   | { kind: "source-changed" }
   | { kind: "disconnected" }
@@ -216,6 +218,12 @@ export interface Settings {
 }
 
 /** What a recursive delete is about to remove. */
+/** What happened to something that was deleted. */
+export interface Removed {
+  /** Where it went, or null when it is gone for good. */
+  movedTo: string | null;
+}
+
 export interface Measurement {
   files: number;
   directories: number;
@@ -346,6 +354,14 @@ export interface Site {
   latin1: boolean | null;
   keepAlive: number | null;
   rememberPassword: boolean;
+  /**
+   * A directory on the server that deleted files are moved into instead.
+   *
+   * Null or empty deletes for good, which stays the default: a program that
+   * quietly kept everything somebody deleted would be filling a disk they
+   * thought they were clearing.
+   */
+  wastebasket: string | null;
   /** One of the interface's accent names, or null for no marking. */
   colour: string | null;
 }
@@ -488,7 +504,14 @@ export interface AmberBeamApi {
   renameEntry(endpoint: string, directory: string, from: string, to: string): Promise<void>;
   /** Counts a tree before it is deleted, so the warning can say how much. */
   measure(endpoint: string, path: string): Promise<Measurement>;
-  removeEntry(endpoint: string, path: string): Promise<void>;
+  /**
+   * Deletes, or moves into the server's wastebasket when it has one.
+   *
+   * `siteId` is passed always and the core decides. A rule about what
+   * "delete" means belongs in one place; spread across the callers, one of
+   * them would eventually delete something somebody expected to find again.
+   */
+  removeEntry(endpoint: string, path: string, siteId?: string | null): Promise<Removed>;
   setPermissions(
     endpoint: string,
     path: string,

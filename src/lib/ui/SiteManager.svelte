@@ -275,6 +275,7 @@
       latin1: null,
       keepAlive: null,
       rememberPassword: false,
+      wastebasket: null,
       colour: null,
     };
   }
@@ -752,6 +753,21 @@
             />
           </label>
         </div>
+
+        <div class="row">
+          <label class="grow">
+            <span>{t("sites.wastebasket")}</span>
+            <input
+              bind:value={draft.wastebasket}
+              placeholder={t("sites.wastebasket.placeholder")}
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+            />
+          </label>
+        </div>
+        <p class="hint">{t("sites.wastebasket.hint")}</p>
 
         <div class="row">
           <label class="narrow">

@@ -27,6 +27,13 @@ export interface PaneState {
   title: string | null;
   /** The quick connect entry behind this connection, for remembering paths. */
   historyId: string | null;
+  /**
+   * The saved server this connection came from, if it came from one.
+   *
+   * Not for showing. It is what decides whether deleting means deleting, or
+   * moving into a wastebasket — a question only the entry can answer.
+   */
+  siteId: string | null;
   path: string;
   entries: DirEntry[];
   /**
@@ -88,6 +95,7 @@ function emptyPane(): PaneState {
     certificateAccepted: false,
     title: null,
     historyId: null,
+    siteId: null,
     path: "",
     entries: [],
     selected: new Set<string>(),
@@ -256,6 +264,7 @@ export async function openSession(
   historyId: string | null,
   startPath?: string | null,
   certificateAccepted = false,
+  siteId: string | null = null,
 ): Promise<void> {
   const state = panes[side];
   // Endpoint and path change together. Setting the endpoint first and reading
@@ -268,6 +277,7 @@ export async function openSession(
   state.certificateAccepted = certificateAccepted;
   state.title = title;
   state.historyId = historyId;
+  state.siteId = siteId;
   state.path = "";
   state.entries = [];
   state.selected = new Set<string>();

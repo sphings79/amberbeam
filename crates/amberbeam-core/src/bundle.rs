@@ -155,6 +155,7 @@ pub fn apply(
         let site = Site {
             id: Site::new_id(),
             remember_password: entry.password.is_some(),
+            wastebasket: None,
             ..entry.site.clone()
         };
         let folder = match (into.trim(), entry.folder.as_str()) {
@@ -202,6 +203,7 @@ mod tests {
             latin1: None,
             keep_alive: None,
             remember_password: true,
+            wastebasket: None,
             colour: None,
         }
     }

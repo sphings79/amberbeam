@@ -461,5 +461,9 @@
   "size.1": "Normal",
   "size.1-15": "Groß",
   "size.1-3": "Größer",
-  "cmd.enqueue": "Zur Warteschlange hinzufügen"
+  "cmd.enqueue": "Zur Warteschlange hinzufügen",
+  "error.wastebasket-failed": "Es wurde nichts gelöscht: der Papierkorb auf dem Server konnte es nicht aufnehmen. Er ist für diesen Server abgeschaltet, Löschen heißt jetzt also wieder löschen — sieh dir das Verzeichnis an, bevor du es erneut versuchst.",
+  "sites.wastebasket": "Papierkorb auf dem Server",
+  "sites.wastebasket.placeholder": "leer: endgültig löschen",
+  "sites.wastebasket.hint": "Ein Verzeichnis, in das gelöschte Dateien wandern, benannt nach dem Zeitpunkt des Wegwerfens. Löschen darin ist endgültig. Lokale Dateien werden nie verschoben — das gilt nur für die Serverseite."
 }

@@ -35,6 +35,7 @@ import type {
   RawReply,
   SearchResult,
   Release,
+  Removed,
   SecretKind,
   Site,
   Totals,
@@ -161,7 +162,8 @@ export function makeApi(target: Target): AmberBeamApi {
     renameEntry: (endpoint: string, directory: string, from: string, to: string) =>
       call<void>("rename_entry", { endpoint, directory, from, to }),
     measure: (endpoint: string, path: string) => call<Measurement>("measure", { endpoint, path }),
-    removeEntry: (endpoint: string, path: string) => call<void>("remove_entry", { endpoint, path }),
+    removeEntry: (endpoint: string, path: string, siteId?: string | null) =>
+      call<Removed>("remove_entry", { endpoint, path, siteId: siteId ?? null }),
     setPermissions: (endpoint: string, path: string, mode: number, recursive: boolean) =>
       call<void>("set_permissions", { endpoint, path, mode, recursive }),
 

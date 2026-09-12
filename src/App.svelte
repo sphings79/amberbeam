@@ -480,6 +480,7 @@
     historyId: string,
     side: Side,
     startPath?: string,
+    siteId?: string,
   ): Promise<void> {
     connecting = true;
     connectFailure = null;
@@ -494,6 +495,7 @@
         // From the session rather than from the request: an exception accepted
         // in an earlier run counts the same, and the mark has to say so.
         session.certificateAccepted,
+        siteId ?? null,
       );
       quickFor = null;
       pendingRequest = null;
@@ -548,7 +550,13 @@
       askingFor = { request, site, side };
       return;
     }
-    await attempt(request, `${site.user}@${site.host}`, side, site.remotePath ?? undefined);
+    await attempt(
+      request,
+      `${site.user}@${site.host}`,
+      side,
+      site.remotePath ?? undefined,
+      site.id,
+    );
   }
 
   $effect(() => {

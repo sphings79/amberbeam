@@ -255,6 +255,7 @@ impl Config {
             // A password the history never held cannot be carried over, so the
             // new entry starts without one rather than claiming to have it.
             remember_password: false,
+            wastebasket: None,
             colour: None,
         };
 

@@ -269,6 +269,21 @@ struct Renaming {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct Removing {
+    endpoint: String,
+    path: String,
+    /// Which server entry this pane came from, if any.
+    ///
+    /// It decides whether there is a wastebasket, and the window passes it
+    /// always rather than deciding for itself. A rule about what "delete"
+    /// means belongs in one place; spread across the callers, one of them
+    /// would eventually delete something the person expected to find again.
+    #[serde(default)]
+    site_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Permissions {
     endpoint: String,
     path: String,
@@ -589,11 +604,8 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
             out(service.sessions.rename(&endpoint, &source, &target).await?)
         }
         "remove_entry" => {
-            let it: AtPath = taking(command, args)?;
-            out(service
-                .sessions
-                .remove(&EndpointId::new(it.endpoint), &it.path)
-                .await?)
+            let it: Removing = taking(command, args)?;
+            out(remove(service, it).await?)
         }
         "set_permissions" => {
             let it: Permissions = taking(command, args)?;
@@ -813,6 +825,155 @@ fn remember_path(service: &Service, id: String, path: String) -> Result<(), Erro
         last_used: now(),
         ..entry
     })
+}
+
+/// What happened to something that was deleted.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Removed {
+    /// Where it went, or null when it is gone for good.
+    pub moved_to: Option<String>,
+}
+
+/// Deletes, or moves into the wastebasket when the server has one.
+///
+/// The whole rule lives here. Asked from the window it would be four round
+/// trips and a decision made in the place least able to make it; asked here it
+/// is one call that either did the right thing or says why not.
+async fn remove(service: &Service, it: Removing) -> Result<Removed, Error> {
+    let endpoint = EndpointId::new(it.endpoint);
+
+    let bin = it
+        .site_id
+        .as_deref()
+        .and_then(|id| {
+            service
+                .config
+                .sites()
+                .load()
+                .into_iter()
+                .find(|filed| filed.site.id == id)
+        })
+        .and_then(|filed| filed.site.wastebasket.clone())
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty());
+
+    let Some(bin) = bin else {
+        service.sessions.remove(&endpoint, &it.path).await?;
+        return Ok(Removed { moved_to: None });
+    };
+
+    // Deleting something that is already in the wastebasket is deleting it.
+    // Anything else would be a bin that cannot be emptied.
+    if it.path == bin
+        || it
+            .path
+            .starts_with(&format!("{}/", bin.trim_end_matches('/')))
+    {
+        service.sessions.remove(&endpoint, &it.path).await?;
+        return Ok(Removed { moved_to: None });
+    }
+
+    let name = it.path.rsplit('/').next().unwrap_or("").to_string();
+    match bin_it(service, &endpoint, &it.path, &bin, &name).await {
+        Ok(moved) => Ok(Removed {
+            moved_to: Some(moved),
+        }),
+        Err(why) => {
+            // Switched off rather than left to fail again, and nothing is
+            // deleted. A wastebasket that cannot take things is worse than
+            // none: it is a promise the program keeps making and breaking,
+            // and the next delete would be the one somebody could not undo.
+            if let Some(id) = it.site_id.as_deref() {
+                let _ = stop_using_wastebasket(service, id);
+            }
+            Err(Error::WastebasketFailed {
+                detail: match &why {
+                    Error::Other { detail } => detail.clone(),
+                    other => other.message_key().to_string(),
+                },
+            })
+        }
+    }
+}
+
+/// Moves one entry into the wastebasket under a name that is free.
+async fn bin_it(
+    service: &Service,
+    endpoint: &EndpointId,
+    path: &str,
+    bin: &str,
+    name: &str,
+) -> Result<String, Error> {
+    service.sessions.ensure_dir(endpoint, bin).await?;
+
+    // The time it was thrown away, in front of the name it had. Sorting the
+    // wastebasket by name then sorts it by when — which is the one order
+    // anybody looks for in a bin.
+    let stamp = stamp_now();
+    let mut wanted = format!("{stamp}_{name}");
+
+    // A name already in there gets a number. Twenty tries, because after
+    // twenty collisions in one second something else is wrong and silently
+    // looking for ever would hide it.
+    for attempt in 0..=20u32 {
+        if attempt > 0 {
+            wanted = format!("{stamp}_{name}_{attempt:02}");
+        }
+        let target = service.sessions.join(endpoint, bin, &wanted).await?;
+        if service.sessions.measure(endpoint, &target).await.is_ok() {
+            continue;
+        }
+        service.sessions.rename(endpoint, path, &target).await?;
+        return Ok(target);
+    }
+
+    Err(Error::other(
+        "the wastebasket already holds twenty things of that name from this second",
+    ))
+}
+
+/// Takes the wastebasket off a site entry, leaving everything else alone.
+fn stop_using_wastebasket(service: &Service, id: &str) -> Result<(), Error> {
+    let sites = service.config.sites();
+    let Some(filed) = sites.load().into_iter().find(|filed| filed.site.id == id) else {
+        return Ok(());
+    };
+    let folder = filed.folder.clone();
+    let mut site = filed.site;
+    site.wastebasket = None;
+    sites.save(&folder, &site).map(|_| ())
+}
+
+/// `20260912_203015`, in local time, which is the time somebody deleted it by.
+fn stamp_now() -> String {
+    let seconds = now();
+    let days = seconds.div_euclid(86_400);
+    let rest = seconds.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(days);
+    format!(
+        "{year:04}{month:02}{day:02}_{:02}{:02}{:02}",
+        rest / 3600,
+        (rest % 3600) / 60,
+        rest % 60
+    )
+}
+
+/// Days since 1970 to a calendar date, by Howard Hinnant's `civil_from_days`.
+///
+/// Written out rather than pulled in: one date, one format, and a date library
+/// would be a dependency for fourteen lines.
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
 async fn enqueue(service: &Service, request: EnqueueBody) -> Result<usize, Error> {
