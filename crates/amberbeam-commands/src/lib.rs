@@ -729,18 +729,27 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
     }
 }
 
+/// The list, without opening the credential store once.
+///
+/// It used to ask the store for every entry's password just to answer whether
+/// there was one — and on macOS each of those is a separate request to the
+/// keychain, so a list of ten servers meant ten password prompts, every time
+/// the window was opened. "Always allow" does not help: an ad-hoc signed
+/// build has a different signature after every rebuild, and the permission
+/// was granted to the old one.
+///
+/// So the entry's own "remember this" is what the list goes by. It is the
+/// intention rather than the fact, and the difference shows only if something
+/// removed the password from the store behind our back — in which case
+/// connecting asks for it, which is what it would have done anyway.
 fn sites(service: &Service) -> Vec<SiteRow> {
-    let secrets = &service.secrets;
     service
         .config
         .sites()
         .load()
         .into_iter()
         .map(|filed| SiteRow {
-            has_password: secrets
-                .get(&filed.site.id, Secret::Password)
-                .unwrap_or_default()
-                .is_some(),
+            has_password: filed.site.remember_password,
             has_session_password: service
                 .session
                 .get(&filed.site.id, Secret::Password)

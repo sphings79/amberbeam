@@ -106,7 +106,13 @@ impl Abilities {
             })
             .unwrap_or(false);
         Self {
-            mlsd: has("MLSD"),
+            // RFC 3659 says the MLST feature line covers both commands, and
+            // plenty of servers list only that one — ProFTPD among them.
+            // Looking for the literal word MLSD threw away machine-readable
+            // listings on servers that offer them, and fell back to parsing
+            // the human-readable one, where a name with a space in it and a
+            // date without a year are guesses rather than facts.
+            mlsd: has("MLSD") || has("MLST"),
             rest,
             utf8: has("UTF8"),
             size: has("SIZE"),
