@@ -21,7 +21,7 @@
     "check:docs": "node scripts/check-docs.mjs",
     "check:buttons": "node scripts/check-buttons.mjs",
     "check:notes": "node scripts/check-notes.mjs",
-    "build:local": "tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'"
+    "build:local": "tauri build --config src-tauri/build-local.conf.json"
   },
   "dependencies": {
     "@tanstack/virtual-core": "^3.17.10",
