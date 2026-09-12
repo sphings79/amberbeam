@@ -154,7 +154,19 @@ export const api: AmberBeamApi = {
   writeTextFile: (path: string, text: string) => invoke<void>("write_text_file", { path, text }),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
 
-  windowLabel: () => getCurrentWindow().label,
+  windowLabel(): string {
+    // What the window itself declared, before any of this ran. Asking Tauri is
+    // the fallback rather than the first move: that call needs the internals to
+    // be injected already, and a window that has not got there yet answers by
+    // throwing — which, at module scope, is a blank window and no explanation.
+    const declared = (globalThis as { __AMBERBEAM_VIEW__?: string }).__AMBERBEAM_VIEW__;
+    if (declared) return declared;
+    try {
+      return getCurrentWindow().label;
+    } catch {
+      return "main";
+    }
+  },
   openSiteManager: () => invoke<void>("open_site_manager"),
   openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),
   async onOpenSite(handler): Promise<Unsubscribe> {

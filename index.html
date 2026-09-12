@@ -4,6 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AmberBeam</title>
+    <script>
+      /*
+       * A blank window is the worst way for a program to fail: it says nothing,
+       * and the person looking at it cannot tell a crash from a slow start.
+       * This turns any error that stops the page into something readable —
+       * including the ones that happen before the framework is running, which
+       * are exactly the ones that leave the page blank.
+       *
+       * Plain inline script on purpose: it has to survive the bundle failing.
+       */
+      (function () {
+        var shown = false;
+        function show(what, where) {
+          if (shown) return;
+          shown = true;
+          var box = document.createElement("pre");
+          box.setAttribute("data-startup-error", "");
+          box.style.cssText =
+            "margin:0;padding:24px;font:13px ui-monospace,SFMono-Regular,Menlo,monospace;" +
+            "white-space:pre-wrap;word-break:break-word;background:#15100a;color:#f3d9a4;" +
+            "min-height:100vh;box-sizing:border-box";
+          box.textContent =
+            "AmberBeam could not start.\n\n" +
+            String(what) +
+            (where ? "\n\n" + where : "") +
+            "\n\nThis is a bug. Please report it with this text:\n" +
+            "https://github.com/sphings79/amberbeam/issues";
+          (document.body || document.documentElement).appendChild(box);
+        }
+        window.addEventListener("error", function (event) {
+          show(
+            (event.error && event.error.stack) || event.message,
+            event.filename ? event.filename + ":" + event.lineno : "",
+          );
+        });
+        window.addEventListener("unhandledrejection", function (event) {
+          var reason = event.reason;
+          show((reason && reason.stack) || reason, "");
+        });
+
+        /*
+         * Not every blank window throws. A module that never loads at all
+         * leaves no error behind, and the silence looks exactly like a crash
+         * from the outside. So the page checks on itself: if nothing has been
+         * drawn after a generous wait, it says so rather than sitting there.
+         */
+        window.addEventListener("DOMContentLoaded", function () {
+          setTimeout(function () {
+            var app = document.getElementById("app");
+            if (app && app.childElementCount === 0) {
+              show(
+                "The window loaded but nothing was drawn in it.",
+                "view: " + (window.__AMBERBEAM_VIEW__ || "main"),
+              );
+            }
+          }, 8000);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

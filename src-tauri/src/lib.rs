@@ -229,6 +229,13 @@ fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
     // gets decided from the window's label instead, which is not a path and
     // cannot be mangled by one.
     WebviewWindowBuilder::new(&app, SITES_WINDOW, WebviewUrl::App("index.html".into()))
+        // The window says what it is before the page loads, rather than the
+        // page asking Tauri afterwards. Asking meant a call into Tauri while
+        // the module was still initialising, and a window whose internals are
+        // not injected yet answers that by throwing — which means nothing
+        // mounts and the window stays white. A variable that is simply there
+        // cannot be too early.
+        .initialization_script("window.__AMBERBEAM_VIEW__ = 'sites';")
         .title("AmberBeam")
         .inner_size(980.0, 660.0)
         .min_inner_size(700.0, 460.0)
