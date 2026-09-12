@@ -4,7 +4,10 @@
   import type { DirEntry } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import {
+    clearSelection,
     isDirectory,
+    isUp,
+    selectTo,
     pane,
     renaming,
     setCursor,
@@ -85,10 +88,25 @@
   ]);
 
   function onRowClick(index: number, entry: DirEntry, event: MouseEvent): void {
+    // Shift first: holding it means "everything from where I was to here",
+    // and that has to be read before the cursor moves, because where I was is
+    // exactly what the cursor still knows.
+    if (event.shiftKey) {
+      selectTo(side, index);
+      return;
+    }
     setCursor(side, index);
     if (event.metaKey || event.ctrlKey) {
       toggleSelection(side, entry.name);
+      return;
     }
+    // A plain click starts again. Marks that survive one are marks somebody
+    // has to remember making, and the next command would work on rows they
+    // cannot see — which is the one thing a program that deletes must not do.
+    //
+    // Marking with the space bar is untouched: that is the commander way of
+    // building a selection up, and it is meant to accumulate.
+    clearSelection(side);
   }
 
   function onRowContext(index: number, entry: DirEntry, event: MouseEvent): void {
@@ -158,12 +176,13 @@
               class:cursor={view.cursor === item.index}
               class:marked={view.selected.has(entry.name)}
               class:directory={isDirectory(entry)}
+              class:up={isUp(entry)}
               style:transform="translateY({item.start}px)"
               style:height="{ROW}px"
               role="option"
               aria-selected={view.selected.has(entry.name)}
               tabindex="-1"
-              draggable="true"
+              draggable={!isUp(entry)}
               ondragstart={(event) => {
                 // What is dragged is what an operation would work on: the
                 // marked rows, or the one under the pointer.
@@ -299,6 +318,13 @@
 
   .row:hover {
     background: var(--surface-2);
+  }
+
+  /* Quieter than a real directory. It is a way out, not a thing in the list,
+     and giving it the same weight would put it in competition with the names
+     somebody is actually reading. */
+  .row.up .name {
+    color: var(--text-faint);
   }
 
   .row.directory .name {

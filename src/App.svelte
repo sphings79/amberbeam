@@ -34,6 +34,7 @@
     focusPane,
     goUp,
     moveCursor,
+    selectTo,
     navigate,
     openSession,
     pane,
@@ -694,11 +695,19 @@
     switch (bare ? event.key : "") {
       case "ArrowDown":
         event.preventDefault();
-        moveCursor(side, 1, rows.length);
+        if (event.shiftKey) {
+          selectTo(side, Math.min(view.cursor + 1, rows.length - 1));
+        } else {
+          moveCursor(side, 1, rows.length);
+        }
         return;
       case "ArrowUp":
         event.preventDefault();
-        moveCursor(side, -1, rows.length);
+        if (event.shiftKey) {
+          selectTo(side, Math.max(view.cursor - 1, 0));
+        } else {
+          moveCursor(side, -1, rows.length);
+        }
         return;
       case "PageDown":
         event.preventDefault();

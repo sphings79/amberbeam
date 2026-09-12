@@ -18,6 +18,7 @@
     toggleHidden,
     browsingTogether,
     setBrowsingTogether,
+    isUp,
     setTreeWidth,
     toggleTree,
     visibleEntries,
@@ -160,6 +161,14 @@
   let active = $derived(focusedSide() === side);
   let remote = $derived(view.endpoint !== LOCAL);
   let rows = $derived(visibleEntries(side));
+  /**
+   * How many things are actually in this directory.
+   *
+   * The way up is a row, not an entry. Counting it would mean an empty folder
+   * announcing one item, which is the sort of small lie that makes somebody
+   * distrust the rest of the numbers.
+   */
+  let howMany = $derived(rows.filter((entry) => !isUp(entry)).length);
   let chosen = $derived(targets(side));
 
   let menu = $state<{ x: number; y: number } | null>(null);
@@ -552,7 +561,7 @@
     <!-- "1 Einträge" is the sort of thing that makes a program feel machine
          translated, and it takes one key to avoid. -->
     <span class="count">
-      {rows.length === 1 ? t("pane.count.one") : t("pane.count", { count: rows.length })}
+      {howMany === 1 ? t("pane.count.one") : t("pane.count", { count: howMany })}
     </span>
   </div>
 

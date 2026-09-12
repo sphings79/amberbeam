@@ -135,6 +135,22 @@ export function switchFocus(): void {
 }
 
 /** Rows in the order the pane shows them: directories first, then the sort. */
+/**
+ * The name of the row that goes up a level.
+ *
+ * A real row rather than a button beside the list, because that is what forty
+ * years of two-pane file managers have put in the first line and what a hand
+ * reaches for without looking. It is not a file, and every place that acts on
+ * a selection has to know that — which is why the name is written down once,
+ * here, instead of being typed as two dots in five places.
+ */
+export const UP = "..";
+
+/** Whether a row is the way up rather than something on the server. */
+export function isUp(entry: DirEntry): boolean {
+  return entry.name === UP && entry.kind === "directory" && entry.modified === null;
+}
+
 export function visibleEntries(side: Side): DirEntry[] {
   const state = panes[side];
   let rows = state.showHidden
@@ -147,7 +163,7 @@ export function visibleEntries(side: Side): DirEntry[] {
   }
 
   const direction = state.sortAscending ? 1 : -1;
-  return [...rows].sort((a, b) => {
+  const sorted = [...rows].sort((a, b) => {
     // Directories keep to the top whichever way the column is sorted. Mixing
     // them into a size sort is technically consistent and practically useless.
     const aDir = isDirectory(a);
@@ -163,6 +179,44 @@ export function visibleEntries(side: Side): DirEntry[] {
         return direction * a.name.localeCompare(b.name, undefined, { numeric: true });
     }
   });
+
+  // First, always, and outside the sorting entirely. Somewhere between "size,
+  // descending" and "a filter is typed in", a way up that took part in the
+  // order would be somewhere else every time — and the one row whose place
+  // you should never have to look for is the one that gets you out.
+  //
+  // Not while filtering: what is on screen then is the answer to a question,
+  // and a row that is not an answer does not belong in it.
+  if (!needle && !atRoot(state)) {
+    return [wayUp(), ...sorted];
+  }
+  return sorted;
+}
+
+/** Whether a pane is as far up as it goes. */
+function atRoot(state: PaneState): boolean {
+  const path = state.path;
+  return path === "" || path === "/" || /^[A-Za-z]:[/\\]?$/.test(path);
+}
+
+/**
+ * The row itself.
+ *
+ * A size and a time of `null` rather than made-up ones: the list shows a dash
+ * for both, which is the truth. It is not a file and has no size.
+ */
+function wayUp(): DirEntry {
+  return {
+    name: UP,
+    kind: "directory",
+    size: null,
+    modified: null,
+    permissions: null,
+    owner: null,
+    group: null,
+    linkTarget: null,
+    kindOfTarget: null,
+  };
 }
 
 export function isDirectory(entry: DirEntry): boolean {
@@ -220,7 +274,16 @@ export async function openSession(
   state.cursor = 0;
   state.failure = null;
   state.expanded = new Set<string>();
-  await navigate(side, startPath || session.home);
+
+  // Opening is not somebody walking somewhere, so it does not take the other
+  // pane with it. Both panes open at startup, and the first one to finish
+  // would otherwise drag the second off the directory it is about to open.
+  automatic = true;
+  try {
+    await navigate(side, startPath || session.home);
+  } finally {
+    automatic = false;
+  }
 }
 
 /** Reads a directory into a pane. */
@@ -233,8 +296,16 @@ export async function openSession(
  */
 let together = $state(false);
 
-/** Set while a pane is being moved by the other, so it does not move it back. */
-let following = false;
+/**
+ * Set while a pane is being moved by something other than the person.
+ *
+ * The other pane dragging it along, or a session opening. Neither is a
+ * decision somebody made about where to be, and neither may pull the other
+ * side after it: opening two panes at startup would otherwise have one of them
+ * asking whether to create a directory nobody asked to go to — which is
+ * exactly what it did.
+ */
+let automatic = false;
 
 export function browsingTogether(): boolean {
   return together;
@@ -287,7 +358,7 @@ async function follow(mover: Side, before: string, after: string): Promise<void>
 
   const state = panes[other];
   const started = state.path;
-  following = true;
+  automatic = true;
 
   try {
     if ("up" in move) {
@@ -336,7 +407,7 @@ async function follow(mover: Side, before: string, after: string): Promise<void>
       at = next;
     }
   } finally {
-    following = false;
+    automatic = false;
   }
 }
 
@@ -368,7 +439,7 @@ export async function navigate(side: Side, path: string): Promise<void> {
 
   // After the move and outside the try, so a pane that could not move does not
   // drag the other one anywhere.
-  if (together && !following && !state.failure && state.path !== before) {
+  if (together && !automatic && !state.failure && state.path !== before) {
     await follow(side, before, state.path);
   }
 }
@@ -379,6 +450,10 @@ export async function reload(side: Side): Promise<void> {
 
 /** Enter: into a directory, or nothing for a file until M2 gives files meaning. */
 export async function enter(side: Side, entry: DirEntry): Promise<void> {
+  if (isUp(entry)) {
+    await goUp(side);
+    return;
+  }
   if (!isDirectory(entry)) return;
   const state = panes[side];
   const path = await api.joinPath(state.endpoint, state.path, entry.name);
@@ -397,14 +472,70 @@ export async function goUp(side: Side): Promise<void> {
 export function moveCursor(side: Side, delta: number, rowCount: number): void {
   const state = panes[side];
   state.cursor = Math.max(0, Math.min(rowCount - 1, state.cursor + delta));
+  // Moving without shift starts a new run from where you land. Leaving the old
+  // start behind would mean the next shift spans back to a row somebody walked
+  // past minutes ago.
+  anchors[side] = state.cursor;
 }
 
 export function setCursor(side: Side, index: number): void {
+  anchors[side] = index;
   panes[side].cursor = index;
 }
 
 /** Space or Insert: mark a row and step on, the way a commander does. */
+/**
+ * Where a run of marked rows started.
+ *
+ * Kept per pane and outside the state that gets saved: it is a thing about
+ * this moment of clicking, not about the pane.
+ */
+const anchors: Record<Side, number | null> = { left: null, right: null };
+
+/** Remembers where a selection should be measured from. */
+export function anchorAt(side: Side, index: number): void {
+  anchors[side] = index;
+}
+
+/**
+ * Marks everything between where the run began and where it is now.
+ *
+ * Replaces the marks rather than adding to them, which is what dragging a
+ * selection open and then changing your mind has to do — otherwise the rows
+ * you passed over on the way stay marked and the count says something you did
+ * not choose.
+ *
+ * Without a start, the current row becomes one. That happens when the first
+ * thing somebody does is hold shift, and taking it as "from here" is kinder
+ * than doing nothing.
+ */
+export function selectTo(side: Side, index: number): void {
+  const state = panes[side];
+  const rows = visibleEntries(side);
+  const from = anchors[side] ?? state.cursor;
+  anchors[side] = from;
+
+  const [first, last] = from <= index ? [from, index] : [index, from];
+  const marked = new Set<string>();
+  for (let at = first; at <= last; at += 1) {
+    const entry = rows[at];
+    // The way up is never part of a run. It is not a file, and a range that
+    // swallowed it would hand every command a target that cannot be a target.
+    if (entry && !isUp(entry)) marked.add(entry.name);
+  }
+  state.selected = marked;
+  state.cursor = Math.max(0, Math.min(index, rows.length - 1));
+}
+
+/** Takes every mark off, which is what a plain click means. */
+export function clearSelection(side: Side): void {
+  if (panes[side].selected.size > 0) panes[side].selected = new Set<string>();
+}
+
 export function toggleSelection(side: Side, name: string): void {
+  // Nothing to mark: it is not a file, and a tick beside it would be a tick
+  // that means nothing to every command that reads them.
+  if (name === UP) return;
   const state = panes[side];
   const next = new Set(state.selected);
   if (next.has(name)) {
@@ -449,10 +580,13 @@ export function currentEntry(side: Side): DirEntry | null {
 export function targets(side: Side): DirEntry[] {
   const state = panes[side];
   if (state.selected.size > 0) {
-    return visibleEntries(side).filter((entry) => state.selected.has(entry.name));
+    return visibleEntries(side).filter((entry) => state.selected.has(entry.name) && !isUp(entry));
   }
   const entry = currentEntry(side);
-  return entry ? [entry] : [];
+  // The way up is not a thing to delete, transfer, rename or read permissions
+  // of. Filtered here rather than in each command, because a command that
+  // forgot would be a command that deletes the directory you are standing in.
+  return entry && !isUp(entry) ? [entry] : [];
 }
 
 /** The name being renamed in place, or null. */
