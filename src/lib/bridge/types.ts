@@ -289,15 +289,18 @@ export interface Release {
  * not part of the file.
  *
  * `folder` is where it is filed, which on disk is simply the directory the file
- * is in. `hasPassword` says whether the credential store holds one; the
- * password itself never comes to the window, because the window has no use for
- * the value, only for the connection it opens.
+ * is in. `hasPassword` says whether the credential store holds one, and
+ * `hasSessionPassword` whether one was typed for this run only — two different
+ * promises, kept apart so the window can say which it is making. The password
+ * itself never comes to the window, because the window has no use for the
+ * value, only for the connection it opens.
  */
 export interface Site {
   id: string;
   name: string;
   folder: string;
   hasPassword: boolean;
+  hasSessionPassword: boolean;
   protocol: Protocol;
   host: string;
   port: number;
@@ -528,6 +531,17 @@ export interface AmberBeamApi {
   /** One way only: a secret goes in, and never comes back out here. */
   setSiteSecret(id: string, kind: SecretKind, value: string): Promise<void>;
   forgetSiteSecret(id: string, kind: SecretKind): Promise<void>;
+
+  /**
+   * Holds a secret for this run of the program and no longer.
+   *
+   * For somebody who typed a password without asking for it to be kept. It
+   * lives in the core rather than in the window that took it: the site list is
+   * a window of its own, and what it holds cannot be reached from the window
+   * that connects.
+   */
+  setSessionSecret(id: string, kind: SecretKind, value: string): Promise<void>;
+  forgetSessionSecret(id: string, kind: SecretKind): Promise<void>;
 
   // --- Importing somebody else's list ---
 

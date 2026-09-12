@@ -335,8 +335,12 @@
                 </button>
                 <span class="entry-actions">
                   {#if !entry.savedAsSite}
-                    <button type="button" title={t("quick.to-site")} onclick={() => toSite(entry)}>
-                      ★
+                    <!-- Labelled rather than a star with a tooltip. Taking a
+                         one-off connection into the server list is the step
+                         most people want next, and nobody hovers a symbol to
+                         find out whether it is the one they want. -->
+                    <button type="button" class="keep" onclick={() => toSite(entry)}>
+                      ★ {t("quick.to-site")}
                     </button>
                   {/if}
                   <button type="button" title={t("quick.forget")} onclick={() => forget(entry)}>
@@ -652,6 +656,11 @@
   .entry-actions button:hover {
     color: var(--accent);
     background: var(--surface-3);
+  }
+
+  .entry-actions .keep {
+    white-space: nowrap;
+    font-size: 0.72rem;
   }
 
   .note {

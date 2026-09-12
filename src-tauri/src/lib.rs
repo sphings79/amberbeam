@@ -22,7 +22,7 @@ use amberbeam_core::ops::{is_usable_name, Measurement};
 use amberbeam_core::queue::{Queue, Totals};
 use amberbeam_core::registry::{Connected, Sessions};
 use amberbeam_core::runner::{EnqueueRequest, Runner};
-use amberbeam_core::secrets::{Secret, SecretStore, SystemStore};
+use amberbeam_core::secrets::{MemoryStore, Secret, SecretStore, SystemStore};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
 use amberbeam_core::sites::Site;
 use amberbeam_core::transfer::ConflictPolicy;
@@ -55,6 +55,12 @@ struct State {
     /// Where passwords live. Behind the trait, so the container build of M7 can
     /// put an encrypted file here instead without anything above noticing.
     secrets: Box<dyn SecretStore>,
+    /// Passwords for this run only, for somebody who typed one but did not ask
+    /// for it to be kept. It has to be here rather than in the window that
+    /// took it: the site list is a window of its own, and what it holds cannot
+    /// be reached from the one that connects. Never written anywhere; it goes
+    /// when the program does.
+    session: MemoryStore,
 }
 
 /// One row of the site list, as the window needs it.
@@ -69,6 +75,10 @@ struct SiteRow {
     #[serde(flatten)]
     site: Site,
     has_password: bool,
+    /// One that was typed but not kept. Shown apart from the stored one,
+    /// because "until you quit" and "until you delete it" are not the same
+    /// promise and the window must not blur them.
+    has_session_password: bool,
 }
 
 /// Which secret of an entry a command means.
@@ -507,6 +517,11 @@ async fn sites(state: tauri::State<'_, Arc<State>>) -> Result<Vec<SiteRow>, Erro
                 .get(&filed.site.id, Secret::Password)
                 .unwrap_or_default()
                 .is_some(),
+            has_session_password: state
+                .session
+                .get(&filed.site.id, Secret::Password)
+                .unwrap_or_default()
+                .is_some(),
             folder: filed.folder,
             site: filed.site,
         })
@@ -548,6 +563,7 @@ fn delete_site(state: tauri::State<'_, Arc<State>>, id: String) -> Result<(), Er
     state.config.sites().delete(&id)?;
     // The password goes with the entry that explained what it was for.
     let _ = state.secrets.forget_all(&id);
+    let _ = state.session.forget_all(&id);
     Ok(())
 }
 
@@ -577,7 +593,34 @@ fn set_site_secret(
     kind: SecretKind,
     value: String,
 ) -> Result<(), Error> {
+    // Keeping it for good settles the question, so the copy that was only for
+    // this run goes. Two answers to one question is how a changed password
+    // ends up being the old one at the next connection.
+    let _ = state.session.forget(&id, kind.into());
     state.secrets.set(&id, kind.into(), &value)
+}
+
+/// Holds a password for this run only.
+///
+/// For somebody who typed one without asking for it to be kept: it has to
+/// survive the walk from the site window to the connection, and no further.
+#[tauri::command]
+fn set_session_secret(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    kind: SecretKind,
+    value: String,
+) -> Result<(), Error> {
+    state.session.set(&id, kind.into(), &value)
+}
+
+#[tauri::command]
+fn forget_session_secret(
+    state: tauri::State<'_, Arc<State>>,
+    id: String,
+    kind: SecretKind,
+) -> Result<(), Error> {
+    state.session.forget(&id, kind.into())
 }
 
 #[tauri::command]
@@ -608,11 +651,20 @@ async fn connect(
     // password that never reaches the webview cannot be read out of it, and the
     // window has no use for the value anyway — only for the connection.
     if let Some(site_id) = request.site_id.clone() {
+        // The kept one first, then the one for this run. They cannot both be
+        // there — keeping one clears the other — but the order says which
+        // would win if that ever stopped being true.
         if request.password.is_none() {
             request.password = state.secrets.get(&site_id, Secret::Password)?;
         }
+        if request.password.is_none() {
+            request.password = state.session.get(&site_id, Secret::Password)?;
+        }
         if request.passphrase.is_none() {
             request.passphrase = state.secrets.get(&site_id, Secret::Passphrase)?;
+        }
+        if request.passphrase.is_none() {
+            request.passphrase = state.session.get(&site_id, Secret::Passphrase)?;
         }
     }
 
@@ -1119,6 +1171,7 @@ pub fn run() {
         config,
         queue: Runner::new(sessions, events.clone(), queue_path),
         secrets: Box::new(SystemStore::default()),
+        session: MemoryStore::default(),
     });
 
     let started = Arc::clone(&state);
@@ -1197,6 +1250,8 @@ pub fn run() {
             rename_site_folder,
             delete_site_folder,
             set_site_secret,
+            set_session_secret,
+            forget_session_secret,
             forget_site_secret,
             remember_path,
             ui_state,

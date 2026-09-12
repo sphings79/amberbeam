@@ -124,10 +124,11 @@ impl SecretStore for SystemStore {
 
 /// A store that keeps nothing past the end of the program.
 ///
-/// Used by the tests, and by anything that has to run where no credential store
-/// exists. It is not a fallback the user is ever silently given: a password
-/// that seems to be remembered and then is not would be worse than one that was
-/// never offered.
+/// Used by the tests, by anything that has to run where no credential store
+/// exists, and — in the desktop shell — for a password somebody typed without
+/// asking for it to be kept. It is not a fallback the user is ever silently
+/// given in place of the real store: a password that seems to be remembered
+/// and then is not would be worse than one that was never offered.
 #[derive(Debug, Default)]
 pub struct MemoryStore {
     held: Mutex<HashMap<String, String>>,

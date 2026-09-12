@@ -167,6 +167,10 @@ export const api: AmberBeamApi = {
     call<void>("set-site-secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     call<void>("forget-site-secret", { id, kind }),
+  setSessionSecret: (id: string, kind: SecretKind, value: string) =>
+    call<void>("set-session-secret", { id, kind, value }),
+  forgetSessionSecret: (id: string, kind: SecretKind) =>
+    call<void>("forget-session-secret", { id, kind }),
 
   async chooseFile(): Promise<string | null> {
     // A browser cannot hand over a path, and the container build has no file

@@ -242,12 +242,22 @@
     note = null;
   }
 
+  /**
+   * Whether anything is already behind the field, kept or only for this run.
+   *
+   * It decides the "unchanged" placeholder, and the two cases have to answer
+   * the same here: an empty-looking box over a password that exists invites
+   * somebody to type it again for nothing, whichever store it sits in.
+   */
+  let held = $derived(draft ? draft.hasPassword || draft.hasSessionPassword : false);
+
   function blank(folder: string): Site {
     return {
       id: "",
       name: "",
       folder,
       hasPassword: false,
+      hasSessionPassword: false,
       protocol: "sftp",
       host: "",
       port: 22,
@@ -307,11 +317,21 @@
 
       // The secrets after the entry, so a password is never filed under an
       // identifier that failed to be written.
-      if (site.rememberPassword && newPassword) {
-        await api.setSiteSecret(site.id, "password", newPassword);
+      //
+      // The tick decides how long, not whether. Something typed without it is
+      // still meant — it goes to the core for this run of the program and no
+      // further, which is the only place both windows can reach it. Throwing
+      // it away instead would mean asking for it again at the connection
+      // somebody just set up.
+      if (newPassword) {
+        await (site.rememberPassword
+          ? api.setSiteSecret(site.id, "password", newPassword)
+          : api.setSessionSecret(site.id, "password", newPassword));
       }
-      if (site.rememberPassword && newPassphrase) {
-        await api.setSiteSecret(site.id, "passphrase", newPassphrase);
+      if (newPassphrase) {
+        await (site.rememberPassword
+          ? api.setSiteSecret(site.id, "passphrase", newPassphrase)
+          : api.setSessionSecret(site.id, "passphrase", newPassphrase));
       }
       newPassword = "";
       newPassphrase = "";
@@ -673,35 +693,39 @@
         {/if}
 
         {#if draft.auth !== "agent"}
+          <label>
+            <span>
+              {draft.auth === "key-file" ? t("quick.passphrase") : t("quick.password")}
+              {#if draft.hasPassword}
+                <em class="stored">{t("sites.stored")}</em>
+              {:else if draft.hasSessionPassword}
+                <em class="stored session">{t("sites.stored.session")}</em>
+              {/if}
+            </span>
+            {#if draft.auth === "key-file"}
+              <input
+                type="password"
+                bind:value={newPassphrase}
+                placeholder={held ? t("sites.unchanged") : ""}
+                autocomplete="off"
+              />
+            {:else}
+              <input
+                type="password"
+                bind:value={newPassword}
+                placeholder={held ? t("sites.unchanged") : ""}
+                autocomplete="off"
+              />
+            {/if}
+          </label>
+
           <label class="check">
             <input type="checkbox" bind:checked={draft.rememberPassword} />
             <span>{t("sites.remember")}</span>
           </label>
-
-          {#if draft.rememberPassword}
-            <label>
-              <span>
-                {draft.auth === "key-file" ? t("quick.passphrase") : t("quick.password")}
-                {#if draft.hasPassword}<em class="stored">{t("sites.stored")}</em>{/if}
-              </span>
-              {#if draft.auth === "key-file"}
-                <input
-                  type="password"
-                  bind:value={newPassphrase}
-                  placeholder={draft.hasPassword ? t("sites.unchanged") : ""}
-                  autocomplete="off"
-                />
-              {:else}
-                <input
-                  type="password"
-                  bind:value={newPassword}
-                  placeholder={draft.hasPassword ? t("sites.unchanged") : ""}
-                  autocomplete="off"
-                />
-              {/if}
-            </label>
-            <p class="hint">{t("sites.remember.hint")}</p>
-          {/if}
+          <p class="hint">
+            {draft.rememberPassword ? t("sites.remember.hint") : t("sites.session.hint")}
+          </p>
         {/if}
 
         <div class="row">
@@ -1161,6 +1185,12 @@
     font-style: normal;
     font-size: 0.7rem;
     color: var(--accent);
+  }
+
+  /* Not the accent: a password that goes when the program does is a weaker
+     promise than a kept one, and it should not look like the same thing. */
+  .stored.session {
+    color: var(--text-muted);
   }
 
   .warning,

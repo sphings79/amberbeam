@@ -31,7 +31,9 @@
 
   interface Props {
     side: Side;
-    onquickconnect: () => void;
+    /** Where the button is, so the menu can open under it. */
+    onconnect: (at: { x: number; y: number }) => void;
+    onservers: () => void;
     ondisconnect: () => void;
     /** Sends the named entries to the other pane. */
     ontransfer: (names: string[]) => Promise<void>;
@@ -39,7 +41,7 @@
     onreceive: (from: Side, names: string[]) => Promise<void>;
   }
 
-  let { side, onquickconnect, ondisconnect, ontransfer, onreceive }: Props = $props();
+  let { side, onconnect, onservers, ondisconnect, ontransfer, onreceive }: Props = $props();
 
   /** Set while something is being dragged over this pane. */
   let dropTarget = $state(false);
@@ -304,10 +306,21 @@
         <Icon name="disconnect" />
       </button>
     {:else}
-      <button type="button" onclick={onquickconnect} title={t("pane.connect")}>
+      <button
+        type="button"
+        data-connect={side}
+        onclick={(event) => {
+          const box = event.currentTarget.getBoundingClientRect();
+          onconnect({ x: box.left, y: box.bottom + 4 });
+        }}
+        title={t("pane.connect")}
+      >
         <Icon name="connect" />
       </button>
     {/if}
+    <button type="button" onclick={onservers} title={t("sites.title")}>
+      <Icon name="sites" />
+    </button>
     <button
       type="button"
       class:on={view.showTree}

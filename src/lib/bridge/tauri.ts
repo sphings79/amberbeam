@@ -110,6 +110,10 @@ export const api: AmberBeamApi = {
     invoke<void>("set_site_secret", { id, kind, value }),
   forgetSiteSecret: (id: string, kind: SecretKind) =>
     invoke<void>("forget_site_secret", { id, kind }),
+  setSessionSecret: (id: string, kind: SecretKind, value: string) =>
+    invoke<void>("set_session_secret", { id, kind, value }),
+  forgetSessionSecret: (id: string, kind: SecretKind) =>
+    invoke<void>("forget_session_secret", { id, kind }),
 
   async chooseFile(title: string): Promise<string | null> {
     const chosen = await openDialog({ title, multiple: false, directory: false });

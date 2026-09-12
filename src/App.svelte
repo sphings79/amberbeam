@@ -45,6 +45,7 @@
   import KeyboardHelp from "./lib/ui/KeyboardHelp.svelte";
   import KeyboardSettings from "./lib/ui/KeyboardSettings.svelte";
   import KeyboardSetup from "./lib/ui/KeyboardSetup.svelte";
+  import ConnectMenu from "./lib/ui/ConnectMenu.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
@@ -97,6 +98,24 @@
   );
 
   let quickFor = $state<Side | null>(null);
+  /** The connect menu, and which side asked for it. */
+  let connectMenu = $state<{ side: Side; x: number; y: number } | null>(null);
+
+  /**
+   * Opens the menu where the button for that side is.
+   *
+   * The key and the button have to arrive at the same place, so the position
+   * comes from the button either way rather than being guessed at here. If it
+   * is not on screen — a disconnected pane has a different button — the menu
+   * falls back to the top left, which is where that pane begins.
+   */
+  function openConnectMenu(side: Side): void {
+    const button = document.querySelector<HTMLElement>(`[data-connect="${side}"]`);
+    const box = button?.getBoundingClientRect();
+    connectMenu = box
+      ? { side, x: box.left, y: box.bottom + 4 }
+      : { side, x: side === "left" ? 16 : window.innerWidth / 2, y: 80 };
+  }
   let connecting = $state(false);
   let connectFailure = $state<unknown>(null);
   /** The request waiting on the user's answer about a server key. */
@@ -297,7 +316,7 @@
 
     // Nothing in the store and something needed: ask once, here, rather than
     // let the attempt fail and explain itself afterwards.
-    if (site.auth !== "agent" && !site.hasPassword) {
+    if (site.auth !== "agent" && !site.hasPassword && !site.hasSessionPassword) {
       askingFor = { request, site, side };
       return;
     }
@@ -434,7 +453,7 @@
 
     const target = event.target as HTMLElement | null;
     if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
-    if (quickFor || hostKey || certificate) return;
+    if (quickFor || hostKey || certificate || connectMenu) return;
     // A dialog about keys is open. Handing it Tab and F5 while it waits for
     // them is not a detail — it is the one moment those keys mean something
     // else entirely, and while somebody is assigning a key it must not also
@@ -536,7 +555,7 @@
         setTreeVisible(side, !view.showTree);
         break;
       case "connect-toggle":
-        if (view.endpoint === LOCAL) quickFor = side;
+        if (view.endpoint === LOCAL) openConnectMenu(side);
         else await disconnect(side);
         break;
       case "help":
@@ -583,6 +602,31 @@
   <SiteManager />
 {:else}
 <div class="window">
+  <!-- The one button this program exists for, where a program's main button
+       belongs. It sat in the footer between appearance and help, among the
+       things nobody opens twice a week. -->
+  <div class="bar">
+    <button type="button" class="servers" onclick={() => void api.openSiteManager()}>
+      <Icon name="sites" size={14} />
+      {t("sites.title")}
+      <span class="shortcut mono">{label("Mod+S")}</span>
+    </button>
+
+    <span class="gap"></span>
+
+    <!-- The three that open a window and change nothing by themselves, kept
+         together and away from the one that does the work. -->
+    <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
+      {t("appearance.title")}
+    </button>
+    <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
+      {t("settings.title")}
+    </button>
+    <button type="button" class="settings" onclick={() => (helpOpen = true)}>
+      {t("help.title")}
+    </button>
+  </div>
+
   {#each topRegions as region (region)}
     {#if region === "log"}
       <div class="region log" style:height="{logHeight}px">
@@ -612,7 +656,8 @@
     <div class="half" style:flex="{splitRatio}">
       <FilePane
         side="left"
-        onquickconnect={() => ((quickFor = "left"), (connectFailure = null))}
+        onconnect={(at) => (connectMenu = { side: "left", ...at })}
+        onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("left")}
         ontransfer={(names) => transfer("left", names)}
         onreceive={(from, names) => transfer(from, names)}
@@ -622,7 +667,8 @@
     <div class="half" style:flex="{1 - splitRatio}">
       <FilePane
         side="right"
-        onquickconnect={() => ((quickFor = "right"), (connectFailure = null))}
+        onconnect={(at) => (connectMenu = { side: "right", ...at })}
+        onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("right")}
         ontransfer={(names) => transfer("right", names)}
         onreceive={(from, names) => transfer(from, names)}
@@ -680,18 +726,6 @@
           </button>
         {/if}
       {/if}
-      <button type="button" class="settings" onclick={() => (settingsOpen = !settingsOpen)}>
-        {t("appearance.title")}
-      </button>
-      <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
-        {t("settings.title")}
-      </button>
-      <button type="button" class="settings" onclick={() => (helpOpen = true)}>
-        {t("help.title")}
-      </button>
-      <button type="button" class="settings" onclick={() => void api.openSiteManager()}>
-        {t("sites.title")}
-      </button>
       <button
         type="button"
         class="support star"
@@ -755,6 +789,18 @@
     </div>
   {/if}
 </div>
+
+{#if connectMenu}
+  {@const menu = connectMenu}
+  <ConnectMenu
+    x={menu.x}
+    y={menu.y}
+    onpick={(id) => ((connectMenu = null), void openSite(id, menu.side))}
+    onquick={() => ((connectMenu = null), (quickFor = menu.side), (connectFailure = null))}
+    onmanage={() => ((connectMenu = null), void api.openSiteManager())}
+    onclose={() => (connectMenu = null)}
+  />
+{/if}
 
 {#if quickFor}
   <QuickConnect
@@ -948,6 +994,46 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-1);
+  }
+
+  .bar .servers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--accent);
+    border-radius: 0.5rem;
+    padding: 4px 10px;
+    background: var(--accent-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .bar .servers:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .bar .gap {
+    flex: 1;
+  }
+
+  .bar .shortcut {
+    font-size: 0.7rem;
+    color: var(--text-muted);
   }
 
   .region {

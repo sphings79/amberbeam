@@ -43,8 +43,8 @@
   "quick.history": "Zuletzt",
   "quick.history.empty": "Noch nichts.",
   "quick.forget": "Aus der Liste entfernen",
-  "quick.to-site": "In den Site Manager übernehmen",
-  "quick.is-site": "im Site Manager",
+  "quick.to-site": "Als Server speichern",
+  "quick.is-site": "gespeichert",
   "quick.saved": "Geschrieben nach {path}",
   "auth.password": "Passwort",
   "auth.key-file": "Schlüsseldatei",
@@ -242,7 +242,7 @@
   "sites.remote-path": "Server beginnt in",
   "sites.local-path": "Lokale Seite beginnt in",
   "sites.keep-alive": "Keep-Alive (s)",
-  "sites.remember": "Passwort merken",
+  "sites.remember": "Dauerhaft merken",
   "sites.remember.hint": "Liegt im Zugangsdatenspeicher dieses Rechners, nie in der Site-Datei. Abschalten löscht es.",
   "sites.stored": "hinterlegt",
   "sites.unchanged": "leer lassen, um es zu behalten",
@@ -388,5 +388,11 @@
   "pane.count.one": "1 Eintrag",
   "filter.count.one": "1 gefunden, {directories} Verzeichnisse gelesen",
   "quick.key-path.hint": "OpenSSH und PuTTY (.ppk) gleichermaßen, verschlüsselt oder nicht.",
-  "error.timed-out": "{host} hat die Verbindung angenommen und dann {seconds} Sekunden lang nichts gesagt. Auf Port {port} antwortet etwas, aber nicht die Art Server, die hier erwartet wird — eine Firewall, die verschluckt statt abzulehnen, sieht genau so aus."
+  "error.timed-out": "{host} hat die Verbindung angenommen und dann {seconds} Sekunden lang nichts gesagt. Auf Port {port} antwortet etwas, aber nicht die Art Server, die hier erwartet wird — eine Firewall, die verschluckt statt abzulehnen, sieht genau so aus.",
+  "sites.session.hint": "Gilt, bis du AmberBeam beendest, und sonst nirgends. Haken setzen, um es dauerhaft zu merken.",
+  "sites.stored.session": "diese Sitzung",
+  "connect.loading": "Serverliste wird gelesen…",
+  "connect.none": "Noch keine Server gespeichert.",
+  "connect.quick": "Schnellverbindung…",
+  "connect.manage": "Serverliste…"
 }
