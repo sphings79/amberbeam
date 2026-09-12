@@ -75,7 +75,14 @@ jobs:
       # Signing and notarisation happen only when the secrets are there. They
       # are not today — there is no paid Apple membership behind this — and the
       # build says so rather than failing, so the day one appears the only
-      # change is four secrets in the repository settings.
+      # change is putting the secrets in the repository settings.
+      #
+      # The unset loop is the whole trick, and leaving it out cost one tag:
+      # a secret that does not exist arrives here as an empty string, and an
+      # empty APPLE_CERTIFICATE is not the same as no APPLE_CERTIFICATE — Tauri
+      # sees the variable, tries to import a certificate of nothing, and the
+      # build dies with "failed to import keychain certificate". Unsetting the
+      # empty ones puts this back exactly where CI is, which builds fine.
       - name: Build, signed and notarised where possible
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -86,7 +93,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         shell: bash
         run: |
-          if [ "${{ runner.os }}" = "macOS" ] && [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                      APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!name}" ]; then unset "$name"; fi
+          done
+
+          if [ "${{ runner.os }}" = "macOS" ] && [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
             echo "::notice::No Apple signing identity in the secrets — building ad-hoc signed and not notarised. Gatekeeper will warn on first launch; the release notes say how to get past it."
           fi
           npm run tauri build
