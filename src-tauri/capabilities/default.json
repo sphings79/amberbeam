@@ -1,13 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What both windows may do. The site manager is a window of its own with the same rights: it talks to the same core through the same commands, and leaving it out would have left every one of its calls refused.",
+  "description": "What every window may do. The site manager and each editor window are windows of their own with the same rights: they talk to the same core through the same commands, and leaving them out would have left every one of their calls refused.",
   "windows": [
     "main",
-    "sites"
+    "sites",
+    "editor-*"
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-close",
     "dialog:allow-open",
     "updater:default"
   ]

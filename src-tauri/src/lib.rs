@@ -114,6 +114,45 @@ async fn open_site_manager(app: tauri::AppHandle) -> Result<(), Error> {
     Ok(())
 }
 
+/// A window for one file being edited.
+///
+/// One window per file rather than one with tabs: two files open side by side
+/// is the ordinary case when somebody is fixing a page and the style sheet it
+/// pulls in, and a window the system can arrange is worth more than a tab bar
+/// this program would have to build.
+///
+/// `async` for the same reason as the site manager above, which is not a
+/// preference: building a webview from a synchronous command deadlocks on
+/// Windows, and the window comes up blank with nothing able to say why.
+#[tauri::command]
+async fn open_editor(app: tauri::AppHandle, id: String, name: String) -> Result<(), Error> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    let window = format!("editor-{id}");
+    if let Some(existing) = app.get_webview_window(&window) {
+        // The same file asked for twice is the same window, brought forward.
+        // The core hands back the same copy; a second window onto it would be
+        // two views of one file, each overwriting the other's typing.
+        let _ = existing.unminimize();
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    // Which file this window is for travels in the page's own scope, not in
+    // the URL. `WebviewUrl::App` takes a path, and a question mark is an
+    // ordinary character in a path on macOS and an illegal one on Windows --
+    // the site manager was blank on Windows for exactly that reason.
+    let declared = id.replace(['\\', '\''], "");
+    WebviewWindowBuilder::new(&app, &window, WebviewUrl::App("index.html".into()))
+        .initialization_script(format!("window.__AMBERBEAM_VIEW__ = 'editor:{declared}';"))
+        .title(name)
+        .inner_size(820.0, 620.0)
+        .min_inner_size(420.0, 300.0)
+        .build()
+        .map_err(Error::other)?;
+    Ok(())
+}
+
 /// Asks the main window to open a site on one side.
 ///
 /// The site manager does not connect by itself on purpose: the questions a
@@ -496,6 +535,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             run_command,
             open_site_manager,
+            open_editor,
             open_site,
             restart,
             export_sites,

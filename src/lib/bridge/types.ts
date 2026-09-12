@@ -836,6 +836,21 @@ export interface AmberBeamApi {
 
   /** Opens the site manager in a window of its own. */
   openSiteManager(): Promise<void>;
+  /**
+   * Shows a file that is being edited.
+   *
+   * A window of its own on the desktop, so two files can sit side by side.
+   * A browser has no second window of the same session to open, so the web
+   * shell answers false and the caller shows the editor where it is.
+   */
+  openEditor(id: string, name: string): Promise<boolean>;
+  /**
+   * Closes the window this page is in, where there is one to close.
+   *
+   * Checked against Tauri's own list rather than assumed: closing a window is
+   * not part of its default permissions, so the capability names it.
+   */
+  closeThisWindow(): Promise<void>;
   /** Asks the main window to open this entry on that side. */
   openSite(id: string, side: OpenSide): Promise<void>;
   /** Heard by the main window when the site manager asks for a connection. */

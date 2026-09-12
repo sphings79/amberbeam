@@ -329,6 +329,16 @@ export function makeApi(target: Target): AmberBeamApi {
       // the site manager as a view of the same page instead.
       window.location.search = "?view=sites";
     },
+    async closeThisWindow(): Promise<void> {
+      // A browser tab that closed itself would take the whole session with it.
+    },
+    async openEditor(): Promise<boolean> {
+      // A browser tab cannot open a second window belonging to this session,
+      // and a page that navigated away to show one would have to come back --
+      // which means signing in and starting over. The editor is shown over
+      // this page instead.
+      return false;
+    },
     openSite: (id: string, side: OpenSide) => call<void>("open_site", { id, side }),
     async onOpenSite(): Promise<Unsubscribe> {
       // One page, one view: nothing here has to ask another window to connect.

@@ -42,11 +42,14 @@
     ondisconnect: () => void;
     /** Sends the named entries to the other pane. */
     ontransfer: (names: string[], held?: boolean) => Promise<void>;
+    /** Opens a file of this pane's endpoint for editing where it lies. */
+    onedit: (path: string) => Promise<void>;
     /** Entries dragged here from the other pane. */
     onreceive: (from: Side, names: string[]) => Promise<void>;
   }
 
-  let { side, onconnect, onservers, ondisconnect, ontransfer, onreceive }: Props = $props();
+  let { side, onconnect, onservers, ondisconnect, ontransfer, onedit, onreceive }: Props =
+    $props();
 
   /** Set while something is being dragged over this pane. */
   let dropTarget = $state(false);
@@ -329,8 +332,16 @@
           link.remove();
         }
         break;
+      case "edit-remote": {
+        const entry = chosen[0];
+        if (!entry || entry.kind === "directory") break;
+        await run(async () => {
+          const path = await api.joinPath(view.endpoint, view.path, entry.name);
+          await onedit(path);
+        });
+        break;
+      }
       default:
-        // transfer and remote editing arrive with the transfer engine.
         break;
     }
   }

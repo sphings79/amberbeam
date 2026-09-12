@@ -248,6 +248,13 @@ export const api: AmberBeamApi = {
     }
   },
   openSiteManager: () => invoke<void>("open_site_manager"),
+  async closeThisWindow(): Promise<void> {
+    await getCurrentWindow().close();
+  },
+  async openEditor(id: string, name: string): Promise<boolean> {
+    await invoke<void>("open_editor", { id, name });
+    return true;
+  },
   openSite: (id: string, side: OpenSide) => invoke<void>("open_site", { id, side }),
   async onOpenSite(handler): Promise<Unsubscribe> {
     return await listen<{ id: string; side: OpenSide }>("amberbeam://open-site", (event) =>

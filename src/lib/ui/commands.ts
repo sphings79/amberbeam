@@ -84,7 +84,6 @@ export const COMMANDS: Command[] = [
     needsTarget: true,
     remoteOnly: true,
     singleOnly: true,
-    notYet: true,
   },
 ];
 

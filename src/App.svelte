@@ -73,6 +73,7 @@
   import ServiceDialog from "./lib/ui/ServiceDialog.svelte";
   import SignIn from "./lib/ui/SignIn.svelte";
   import UpdateDialog from "./lib/ui/UpdateDialog.svelte";
+  import Editor from "./lib/ui/Editor.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
@@ -93,6 +94,43 @@
    * in step, and they would drift.
    */
   const isSiteManager = api.windowLabel() === "sites";
+
+  /**
+   * The file this window is for, when it is an editor window.
+   *
+   * The identifier rides in the window's label rather than in its URL, for the
+   * same reason the site manager's view does: a URL here is a path, and a
+   * question mark is illegal in one on Windows.
+   */
+  const editorFor = api.windowLabel().startsWith("editor:")
+    ? api.windowLabel().slice("editor:".length)
+    : null;
+
+  /**
+   * A file being edited over this page, where a window of its own is not
+   * possible — which is a browser.
+   */
+  let editingHere = $state<string | null>(null);
+
+  /**
+   * Takes a copy of a server's file and shows it.
+   *
+   * Whether the copy may be taken at all is the core's answer, and its refusal
+   * is what says why. Nothing is decided here beyond where to show it.
+   */
+  async function edit(path: string, side: Side): Promise<void> {
+    const started = await api.startEdit(pane(side).endpoint, path);
+    const rule = await api.howToEdit(started.name);
+    if (rule && rule.openWith !== "own") {
+      // Opening it elsewhere arrives with the next step; until then the file is
+      // open in the register either way, and showing it here is better than
+      // showing nothing.
+      // TODO(step 4): hand it to the system or to the named program.
+    }
+    if (!(await api.openEditor(started.id, started.name))) {
+      editingHere = started.id;
+    }
+  }
 
   /** Heights, split and where each region sits — all kept across restarts. */
   /**
@@ -884,6 +922,8 @@
       void begin();
     }}
   />
+{:else if editorFor}
+  <Editor id={editorFor} onclose={() => void api.closeThisWindow()} />
 {:else if isSiteManager}
   <SiteManager />
 {:else}
@@ -989,6 +1029,7 @@
         onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("left")}
         ontransfer={(names, held) => transfer("left", names, held)}
+        onedit={(path) => edit(path, "left")}
         onreceive={(from, names) => transfer(from, names)}
       />
     </div>
@@ -1000,6 +1041,7 @@
         onservers={() => void api.openSiteManager()}
         ondisconnect={() => disconnect("right")}
         ontransfer={(names, held) => transfer("right", names, held)}
+        onedit={(path) => edit(path, "right")}
         onreceive={(from, names) => transfer(from, names)}
       />
     </div>
@@ -1251,9 +1293,24 @@
     oncancel={() => ((connectFailure = null), (pendingRequest = null))}
   />
 {/if}
+
+{#if editingHere}
+  <!-- Where a window of its own is not possible. It covers the page rather
+       than floating over it: an editor with the file list showing round the
+       edges invites typing into one while looking at the other. -->
+  <div class="editing">
+    <Editor id={editingHere} onclose={() => (editingHere = null)} />
+  </div>
+{/if}
 {/if}
 
 <style>
+  .editing {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+  }
+
   .backdrop {
     position: fixed;
     inset: 0;
