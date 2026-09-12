@@ -796,7 +796,11 @@
           <p class="note">{note}</p>
         {/if}
 
-        <div class="actions">
+        <!-- Pinned to the bottom of the pane rather than sitting at the end of
+             the form. A server with every setting filled in is taller than the
+             window, and the three buttons that finish the job were below the
+             fold — to save, you first had to go looking for Save. -->
+        <div class="actions pinned">
           {#if draft.id}
             <button type="button" class="danger" onclick={() => (removing = draft)}>
               {t("action.delete")}
@@ -1215,6 +1219,20 @@
     gap: 8px;
     align-items: center;
     margin-top: 4px;
+  }
+
+  /* Spans the pane rather than the form, so nothing scrolls out from under it
+     at the edges. Zero and not a negative: `bottom` is where the element is
+     held relative to the visible edge, so a negative number holds it that far
+     *below* it — which is exactly as invisible as not pinning it at all. */
+  .actions.pinned {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 8px -20px -16px;
+    padding: 10px 20px;
+    background: var(--surface-0);
+    border-top: 1px solid var(--border);
   }
 
   .spacer {
