@@ -60,6 +60,7 @@
   "hostkey.fingerprint": "Fingerabdruck",
   "hostkey.known-fingerprint": "Hinterlegt",
   "action.cancel": "Abbrechen",
+  "action.create": "Anlegen",
   "error.unreachable": "{host}:{port} war nicht erreichbar.",
   "error.authentication-failed": "Der Server hat die Anmeldung für {user} abgelehnt.",
   "error.key-file": "{path} ließ sich nicht als Schlüssel lesen.",

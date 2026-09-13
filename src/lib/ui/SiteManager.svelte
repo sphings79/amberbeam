@@ -15,6 +15,7 @@
    */
   import { api, type OpenSide, type ProtocolInfo, type Protocol, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import AskName from "./AskName.svelte";
   import Switch from "./Switch.svelte";
   import { label } from "../keys/index.svelte";
   import { tips } from "./tips";
@@ -57,13 +58,7 @@
   let note = $state<string | null>(null);
   /** The entry waiting for an answer about which side to open it on. */
   let asking = $state<Site | null>(null);
-  /**
-   * A name being asked for, in a dialog of our own rather than `window.prompt`.
-   *
-   * Not out of taste: a webview may answer a browser prompt with nothing at
-   * all, and a folder that silently refuses to be created is a worse bug than
-   * an ugly box.
-   */
+  /** A name being asked for, in [`AskName`] rather than `window.prompt`. */
   let naming = $state<{ title: string; value: string; apply: (name: string) => void } | null>(null);
   let importing = $state(false);
   let exporting = $state(false);
@@ -920,37 +915,16 @@
 {/if}
 
 {#if naming}
-  <div class="backdrop" role="presentation">
-    <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={naming.title}>
-    <form
-      onsubmit={(event) => {
-        event.preventDefault();
-        const name = naming?.value.trim();
-        const apply = naming?.apply;
-        naming = null;
-        if (name && apply) apply(name);
-      }}
-    >
-      <h2>{naming.title}</h2>
-      <!-- svelte-ignore a11y_autofocus -->
-      <input
-        bind:value={naming.value}
-        autofocus
-        autocomplete="off"
-        autocapitalize="off"
-        autocorrect="off"
-        spellcheck="false"
-      />
-      <div class="actions">
-        <span class="spacer"></span>
-        <button type="button" onclick={() => (naming = null)}>{t("action.cancel")}</button>
-        <button type="submit" class="primary" disabled={!naming.value.trim()}>
-          {t("action.save")}
-        </button>
-      </div>
-    </form>
-    </div>
-  </div>
+  <AskName
+    title={naming.title}
+    value={naming.value}
+    onname={(name) => {
+      const apply = naming?.apply;
+      naming = null;
+      apply?.(name);
+    }}
+    oncancel={() => (naming = null)}
+  />
 {/if}
 
 {#if asking}
@@ -1342,7 +1316,4 @@
     color: var(--text-muted);
   }
 
-  .dialog input {
-    margin-bottom: 14px;
-  }
 </style>

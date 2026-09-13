@@ -61,6 +61,18 @@ pub enum Event {
     },
     /// A directory was read again, so the pane showing it should follow.
     Listed { endpoint: EndpointId, path: String },
+    /// Something was written into a directory: a file arrived, a directory was
+    /// made, something was renamed or taken away.
+    ///
+    /// Told apart from [`Event::Listed`] on purpose, and it is not a detail.
+    /// That one says a directory *was read*, and reading is what a window does
+    /// when it follows — a pane that reloaded on it would list, be told it had
+    /// listed, and list again for as long as anybody watched. This is only
+    /// ever emitted by something that changed what is there.
+    ///
+    /// The path is the directory, not the file. A pane shows a directory, and
+    /// what it needs to know is whether the one it is showing is now different.
+    Changed { endpoint: EndpointId, path: String },
     /// How far the running transfers have come.
     ///
     /// Sent on a timer rather than per chunk: a transfer moves a thousand

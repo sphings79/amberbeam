@@ -466,6 +466,28 @@ export async function navigate(side: Side, path: string): Promise<void> {
   }
 }
 
+/**
+ * Reloads whichever panes are showing a directory that has just changed.
+ *
+ * Both of them, when both are: two panes on the same server in the same
+ * directory is an ordinary way to work, and one of them quietly holding the
+ * old list would be the same bug in half the window.
+ *
+ * A pane that is busy is left alone; whatever it is doing ends in a listing of
+ * its own.
+ */
+export async function refreshShowing(endpoint: string, path: string): Promise<void> {
+  const sides: Side[] = ["left", "right"];
+  await Promise.all(
+    sides
+      .filter((side) => {
+        const state = panes[side];
+        return state.endpoint === endpoint && state.path === path && !state.busy;
+      })
+      .map((side) => reload(side)),
+  );
+}
+
 export async function reload(side: Side): Promise<void> {
   await navigate(side, panes[side].path);
 }

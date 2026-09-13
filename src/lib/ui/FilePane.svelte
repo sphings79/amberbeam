@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, LOCAL, type DirEntry, type Measurement, type SearchResult } from "../bridge";
+  import AskName from "./AskName.svelte";
   import { t } from "../i18n/index.svelte";
   import {
     clearRequest,
@@ -199,10 +200,18 @@
     await enter(side, entry);
   }
 
-  /** Asks for a name, then makes the thing. */
-  async function make(kind: "dir" | "file"): Promise<void> {
-    const name = window.prompt(kind === "dir" ? t("cmd.new-folder.ask") : t("cmd.new-file.ask"));
-    if (!name) return;
+  /**
+   * What is being asked for, or null.
+   *
+   * A dialog of this program's own rather than `window.prompt`: the desktop
+   * webview has no panel for that one and answers it with null the moment it
+   * is called, so both of these commands quietly did nothing there.
+   */
+  let naming = $state<"dir" | "file" | null>(null);
+
+  /** Makes the thing, once there is a name for it. */
+  async function make(kind: "dir" | "file", name: string): Promise<void> {
+    naming = null;
     await run(async () => {
       if (kind === "dir") {
         await api.createDir(view.endpoint, view.path, name);
@@ -291,10 +300,10 @@
         await reload(side);
         break;
       case "new-folder":
-        await make("dir");
+        naming = "dir";
         break;
       case "new-file":
-        await make("file");
+        naming = "file";
         break;
       case "rename":
         if (chosen[0]) startRename(side, chosen[0].name);
@@ -612,6 +621,15 @@
     items={menuItems}
     onpick={invoke}
     onclose={() => (menu = null)}
+  />
+{/if}
+
+{#if naming}
+  <AskName
+    title={naming === "dir" ? t("cmd.new-folder.ask") : t("cmd.new-file.ask")}
+    action={t("action.create")}
+    onname={(name) => void make(naming ?? "dir", name)}
+    oncancel={() => (naming = null)}
   />
 {/if}
 

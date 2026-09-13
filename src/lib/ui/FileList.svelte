@@ -267,7 +267,7 @@
                     }}
                   />
                 {:else}
-                  {entry.name}
+                  <span class="text">{entry.name}</span>
                 {/if}
               </span>
               <span class="size">{isDirectory(entry) ? "—" : formatSize(entry.size)}</span>
@@ -392,6 +392,22 @@
     white-space: nowrap;
   }
 
+  /* A row of two: the symbol, then the name -- or the box it is renamed in.
+     Laid out rather than left to the inline flow, because an input in an
+     inline cell that clips is an input the cell replaces with an ellipsis the
+     moment it does not quite fit. */
+  .row .name {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .row .name .text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .glyph {
     display: inline-flex;
     align-items: center;
@@ -427,7 +443,11 @@
   .rename {
     font: inherit;
     font-size: 0.82rem;
-    width: calc(100% - 16px);
+    /* Whatever is left beside the symbol, and allowed to be narrower than the
+       name in it: a box that insists on its content's width is a box that
+       pushes itself out of a column somebody made small. */
+    flex: 1;
+    min-width: 0;
     padding: 1px 4px;
     border: 1px solid var(--accent);
     border-radius: 3px;

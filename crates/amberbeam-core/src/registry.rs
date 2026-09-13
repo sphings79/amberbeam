@@ -315,17 +315,27 @@ impl Sessions {
 
     pub async fn create_dir(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        session.create_dir(path).await
+        session.create_dir(path).await?;
+        self.changed(endpoint, path);
+        Ok(())
     }
 
     pub async fn create_file(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        session.create_file(path).await
+        session.create_file(path).await?;
+        self.changed(endpoint, path);
+        Ok(())
     }
 
     pub async fn rename(&self, endpoint: &EndpointId, from: &str, to: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        session.rename(from, to).await
+        session.rename(from, to).await?;
+        // Both ends of it. A rename is usually within one directory and then
+        // this says the same thing twice, which costs a listing nobody sees;
+        // moving something between two is the case worth being right about.
+        self.changed(endpoint, from);
+        self.changed(endpoint, to);
+        Ok(())
     }
 
     pub async fn measure(&self, endpoint: &EndpointId, path: &str) -> Result<Measurement> {
@@ -335,7 +345,28 @@ impl Sessions {
 
     pub async fn remove(&self, endpoint: &EndpointId, path: &str) -> Result<()> {
         let session = self.find(endpoint).await?;
-        session.remove(path).await
+        session.remove(path).await?;
+        self.changed(endpoint, path);
+        Ok(())
+    }
+
+    /// Says that the directory a path sits in is not what it was.
+    ///
+    /// Given the path of the thing rather than of its directory, because every
+    /// caller has the former and none of them should be working out the latter
+    /// for itself. A path with no separator in it is something in the root,
+    /// and the root is where the answer then is.
+    fn changed(&self, endpoint: &EndpointId, path: &str) {
+        let trimmed = path.trim_end_matches('/');
+        let directory = match trimmed.rsplit_once('/') {
+            Some(("", _)) => "/".to_string(),
+            Some((above, _)) => above.to_string(),
+            None => "/".to_string(),
+        };
+        self.events.emit(crate::events::Event::Changed {
+            endpoint: endpoint.clone(),
+            path: directory,
+        });
     }
 
     pub async fn set_permissions(
@@ -524,6 +555,8 @@ impl Sessions {
             let _ = target.set_permissions(&job.target_path, mode, false).await;
         }
 
+        self.changed(&job.target_endpoint, &job.target_path);
+
         Ok(Transferred {
             complete: true,
             moved,
@@ -561,7 +594,10 @@ impl Sessions {
             }
         }
         match session.create_dir(path).await {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                self.changed(endpoint, path);
+                Ok(())
+            }
             // Another job in the same queue may have made it in the meantime,
             // which is a race worth losing quietly.
             Err(Error::Path {

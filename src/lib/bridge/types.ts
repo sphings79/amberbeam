@@ -194,6 +194,12 @@ export type CoreEvent =
   | { event: "edited"; id: string; name: string; what: "failed"; error: CoreError }
   | ({ event: "connection"; endpoint: string } & ConnectionState)
   | { event: "listed"; endpoint: string; path: string }
+  /**
+   * Something was written into a directory, so a pane showing it is out of
+   * date. Only ever sent by something that changed what is there — unlike
+   * `listed`, which a pane's own reading sets off.
+   */
+  | { event: "changed"; endpoint: string; path: string }
   | { event: "progress"; jobs: JobProgress[] }
   | { event: "concurrency-lowered"; endpoint: string; allowed: number }
   | { event: "queue" };

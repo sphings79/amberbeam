@@ -46,6 +46,7 @@
     navigate,
     openSession,
     pane,
+    refreshShowing,
     reload,
     setHiddenVisible,
     requestCommand,
@@ -668,6 +669,13 @@
    * window of ours to ask in — the file is open somewhere else entirely.
    */
   function recordEditEvent(event: CoreEvent): void {
+    // A directory somebody wrote into. The pane showing it follows, whoever
+    // did the writing — this window, a watch running by itself, or a program
+    // driving the whole thing over MCP.
+    if (event.event === "changed") {
+      void refreshShowing(event.endpoint, event.path);
+      return;
+    }
     // What a watch has sent, so the strip can count without asking on a timer.
     if (event.event === "watched") {
       void refreshWatches();

@@ -60,6 +60,7 @@
   "hostkey.fingerprint": "Fingerprint",
   "hostkey.known-fingerprint": "On file",
   "action.cancel": "Cancel",
+  "action.create": "Create",
   "error.unreachable": "{host}:{port} could not be reached.",
   "error.authentication-failed": "The server refused the credentials for {user}.",
   "error.key-file": "{path} could not be read as a key.",
