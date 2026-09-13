@@ -280,9 +280,12 @@
       rememberPassword: false,
       wastebasket: null,
       excludes: [],
-      mcp: false,
-      mcpWrite: false,
-      mcpDelete: false,
+      mcpSee: false,
+      mcpUpload: false,
+      mcpDownload: false,
+      mcpCreate: false,
+      mcpRename: false,
+      mcpRemove: false,
       colour: null,
     };
   }
@@ -800,30 +803,10 @@
         </div>
         <p class="hint">{t("sites.excludes.hint")}</p>
 
-        <Switch
-          checked={draft.mcp}
-          label={t("sites.mcp")}
-          hint={t("sites.mcp.hint")}
-          onchange={(on) => {
-              if (!draft) return;
-              draft.mcp = on;
-              // What may be done here only means anything while the server is
-              // reachable at all. Turning it off and on again should not bring
-              // back a permission somebody gave once and forgot.
-              if (!draft.mcp) {
-                draft.mcpWrite = false;
-                draft.mcpDelete = false;
-              }
-          }}
-        />
-
-        {#if draft.mcp}
-          <div class="indent">
-            <Switch bind:checked={draft.mcpWrite} label={t("sites.mcp.write")} />
-            <Switch bind:checked={draft.mcpDelete} label={t("sites.mcp.delete")} />
-            <p class="hint">{t("sites.mcp.change.hint")}</p>
-          </div>
-        {/if}
+        <!-- What a program driving AmberBeam may do here is not set from this
+             form any more. Six switches per server in among the connection
+             details is a form nobody reads to the bottom, and they belong
+             beside the ones that decide the same thing for every server. -->
 
         <div class="row">
           <label class="narrow">
@@ -1187,12 +1170,6 @@
 
   label.narrow {
     width: 120px;
-  }
-
-  /* Stepped in because these two only exist while the one above them is on,
-     and a flat list would read as three equal choices. */
-  .indent {
-    margin-left: 22px;
   }
 
   input,

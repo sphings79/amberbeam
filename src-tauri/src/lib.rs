@@ -340,9 +340,12 @@ fn import_apply(
             remember_password: take_passwords && entry.has_password,
             wastebasket: None,
             excludes: Vec::new(),
-            mcp: false,
-            mcp_write: false,
-            mcp_delete: false,
+            mcp_see: false,
+            mcp_upload: false,
+            mcp_download: false,
+            mcp_create: false,
+            mcp_rename: false,
+            mcp_remove: false,
             colour: None,
         };
 

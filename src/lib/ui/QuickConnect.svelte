@@ -288,10 +288,16 @@
               </div>
             {/if}
             <div class="tri">
-              <span>{t("settings.temporary-name")}</span>
-              {#if remote}
-                <p class="hint">{t("quick.temporary-name.ftp")}</p>
-              {/if}
+              <!-- The name and its explanation belong together and the three
+                   buttons beside them; before this the three shared one flex
+                   row with the sentence, which left the sentence about a
+                   hundred pixels wide and one word per line. -->
+              <div class="said">
+                <span>{t("settings.temporary-name")}</span>
+                {#if remote}
+                  <p class="hint">{t("quick.temporary-name.ftp")}</p>
+                {/if}
+              </div>
               <div class="choices">
                 {#each [null, true, false] as choice (String(choice))}
                   <button
@@ -558,9 +564,23 @@
 
   .tri {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  .said {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    /* Takes what is left, and may be narrower than its longest word rather
+       than pushing the buttons off the edge. */
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tri .choices {
+    flex: none;
   }
 
   .narrow input {
@@ -568,7 +588,7 @@
     text-align: right;
   }
 
-  .tri span,
+  .said span,
   .narrow span {
     font-size: 0.68rem;
     letter-spacing: 0.06em;

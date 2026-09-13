@@ -88,28 +88,41 @@ pub struct Site {
     /// this file.
     #[serde(default)]
     pub wastebasket: Option<String>,
-    /// Whether a program driving AmberBeam over MCP may use this server.
+    /// What a program driving AmberBeam over MCP may do on this server.
     ///
-    /// Off, and it stays off until somebody turns it on for this entry. A
-    /// server nobody opened is a server such a program cannot see, cannot
-    /// list and cannot name — not "may look but not touch", but absent.
-    #[serde(default)]
-    pub mcp: bool,
-    /// Whether such a program may change anything on this server: send a file,
-    /// make a directory, rename something.
+    /// Six switches rather than one, all off, because "may use this server" is
+    /// not one question. Reading a configuration file, putting one back,
+    /// tidying a directory and emptying one are four different amounts of
+    /// trust, and somebody handing out the first has not agreed to the last.
     ///
-    /// Off, and separate from [`Site::mcp`] on purpose. Being allowed to look
-    /// is not being allowed to alter, and the two are asked for at different
-    /// moments by somebody who means different things.
-    #[serde(default)]
-    pub mcp_write: bool,
-    /// Whether it may delete on this server.
+    /// A server with none of them on does not exist as far as those tools are
+    /// concerned: not listed and refused, but absent, unnameable, unreachable.
     ///
-    /// Its own switch, off, and the last one anybody should turn on. A program
-    /// acting on what it read can misread; everything else it does can be
-    /// undone by doing it again, and this cannot.
+    /// They replace an older three — see it, change it, delete on it — and
+    /// nothing is carried over from those. A permission given once under a
+    /// coarser name is not consent to the finer ones underneath it.
     #[serde(default)]
-    pub mcp_delete: bool,
+    pub mcp_see: bool,
+    /// Put a file there.
+    #[serde(default)]
+    pub mcp_upload: bool,
+    /// Take a file from there, which also writes to this machine: the local
+    /// side has switches of its own and both have to allow it.
+    #[serde(default)]
+    pub mcp_download: bool,
+    /// Make a directory there, and anything above it that is missing.
+    #[serde(default)]
+    pub mcp_create: bool,
+    /// Rename something there, within the directory it is in.
+    #[serde(default)]
+    pub mcp_rename: bool,
+    /// Delete there.
+    ///
+    /// The last one anybody should turn on. A program acting on what it read
+    /// can misread; everything else it does can be undone by doing it again,
+    /// and this cannot.
+    #[serde(default)]
+    pub mcp_remove: bool,
     /// Names a comparison and a watch never look at, as patterns.
     ///
     /// Per server because that is where it belongs: what counts as noise in a
@@ -447,9 +460,12 @@ mod tests {
             remember_password: false,
             wastebasket: None,
             excludes: Vec::new(),
-            mcp: false,
-            mcp_write: false,
-            mcp_delete: false,
+            mcp_see: false,
+            mcp_upload: false,
+            mcp_download: false,
+            mcp_create: false,
+            mcp_rename: false,
+            mcp_remove: false,
             colour: None,
         }
     }
@@ -561,7 +577,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 25] = [
+        const ALLOWED: [&str; 28] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -587,12 +603,15 @@ mod tests {
             "keepAlive",
             // File names, on a server whose address is already in this file.
             "excludes",
-            // Three switches, and the ones that decide what a program driving
-            // this one may do with the entry: see it, change it, lose things
-            // on it.
-            "mcp",
-            "mcpWrite",
-            "mcpDelete",
+            // Six switches, and the ones that decide what a program driving
+            // this one may do with the entry. None of them carries a secret;
+            // each of them decides whether one tool answers at all.
+            "mcpSee",
+            "mcpUpload",
+            "mcpDownload",
+            "mcpCreate",
+            "mcpRename",
+            "mcpRemove",
             "rememberPassword",
             "colour",
         ];

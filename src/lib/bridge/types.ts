@@ -251,6 +251,14 @@ export interface Settings {
    * build that cleans up after itself would take files off a server.
    */
   deleteAlong: boolean;
+  /** Whether a program may drive this over MCP at all. Off, and above the rest. */
+  mcpEnabled: boolean;
+  /** Whether it may read files on this machine, inside the paths below. */
+  mcpLocalRead: boolean;
+  /** Whether it may write files on this machine, inside the paths below. */
+  mcpLocalWrite: boolean;
+  /** The directories those two are allowed in. Empty means nowhere. */
+  mcpLocalPaths: string[];
   /** Whether a program driving this may connect to a server not in the list. */
   mcpQuickConnect: boolean;
   /** Whether it may write new entries into the list. */
@@ -424,16 +432,22 @@ export interface Site {
    */
   excludes: string[];
   /**
-   * Whether a program driving AmberBeam over MCP may use this server.
+   * What a program driving AmberBeam over MCP may do on this server.
    *
-   * Off. A server nobody opened is one such a program cannot see, cannot list
-   * and cannot name — absent rather than refused.
+   * Six, all off. A server with none of them on is one such a program cannot
+   * see, cannot list and cannot name — absent rather than refused.
    */
-  mcp: boolean;
-  /** Whether it may change anything there: send a file, make a directory. */
-  mcpWrite: boolean;
-  /** Whether it may delete there. Its own switch, and the last to turn on. */
-  mcpDelete: boolean;
+  mcpSee: boolean;
+  /** Put a file there. */
+  mcpUpload: boolean;
+  /** Take a file from there, which writes to this machine as well. */
+  mcpDownload: boolean;
+  /** Make a directory there. */
+  mcpCreate: boolean;
+  /** Rename something there. */
+  mcpRename: boolean;
+  /** Delete there. The last one anybody turns on. */
+  mcpRemove: boolean;
   /** One of the interface's accent names, or null for no marking. */
   colour: string | null;
 }

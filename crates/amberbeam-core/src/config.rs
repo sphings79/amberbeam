@@ -93,6 +93,34 @@ pub struct Settings {
     /// files off a server, and the person would find out from the server.
     #[serde(default)]
     pub delete_along: bool,
+    /// Whether a program may drive this one over MCP at all.
+    ///
+    /// Off, and the one switch above every other. Off means the shell answers
+    /// an assistant with no tools whatsoever and refuses anything that still
+    /// arrives — so a client left configured from last month is a client that
+    /// can do nothing, rather than one nobody remembered to think about.
+    #[serde(default)]
+    pub mcp_enabled: bool,
+    /// Whether such a program may read files on this machine.
+    ///
+    /// Off. Needed to put a local file on a server and to compare a directory
+    /// against one, and only ever inside [`Settings::mcp_local_paths`].
+    #[serde(default)]
+    pub mcp_local_read: bool,
+    /// Whether it may write files on this machine.
+    ///
+    /// Off. Needed to fetch a file from a server, and likewise only inside the
+    /// directories named below.
+    #[serde(default)]
+    pub mcp_local_write: bool,
+    /// The directories on this machine those two switches are allowed in.
+    ///
+    /// Empty means nowhere, and empty is where it starts. "Anywhere this
+    /// account can reach" is not a default anybody chose — it is `~/.ssh` and
+    /// every other thing that happens to be readable, handed over because a
+    /// list was left blank.
+    #[serde(default)]
+    pub mcp_local_paths: Vec<String>,
     /// Whether a program driving this one may connect to a server that is not
     /// in the list, by being handed the details.
     ///
@@ -143,6 +171,10 @@ impl Default for Settings {
             editing: crate::editing::EditRule::shipped(),
             review_comparison: true,
             delete_along: false,
+            mcp_enabled: false,
+            mcp_local_read: false,
+            mcp_local_write: false,
+            mcp_local_paths: Vec::new(),
             mcp_quick_connect: false,
             mcp_create_sites: false,
         }
@@ -307,9 +339,12 @@ impl Config {
             remember_password: false,
             wastebasket: None,
             excludes: Vec::new(),
-            mcp: false,
-            mcp_write: false,
-            mcp_delete: false,
+            mcp_see: false,
+            mcp_upload: false,
+            mcp_download: false,
+            mcp_create: false,
+            mcp_rename: false,
+            mcp_remove: false,
             colour: None,
         };
 
