@@ -40,8 +40,21 @@ export function inline(text: string): Span[] {
     );
 }
 
+/**
+ * One piece before its text has been looked at for bold.
+ *
+ * The two steps are separate on purpose. These notes wrap at eighty columns,
+ * so a bullet arrives as several lines and its `**bold**` regularly opens on
+ * one and closes on the next — taken apart line by line, neither half ever
+ * matched and both kept their asterisks on screen. The lines are joined first
+ * and read afterwards.
+ */
+type Draft =
+  | { kind: "heading"; text: string; level: number }
+  | { kind: "bullet" | "under" | "line"; text: string };
+
 export function pieces(notes: string): Piece[] {
-  const out: Piece[] = [];
+  const drafts: Draft[] = [];
   let blankBefore = false;
 
   for (const raw of notes.split("\n")) {
@@ -58,7 +71,7 @@ export function pieces(notes: string): Piece[] {
       // The level is kept because a set of notes covering several releases
       // has two kinds of heading in it: the version, and the sections inside
       // it. Drawn the same size they read as one long list.
-      out.push({
+      drafts.push({
         kind: "heading",
         text: heading[2] ?? "",
         level: (heading[1] ?? "#").length,
@@ -68,25 +81,29 @@ export function pieces(notes: string): Piece[] {
 
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     if (bullet) {
-      out.push({ kind: "bullet", parts: inline(bullet[1] ?? "") });
+      drafts.push({ kind: "bullet", text: bullet[1] ?? "" });
       continue;
     }
 
-    // An indented line belongs to the bullet above it. These notes wrap at
-    // eighty columns, so most bullets arrive as several lines and joining them
-    // back up is the difference between a paragraph and a stack of fragments.
+    // An indented line belongs to the bullet above it. Joining them back up is
+    // the difference between a paragraph and a stack of fragments.
     //
     // Unless a blank line came between them: then the writer meant a second
     // paragraph under the same point, and running the two together makes one
     // sentence out of two thoughts.
-    const last = out[out.length - 1];
+    const last = drafts[drafts.length - 1];
     const indented = /^\s+\S/.test(raw);
     if (last && last.kind !== "heading" && indented && !broken) {
-      last.parts.push(...inline(" " + line.trim()));
+      last.text += " " + line.trim();
       continue;
     }
 
-    out.push({ kind: indented ? "under" : "line", parts: inline(line.trim()) });
+    drafts.push({ kind: indented ? "under" : "line", text: line.trim() });
   }
-  return out;
+
+  return drafts.map((draft) =>
+    draft.kind === "heading"
+      ? draft
+      : { kind: draft.kind, parts: inline(draft.text) },
+  );
 }

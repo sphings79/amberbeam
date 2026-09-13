@@ -61,6 +61,19 @@ for (const piece of parts) {
   }
 }
 
+// Bold that wrapped is still bold. These notes wrap at eighty columns, so a
+// `**lead-in**` regularly opens on one line and closes on the next; read line
+// by line neither half ever matched and both kept their asterisks on screen.
+// Any asterisk left in a piece means a marker went unrecognised.
+for (const piece of parts) {
+  const texts = piece.kind === "heading" ? [piece.text] : piece.parts.map((p) => p.text);
+  for (const text of texts) {
+    if (text.includes("**")) {
+      complain(`a piece kept its asterisks: ${text.slice(0, 60)}`);
+    }
+  }
+}
+
 // And nothing may be lost. Every word in the notes has to still be somewhere,
 // or a bullet that wrapped has quietly become half a sentence.
 const said = parts
