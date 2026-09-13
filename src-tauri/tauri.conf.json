@@ -42,7 +42,22 @@
     ],
     "macOS": {
       "minimumSystemVersion": "13.0",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "dmg": {
+        "background": "dmg/background.png",
+        "windowSize": {
+          "width": 660,
+          "height": 420
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 300
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 300
+        }
+      }
     },
     "publisher": "sphings79",
     "createUpdaterArtifacts": true

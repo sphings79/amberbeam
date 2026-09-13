@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 660 420" width="660" height="420" role="img" aria-label="AmberBeam installer background">
+  <title>AmberBeam — Installer</title>
+  <desc>The window that opens when the disk image is mounted: the program on
+  the left, the applications folder on the right, and an arrow between them.</desc>
+
+  <defs>
+    <!-- The program's own dark surfaces, so the installer looks like the
+         thing it installs rather than like a generic disk image. -->
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#151821"/>
+      <stop offset="1" stop-color="#0d0f14"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7a824"/>
+      <stop offset="1" stop-color="#c4720a"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e08b12" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#e08b12" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Bright in the middle and fading at both ends: the arrow is a hint,
+         not a rule drawn across the window. -->
+    <!-- In user space, not in the line's own box: a horizontal line has no
+         height, and a gradient measured against that box has nothing to
+         measure — it comes out invisible, which is what happened. -->
+    <linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="256" y1="300" x2="411" y2="300">
+      <stop offset="0" stop-color="#e08b12" stop-opacity="0.2"/>
+      <stop offset="0.5" stop-color="#f7a824" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#e08b12" stop-opacity="0.25"/>
+    </linearGradient>
+  </defs>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif">
+    <rect width="660" height="420" fill="url(#page)"/>
+    <ellipse cx="330" cy="150" rx="360" ry="220" fill="url(#halo)"/>
+
+    <!-- The icon, drawn the way the application icon is drawn. -->
+    <rect x="286" y="40" width="88" height="88" rx="26" fill="url(#brand)"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+      <g stroke="#fff6e0">
+        <path d="M304 74h32"/>
+        <path d="M328 66l9 8"/>
+      </g>
+      <g stroke="#ffe3ac">
+        <path d="M356 96h-32"/>
+        <path d="M332 104l-9 -8"/>
+      </g>
+    </g>
+
+    <text x="330" y="164" fill="#e8eaf0" font-size="24" font-weight="700" text-anchor="middle">
+      AmberBeam
+    </text>
+    <text x="330" y="186" fill="#9aa2b5" font-size="13" text-anchor="middle">
+      Zwei Seiten, ein Fenster: FTP, FTPS und SFTP
+    </text>
+
+    <text x="330" y="214" fill="#6b7386" font-size="12.5" text-anchor="middle">
+      Zum Installieren in den Programme-Ordner ziehen
+    </text>
+
+    <!-- From the program to the folder, which is the one thing this window is
+         asking somebody to do. -->
+    <g transform="translate(0,4)">
+      <path d="M256 300h152" stroke="url(#beam)" stroke-width="3" stroke-linecap="round"/>
+      <path d="M398 291l13 9-13 9" fill="none" stroke="#f7a824" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Plates for the two icons to sit on. Finder places the icons and draws
+         their names itself; these only say where they will land. -->
+    <rect x="118" y="238" width="124" height="124" rx="26" fill="#1b1f2a" opacity="0.55"/>
+    <rect x="418" y="238" width="124" height="124" rx="26" fill="#1b1f2a" opacity="0.55"/>
+  </g>
+</svg>
