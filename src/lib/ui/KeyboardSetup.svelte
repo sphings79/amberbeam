@@ -36,6 +36,16 @@
   let { onclose }: Props = $props();
 
   /**
+   * Whether the two links have anything to open.
+   *
+   * In a browser they have not: the settings being described belong to the
+   * machine somebody is typing on, and this shell runs on a different one. The
+   * sentences above them still hold — the drawing shows where to look — so the
+   * page keeps its explanation and loses the button that would do nothing.
+   */
+  const canOpenSettings = api.shell === "desktop";
+
+  /**
    * What the test found for each key: it arrived, or it did not.
    *
    * There is no mode to start and no clock to run out. The dialog simply
@@ -120,9 +130,11 @@
 
       {#if arrived.F5 === false}
         <p class="hint">{t("setup.hurdle.one")}</p>
-        <button type="button" class="link" onclick={() => void api.openSystemKeyboard("function-keys")}>
-          {t("setup.open.function-keys")}
-        </button>
+        {#if canOpenSettings}
+          <button type="button" class="link" onclick={() => void api.openSystemKeyboard("function-keys")}>
+            {t("setup.open.function-keys")}
+          </button>
+        {/if}
         {@render functionKeyDrawing()}
       {:else if arrived.F5 === true}
         <p class="hint">{t("setup.hurdle.one.done")}</p>
@@ -140,9 +152,11 @@
         </div>
         {#if arrived.F3 === false}
           <p class="hint">{t("setup.hurdle.two")}</p>
-          <button type="button" class="link" onclick={() => void api.openSystemKeyboard("shortcuts")}>
-            {t("setup.open.shortcuts")}
-          </button>
+          {#if canOpenSettings}
+            <button type="button" class="link" onclick={() => void api.openSystemKeyboard("shortcuts")}>
+              {t("setup.open.shortcuts")}
+            </button>
+          {/if}
           {@render shortcutDrawing()}
         {/if}
       {/if}
