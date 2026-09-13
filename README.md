@@ -128,6 +128,7 @@ Short pages on the things that are not obvious, in English and German:
 - [Comparing and watching](docs/comparing.md) — what differs, and what to do about it
 - [Bringing your servers with you](docs/importing.md) — from five other programs
 - [Where the secrets are](docs/security.md) — passwords, host keys, certificates
+- [Letting a program drive it](docs/mcp.md) — an assistant as a caller, and what holds it back
 
 Pressing **F1** in the program shows the keys as they are set right now.
 

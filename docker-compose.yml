@@ -30,6 +30,10 @@ services:
       # Switch on when something in front of this terminates TLS.
       # AMBERBEAM_BEHIND_TLS: "true"
 
+# The image also carries the MCP shell, which nothing here starts: a client on
+# your own computer runs it with `docker exec -i amberbeam amberbeam-mcp` and
+# it inherits the environment set above. See docs/mcp.md.
+#
 # Both secrets can come from files instead, which is what you want if this
 # lives in a repository:
 #

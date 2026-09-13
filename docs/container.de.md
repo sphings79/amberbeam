@@ -94,6 +94,35 @@ Leiste über den Seiten zeigt, was läuft, egal wie viele Browser hinsehen.
 
 Siehe [Vergleichen und Beobachten](comparing.de.md).
 
+## Ein Programm ans Steuer lassen
+
+Das Image bringt auch AmberBeams MCP-Schale mit, als `amberbeam-mcp`. Ein
+Client auf deinem eigenen Rechner erreicht sie über `docker exec`:
+
+```json
+{
+  "mcpServers": {
+    "amberbeam": {
+      "command": "docker",
+      "args": ["exec", "-i", "amberbeam", "amberbeam-mcp"]
+    }
+  }
+}
+```
+
+`-i` ist nicht optional — das Protokoll ist die Standardeingabe — und sie erbt
+die Umgebung des Containers, also erreicht `AMBERBEAM_SECRET_PASSPHRASE` sie
+genauso, und die gespeicherten Passwörter gehen auf. Die Schalter sind die,
+die du im Browser gesetzt hast: Es ist dasselbe `/config`.
+
+„Dieser Rechner" ist der Container, Dateien gehen also von und nach seinen
+eigenen Volumes — `/data` ist das dafür gedachte — statt auf die Platte vor
+dir, und es ist ein zweiter Prozess neben dem Dienst,
+mit eigenen Verbindungen.
+
+Was sie darf und was nie, steht unter
+[Ein Programm ans Steuer lassen](mcp.de.md).
+
 ## Was er nicht tut
 
 **Er spricht selbst kein TLS.** Stell einen Reverse Proxy davor, der auf dieser

@@ -134,6 +134,7 @@ Kurze Seiten über das, was nicht offensichtlich ist, auf Deutsch und Englisch:
 - [Vergleichen und Beobachten](docs/comparing.de.md) — was verschieden ist, und was damit geschieht
 - [Server mitbringen](docs/importing.de.md) — aus fünf anderen Programmen
 - [Wo die Geheimnisse liegen](docs/security.de.md) — Passwörter, Host-Keys, Zertifikate
+- [Ein Programm ans Steuer lassen](docs/mcp.de.md) — ein Assistent als Aufrufer, und was ihn hält
 
 **F1** im Programm zeigt die Belegung, wie sie gerade eingestellt ist.
 

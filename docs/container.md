@@ -91,6 +91,34 @@ running, however many browsers are looking.
 
 See [Comparing and watching](comparing.md).
 
+## Letting a program drive it
+
+The image carries AmberBeam's MCP shell as well, as `amberbeam-mcp`. A client
+on your own computer reaches it through `docker exec`:
+
+```json
+{
+  "mcpServers": {
+    "amberbeam": {
+      "command": "docker",
+      "args": ["exec", "-i", "amberbeam", "amberbeam-mcp"]
+    }
+  }
+}
+```
+
+`-i` is not optional — the protocol is standard input — and it inherits the
+container's environment, so `AMBERBEAM_SECRET_PASSPHRASE` reaches it the same
+way and the saved passwords open. The switches are the ones you set in the
+browser: it reads the same `/config`.
+
+"This machine" means the container, so files go to and from its own volumes —
+`/data` is the one meant for them — rather than the disk in front of you, and it is a second process beside the service
+with connections of its own.
+
+See [Letting a program drive it](mcp.md) for what it may do and what it never
+will.
+
 ## What it does not do
 
 **It does not speak TLS itself.** Put a reverse proxy in front of it, which is
