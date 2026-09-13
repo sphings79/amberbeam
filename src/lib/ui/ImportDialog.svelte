@@ -16,6 +16,7 @@
     type Unsubscribe,
   } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import Switch from "./Switch.svelte";
   import { trap } from "./trap";
   import { describe } from "./errors";
 
@@ -292,11 +293,11 @@
         </div>
 
         {#if withPasswords > 0}
-          <label class="check">
-            <input type="checkbox" bind:checked={takePasswords} />
-            <span>{t("import.take-passwords", { count: withPasswords })}</span>
-          </label>
-          <p class="hint">{t("import.take-passwords.hint")}</p>
+          <Switch
+            bind:checked={takePasswords}
+            label={t("import.take-passwords", { count: withPasswords })}
+            hint={t("import.take-passwords.hint")}
+          />
         {/if}
       {/if}
     {/if}
@@ -539,18 +540,6 @@
     background: var(--surface-0);
     color: var(--text);
     width: 100%;
-  }
-
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.84rem;
-    color: var(--text);
-  }
-
-  .check input {
-    width: auto;
   }
 
   .warning {

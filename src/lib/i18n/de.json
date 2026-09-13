@@ -480,7 +480,7 @@
   "filter.count.one": "1 gefunden, {directories} Verzeichnisse gelesen",
   "quick.key-path.hint": "OpenSSH und PuTTY (.ppk) gleichermaßen, verschlüsselt oder nicht.",
   "error.timed-out": "{host} hat die Verbindung angenommen und dann {seconds} Sekunden lang nichts gesagt. Auf Port {port} antwortet etwas, aber nicht die Art Server, die hier erwartet wird — eine Firewall, die verschluckt statt abzulehnen, sieht genau so aus.",
-  "sites.session.hint": "Gilt, bis du AmberBeam beendest, und sonst nirgends. Haken setzen, um es dauerhaft zu merken.",
+  "sites.session.hint": "Gilt, bis du AmberBeam beendest, und sonst nirgends. Anschalten, um es dauerhaft zu merken.",
   "sites.stored.session": "diese Sitzung",
   "connect.loading": "Serverliste wird gelesen…",
   "connect.none": "Noch keine Server gespeichert.",

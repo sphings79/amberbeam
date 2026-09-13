@@ -7,6 +7,7 @@
     type QuickConnectEntry,
   } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import Switch from "./Switch.svelte";
   import { trap } from "./trap";
   import { describe } from "./errors";
 
@@ -279,14 +280,12 @@
               />
             </label>
             {#if remote}
-              <label class="check">
-                <input type="checkbox" bind:checked={passive} />
-                <span>{t("quick.passive")}</span>
-              </label>
-              <label class="check">
-                <input type="checkbox" bind:checked={latin1} />
-                <span>{t("quick.latin1")}</span>
-              </label>
+              <!-- Across the whole width: these sit in the same grid as the
+                   number fields, and half a row is not where a switch goes. -->
+              <div class="wide">
+                <Switch bind:checked={passive} label={t("quick.passive")} />
+                <Switch bind:checked={latin1} label={t("quick.latin1")} />
+              </div>
             {/if}
             <div class="tri">
               <span>{t("settings.temporary-name")}</span>
@@ -545,22 +544,16 @@
     border-radius: 0.6rem;
   }
 
-  .narrow,
-  .check {
+  .wide {
+    grid-column: 1 / -1;
+  }
+
+  .narrow {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 8px;
     grid-column: 1 / -1;
-  }
-
-  .check input {
-    width: auto;
-  }
-
-  .check span {
-    font-size: 0.82rem;
-    color: var(--text-muted);
   }
 
   .tri {

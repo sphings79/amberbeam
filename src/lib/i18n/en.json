@@ -480,7 +480,7 @@
   "filter.count.one": "1 found, {directories} directories read",
   "quick.key-path.hint": "OpenSSH and PuTTY (.ppk) alike, encrypted or not.",
   "error.timed-out": "{host} took the connection and then said nothing for {seconds} seconds. Something is answering on port {port}, but not the kind of server this expects — a firewall that swallows rather than refuses looks exactly like this.",
-  "sites.session.hint": "Kept until you quit AmberBeam, and nowhere else. Tick the box to keep it for good.",
+  "sites.session.hint": "Kept until you quit AmberBeam, and nowhere else. Switch this on to keep it for good.",
   "sites.stored.session": "this session",
   "connect.loading": "Reading the server list…",
   "connect.none": "No servers saved yet.",

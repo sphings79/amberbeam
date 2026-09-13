@@ -15,6 +15,7 @@
    */
   import { api, type OpenSide, type ProtocolInfo, type Protocol, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import Switch from "./Switch.svelte";
   import { label } from "../keys/index.svelte";
   import { tips } from "./tips";
   import { trap } from "./trap";
@@ -727,13 +728,11 @@
             {/if}
           </label>
 
-          <label class="check">
-            <input type="checkbox" bind:checked={draft.rememberPassword} />
-            <span>{t("sites.remember")}</span>
-          </label>
-          <p class="hint">
-            {draft.rememberPassword ? t("sites.remember.hint") : t("sites.session.hint")}
-          </p>
+          <Switch
+            bind:checked={draft.rememberPassword}
+            label={t("sites.remember")}
+            hint={draft.rememberPassword ? t("sites.remember.hint") : t("sites.session.hint")}
+          />
         {/if}
 
         <div class="row">
@@ -760,13 +759,11 @@
           </label>
         </div>
 
-        <label class="check">
-          <input type="checkbox" bind:checked={draft.rememberPath} />
-          <span>{t("sites.remember-path")}</span>
-        </label>
-        <p class="hint">
-          {draft.rememberPath ? t("sites.remember-path.hint") : t("sites.start-path.hint")}
-        </p>
+        <Switch
+          bind:checked={draft.rememberPath}
+          label={t("sites.remember-path")}
+          hint={draft.rememberPath ? t("sites.remember-path.hint") : t("sites.start-path.hint")}
+        />
 
         <div class="row">
           <label class="grow">
@@ -803,13 +800,13 @@
         </div>
         <p class="hint">{t("sites.excludes.hint")}</p>
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={draft.mcp}
-            onchange={(event) => {
+        <Switch
+          checked={draft.mcp}
+          label={t("sites.mcp")}
+          hint={t("sites.mcp.hint")}
+          onchange={(on) => {
               if (!draft) return;
-              draft.mcp = event.currentTarget.checked;
+              draft.mcp = on;
               // What may be done here only means anything while the server is
               // reachable at all. Turning it off and on again should not bring
               // back a permission somebody gave once and forgot.
@@ -817,22 +814,15 @@
                 draft.mcpWrite = false;
                 draft.mcpDelete = false;
               }
-            }}
-          />
-          <span>{t("sites.mcp")}</span>
-        </label>
-        <p class="hint">{t("sites.mcp.hint")}</p>
+          }}
+        />
 
         {#if draft.mcp}
-          <label class="check indent">
-            <input type="checkbox" bind:checked={draft.mcpWrite} />
-            <span>{t("sites.mcp.write")}</span>
-          </label>
-          <label class="check indent">
-            <input type="checkbox" bind:checked={draft.mcpDelete} />
-            <span>{t("sites.mcp.delete")}</span>
-          </label>
-          <p class="hint indent">{t("sites.mcp.change.hint")}</p>
+          <div class="indent">
+            <Switch bind:checked={draft.mcpWrite} label={t("sites.mcp.write")} />
+            <Switch bind:checked={draft.mcpDelete} label={t("sites.mcp.delete")} />
+            <p class="hint">{t("sites.mcp.change.hint")}</p>
+          </div>
         {/if}
 
         <div class="row">
@@ -853,22 +843,16 @@
         </div>
 
         {#if remote}
-          <label class="check">
-            <input
-              type="checkbox"
-              checked={draft.passive !== false}
-              onchange={(event) => draft && (draft.passive = event.currentTarget.checked)}
-            />
-            <span>{t("quick.passive")}</span>
-          </label>
-          <label class="check">
-            <input
-              type="checkbox"
-              checked={draft.latin1 === true}
-              onchange={(event) => draft && (draft.latin1 = event.currentTarget.checked)}
-            />
-            <span>{t("quick.latin1")}</span>
-          </label>
+          <Switch
+            checked={draft.passive !== false}
+            label={t("quick.passive")}
+            onchange={(on) => draft && (draft.passive = on)}
+          />
+          <Switch
+            checked={draft.latin1 === true}
+            label={t("quick.latin1")}
+            onchange={(on) => draft && (draft.latin1 = on)}
+          />
         {/if}
 
         {#if failure}
@@ -1203,16 +1187,6 @@
 
   label.narrow {
     width: 120px;
-  }
-
-  label.check {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-  }
-
-  label.check input {
-    width: auto;
   }
 
   /* Stepped in because these two only exist while the one above them is on,

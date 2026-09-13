@@ -12,6 +12,7 @@
 
   import { api, type Comparison, type CoreEvent, type How } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import Switch from "./Switch.svelte";
   import { pane, type Side } from "../state/panes.svelte";
   import { describe } from "./errors";
   import { formatSize } from "./format";
@@ -230,11 +231,11 @@
       </div>
 
       {#if !found}
-        <label class="check">
-          <input type="checkbox" bind:checked={recursive} />
-          <span>{t("compare.recursive")}</span>
-        </label>
-        <p class="hint">{t("compare.recursive.hint")}</p>
+        <Switch
+          bind:checked={recursive}
+          label={t("compare.recursive")}
+          hint={t("compare.recursive.hint")}
+        />
 
         <label class="row">
           <span class="label">{t("compare.how")}</span>

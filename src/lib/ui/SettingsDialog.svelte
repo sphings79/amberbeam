@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type EditRule, type OpenWith, type Settings } from "../bridge";
   import { t } from "../i18n/index.svelte";
+  import Switch from "./Switch.svelte";
   import { trap } from "./trap";
 
   interface Props {
@@ -170,89 +171,65 @@
         </label>
         <p class="hint">{t("settings.retries.hint")}</p>
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.temporaryName}
-            onchange={(event) => change({ temporaryName: event.currentTarget.checked })}
-          />
-          <span>{t("settings.temporary-name")}</span>
-        </label>
-        <p class="hint">{t("settings.temporary-name.hint")}</p>
+        <Switch
+          checked={settings.temporaryName}
+          label={t("settings.temporary-name")}
+          hint={t("settings.temporary-name.hint")}
+          onchange={(on) => change({ temporaryName: on })}
+        />
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.keepModified}
-            onchange={(event) => change({ keepModified: event.currentTarget.checked })}
-          />
-          <span>{t("settings.keep-modified")}</span>
-        </label>
+        <Switch
+          checked={settings.keepModified}
+          label={t("settings.keep-modified")}
+          onchange={(on) => change({ keepModified: on })}
+        />
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.keepPermissions}
-            onchange={(event) => change({ keepPermissions: event.currentTarget.checked })}
-          />
-          <span>{t("settings.keep-permissions")}</span>
-        </label>
-        <p class="hint">{t("settings.keep-permissions.hint")}</p>
+        <Switch
+          checked={settings.keepPermissions}
+          label={t("settings.keep-permissions")}
+          hint={t("settings.keep-permissions.hint")}
+          onchange={(on) => change({ keepPermissions: on })}
+        />
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.checkForUpdates}
-            onchange={(event) => change({ checkForUpdates: event.currentTarget.checked })}
-          />
-          <span>{t("settings.check-updates")}</span>
-        </label>
-        <p class="hint">{t("settings.check-updates.hint")}</p>
+        <Switch
+          checked={settings.checkForUpdates}
+          label={t("settings.check-updates")}
+          hint={t("settings.check-updates.hint")}
+          onchange={(on) => change({ checkForUpdates: on })}
+        />
 
         <h3>{t("settings.comparing")}</h3>
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.reviewComparison}
-            onchange={(event) => change({ reviewComparison: event.currentTarget.checked })}
-          />
-          <span>{t("settings.review")}</span>
-        </label>
-        <p class="hint">{t("settings.review.hint")}</p>
+        <Switch
+          checked={settings.reviewComparison}
+          label={t("settings.review")}
+          hint={t("settings.review.hint")}
+          onchange={(on) => change({ reviewComparison: on })}
+        />
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.deleteAlong}
-            onchange={(event) => change({ deleteAlong: event.currentTarget.checked })}
-          />
-          <span>{t("settings.delete-along")}</span>
-        </label>
-        <p class="hint">{t("settings.delete-along.hint")}</p>
+        <Switch
+          checked={settings.deleteAlong}
+          label={t("settings.delete-along")}
+          hint={t("settings.delete-along.hint")}
+          onchange={(on) => change({ deleteAlong: on })}
+        />
 
         <h3>{t("settings.mcp")}</h3>
         <p class="hint">{t("settings.mcp.hint")}</p>
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.mcpQuickConnect}
-            onchange={(event) => change({ mcpQuickConnect: event.currentTarget.checked })}
-          />
-          <span>{t("settings.mcp.quick-connect")}</span>
-        </label>
-        <p class="hint">{t("settings.mcp.quick-connect.hint")}</p>
+        <Switch
+          checked={settings.mcpQuickConnect}
+          label={t("settings.mcp.quick-connect")}
+          hint={t("settings.mcp.quick-connect.hint")}
+          onchange={(on) => change({ mcpQuickConnect: on })}
+        />
 
-        <label class="check">
-          <input
-            type="checkbox"
-            checked={settings.mcpCreateSites}
-            onchange={(event) => change({ mcpCreateSites: event.currentTarget.checked })}
-          />
-          <span>{t("settings.mcp.create-sites")}</span>
-        </label>
-        <p class="hint">{t("settings.mcp.create-sites.hint")}</p>
+        <Switch
+          checked={settings.mcpCreateSites}
+          label={t("settings.mcp.create-sites")}
+          hint={t("settings.mcp.create-sites.hint")}
+          onchange={(on) => change({ mcpCreateSites: on })}
+        />
 
         {#if command === null}
           <p class="hint">{t("settings.mcp.web")}</p>
@@ -524,15 +501,6 @@
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-ring);
-  }
-
-  .check {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.84rem;
-    color: var(--text);
-    margin-top: 10px;
   }
 
   .hint {
