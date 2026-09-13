@@ -163,6 +163,28 @@
         </label>
         <p class="hint">{t("settings.check-updates.hint")}</p>
 
+        <h3>{t("settings.comparing")}</h3>
+
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={settings.reviewComparison}
+            onchange={(event) => change({ reviewComparison: event.currentTarget.checked })}
+          />
+          <span>{t("settings.review")}</span>
+        </label>
+        <p class="hint">{t("settings.review.hint")}</p>
+
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={settings.deleteAlong}
+            onchange={(event) => change({ deleteAlong: event.currentTarget.checked })}
+          />
+          <span>{t("settings.delete-along")}</span>
+        </label>
+        <p class="hint">{t("settings.delete-along.hint")}</p>
+
         <h3>{t("settings.editing")}</h3>
         <p class="hint">{t("settings.editing.hint")}</p>
 

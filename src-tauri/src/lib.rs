@@ -339,6 +339,7 @@ fn import_apply(
             keep_alive: None,
             remember_password: take_passwords && entry.has_password,
             wastebasket: None,
+            excludes: Vec::new(),
             colour: None,
         };
 

@@ -26,6 +26,7 @@ use crate::compare::excluded;
 use crate::endpoint::EndpointId;
 use crate::error::{Error, Result};
 use crate::events::{Event, Events};
+use crate::registry::Sessions;
 use crate::runner::{EnqueueRequest, Runner};
 use crate::transfer::ConflictPolicy;
 
@@ -120,12 +121,17 @@ impl Watches {
     pub async fn start(
         &self,
         queue: &Arc<Runner>,
+        sessions: &Arc<Sessions>,
         events: Events,
         root: String,
         target_endpoint: String,
         target_root: String,
         target_title: Option<String>,
         excludes: Vec<String>,
+        // Whether a file that goes here goes there too. Read once, when the
+        // watch starts: a switch changing under a running watch would leave
+        // nobody able to say what it had done.
+        delete_along: bool,
     ) -> Result<Watch> {
         if let Some(already) = self
             .open
@@ -152,10 +158,12 @@ impl Watches {
                 };
                 // Only what left something behind. A read, a permission change or
                 // a file being looked at is not a reason to upload anything.
-                if !matches!(
+                let worth_it = matches!(
                     event.kind,
                     notify::EventKind::Create(_) | notify::EventKind::Modify(_)
-                ) {
+                ) || (delete_along
+                    && matches!(event.kind, notify::EventKind::Remove(_)));
+                if !worth_it {
                     return;
                 }
                 for path in event.paths {
@@ -186,6 +194,7 @@ impl Watches {
         let counted = Arc::new(AtomicUsize::new(0));
         let counting = Arc::clone(&counted);
         let queue = Arc::clone(queue);
+        let sessions = Arc::clone(sessions);
         let mine = id.clone();
         let root_for_task = root.clone();
         tokio::spawn(async move {
@@ -224,10 +233,12 @@ impl Watches {
                 oldest = None;
                 let sent = send_up(
                     &queue,
+                    &sessions,
                     &root_for_task,
                     &target_endpoint,
                     &target_root,
                     &excludes,
+                    delete_along,
                     batch,
                 )
                 .await;
@@ -286,24 +297,29 @@ impl Watches {
 }
 
 /// Puts what changed into the queue, and says how many that was.
+#[allow(clippy::too_many_arguments)]
 async fn send_up(
     queue: &Arc<Runner>,
+    sessions: &Arc<Sessions>,
     root: &str,
     target_endpoint: &str,
     target_root: &str,
     excludes: &[String],
+    delete_along: bool,
     batch: Vec<PathBuf>,
 ) -> usize {
     let mut sent = 0;
     for path in batch {
-        // A directory needs nothing: the files inside it arrive as their own
-        // events, and each of those makes the directory on the way.
-        if !path.is_file() {
-            continue;
-        }
         let Some(relative) = below(root, &path) else {
             continue;
         };
+        let gone = !path.exists();
+        // A directory has nothing to send: the files inside it arrive as their
+        // own events, and each of those makes the directory on the way. A
+        // directory that has *gone* is a different matter.
+        if !gone && !path.is_file() {
+            continue;
+        }
         // Every part of the way down, not only the file: a change inside
         // `node_modules` is excluded by the rule that names the directory.
         if relative.split('/').any(|part| excluded(part, excludes)) {
@@ -317,6 +333,21 @@ async fn send_up(
             Some((below, _)) => format!("{}/{below}", target_root.trim_end_matches('/')),
             None => target_root.to_string(),
         };
+
+        if gone {
+            // Only when this watch was started with deletions carried across,
+            // and never through the queue even then: the queue moves a file
+            // from one place to another, and taking one away is not that.
+            if !delete_along {
+                continue;
+            }
+            let endpoint = EndpointId::new(target_endpoint.to_string());
+            let there = format!("{}/{}", into.trim_end_matches('/'), name.to_string_lossy());
+            if sessions.remove(&endpoint, &there).await.is_ok() {
+                sent += 1;
+            }
+            continue;
+        }
 
         let request = EnqueueRequest {
             source_endpoint: EndpointId::new(crate::registry::LOCAL),

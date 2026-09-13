@@ -150,6 +150,8 @@
   "compare.none": "Keine",
   "compare.again": "Neu vergleichen",
   "compare.send": "{files} einreihen",
+  "compare.send.and-remove": "{files} einreihen, {gone} löschen",
+  "compare.only-there.deleting": "„Löschen mitziehen“ ist an, Einträge, die es nur auf der anderen Seite gibt, lassen sich also anhaken — und ein Haken löscht dort.",
   "compare.nothing": "Nichts zu zeigen. Beide Seiten sind leer, oder alles darin war ausgenommen.",
   "compare.cut-short": "Nach fünftausend Verzeichnissen angehalten. Was darunter liegt, wurde nicht angesehen und steht nicht in dieser Liste — nichts hier heißt also „der Rest stimmt überein\".",
   "compare.only-there.hint": "Einträge, die es nur auf der anderen Seite gibt, werden gezeigt und in Ruhe gelassen. Hier löscht nichts etwas.",
@@ -278,6 +280,11 @@
   "update.hint": "Fassung {version} ist erschienen. Öffnet die Versionshinweise.",
   "settings.check-updates": "Auf neue Fassungen prüfen",
   "settings.check-updates.hint": "Fragt GitHub einmal kurz nach dem Start nach der neuesten Fassung. Über dich wird nichts gesendet — keine Version, keine Kennung, keine Zählung. Es ist die einzige Anfrage, die AmberBeam von sich aus stellt.",
+  "settings.comparing": "Vergleichen und Beobachten",
+  "settings.review": "Vor dem Übertragen zeigen, was gefunden wurde",
+  "settings.review.hint": "An gibt dir der Vergleich die Liste zum Auswählen. Aus geht alles Unterschiedliche direkt in die Warteschlange — angehalten, das Starten bleibt also deins.",
+  "settings.delete-along": "Löschen mitziehen",
+  "settings.delete-along.hint": "Aus, und das sollte es bleiben: Ein Checkout, ein aufräumender Build oder ein verrutschtes Verschieben würde sonst Dateien vom Server nehmen, und du erführest es vom Server.",
   "settings.editing": "Bearbeiten",
   "settings.editing.hint": "Welche Dateien dort bearbeitet werden dürfen, wo sie liegen, und womit. Die erste passende Zeile gewinnt. Was nicht aufgeführt ist, wird nicht zum Bearbeiten angeboten.",
   "settings.editing.kinds": "php, html, css",
@@ -544,5 +551,7 @@
   "error.wastebasket-failed": "Es wurde nichts gelöscht: der Papierkorb auf dem Server konnte es nicht aufnehmen. Er ist für diesen Server abgeschaltet, Löschen heißt jetzt also wieder löschen — sieh dir das Verzeichnis an, bevor du es erneut versuchst.",
   "sites.wastebasket": "Papierkorb auf dem Server",
   "sites.wastebasket.placeholder": "leer: endgültig löschen",
-  "sites.wastebasket.hint": "Ein Verzeichnis, in das gelöschte Dateien wandern, benannt nach dem Zeitpunkt des Wegwerfens. Löschen darin ist endgültig. Lokale Dateien werden nie verschoben — das gilt nur für die Serverseite."
+  "sites.wastebasket.hint": "Ein Verzeichnis, in das gelöschte Dateien wandern, benannt nach dem Zeitpunkt des Wegwerfens. Löschen darin ist endgültig. Lokale Dateien werden nie verschoben — das gilt nur für die Serverseite.",
+  "sites.excludes": "Nie ansehen",
+  "sites.excludes.hint": "Namen, die Vergleich und Beobachtung überspringen, als Muster — * steht für beliebiges, Groß- und Kleinschreibung egal. Was Lärm ist, ist auf jedem Server anders, deshalb steht es hier."
 }

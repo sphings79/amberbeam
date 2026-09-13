@@ -906,12 +906,17 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
                 .watches
                 .start(
                     &service.queue,
+                    &service.sessions,
                     service.events.clone(),
                     it.root,
                     it.target_endpoint,
                     it.target_root,
                     it.target_title,
                     it.excludes,
+                    // The setting as it stands when the watch starts. What it
+                    // does must not change under somebody who walked away
+                    // from the window with it running.
+                    service.config.settings().delete_along,
                 )
                 .await?)
         }

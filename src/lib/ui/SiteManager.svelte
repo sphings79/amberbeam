@@ -278,6 +278,7 @@
       keepAlive: null,
       rememberPassword: false,
       wastebasket: null,
+      excludes: [],
       colour: null,
     };
   }
@@ -778,6 +779,26 @@
           </label>
         </div>
         <p class="hint">{t("sites.wastebasket.hint")}</p>
+
+        <div class="row">
+          <label class="grow">
+            <span>{t("sites.excludes")}</span>
+            <input
+              value={draft.excludes.join(", ")}
+              placeholder=".git, node_modules, *.log"
+              spellcheck="false"
+              autocapitalize="off"
+              autocorrect="off"
+              onchange={(event) =>
+                draft &&
+                (draft.excludes = event.currentTarget.value
+                  .split(/[\n,]+/)
+                  .map((one) => one.trim())
+                  .filter((one) => one !== ""))}
+            />
+          </label>
+        </div>
+        <p class="hint">{t("sites.excludes.hint")}</p>
 
         <div class="row">
           <label class="narrow">

@@ -22,8 +22,16 @@
     /** The side the files would travel from. */
     from: Side;
     onclose: () => void;
-    /** Puts the chosen entries into the queue, held. */
-    onsend: (jobs: { directory: string; names: string[] }[], into: string) => Promise<void>;
+    /**
+     * Puts the chosen entries into the queue, held — and removes the ones
+     * that were ticked for deletion, which only happens when the settings
+     * allow it at all.
+     */
+    onsend: (
+      jobs: { directory: string; names: string[] }[],
+      remove: string[],
+      into: string,
+    ) => Promise<void>;
   }
 
   let { from, onclose, onsend }: Props = $props();
@@ -36,7 +44,32 @@
 
   let recursive = $state(false);
   let how = $state<How>("size-and-time");
+  /**
+   * The patterns, taken from the server entry when one of the sides is a
+   * saved server, and editable here for this one comparison.
+   *
+   * Filled rather than merely obeyed: somebody should be able to see what is
+   * being skipped, and change it for one run without changing the entry.
+   */
   let excludes = $state("");
+  /** What the settings say about showing the list, and about deletions. */
+  let review = $state(true);
+  let deleteAlong = $state(false);
+
+  $effect(() => {
+    void (async () => {
+      const settings = await api.settings().catch(() => null);
+      if (settings) {
+        review = settings.reviewComparison;
+        deleteAlong = settings.deleteAlong;
+      }
+      // The entry's own list, from whichever side came from one.
+      const id = pane(source).siteId ?? pane(target).siteId;
+      if (!id) return;
+      const site = (await api.sites().catch(() => [])).find((one) => one.id === id);
+      if (site && site.excludes.length > 0) excludes = site.excludes.join(", ");
+    })();
+  });
 
   let running = $state(false);
   let progress = $state<{ directories: number; rows: number } | null>(null);
@@ -46,10 +79,15 @@
       rebuilt by every run and an index would point at a different row. */
   let ticked = $state(new Set<string>());
 
-  /** Only what a transfer would touch. The rest is shown and left alone. */
-  const MOVABLE = ["only-here", "different"];
+  /**
+   * What a transfer would touch — and, when deletions are carried across, what
+   * a deletion would touch as well.
+   */
+  let movableStates = $derived(
+    deleteAlong ? ["only-here", "different", "only-there"] : ["only-here", "different"],
+  );
 
-  let movable = $derived((found?.rows ?? []).filter((row) => MOVABLE.includes(row.state)));
+  let movable = $derived((found?.rows ?? []).filter((row) => movableStates.includes(row.state)));
   let chosen = $derived(movable.filter((row) => ticked.has(row.path)));
 
   $effect(() => {
@@ -83,10 +121,20 @@
           .filter((one) => one !== ""),
       });
       found = answer;
+      if (!review) {
+        // The settings say not to show the list. Everything that differs goes
+        // into the queue held, which is where it would have gone anyway —
+        // held, so starting it is still somebody's decision.
+        ticked = new Set(
+          answer.rows.filter((row) => movableStates.includes(row.state)).map((r) => r.path),
+        );
+        await send();
+        return;
+      }
       // Everything a transfer would touch, ticked. It is what somebody asking
       // "what differs" is about to say yes to anyway, and unticking three
       // rows is less work than ticking ninety.
-      ticked = new Set(answer.rows.filter((row) => MOVABLE.includes(row.state)).map((r) => r.path));
+      ticked = new Set(answer.rows.filter((row) => movableStates.includes(row.state)).map((r) => r.path));
     } catch (why) {
       failure = why;
     } finally {
@@ -115,8 +163,9 @@
    * files.
    */
   function plan(): { directory: string; names: string[] }[] {
-    const carried = chosen.filter((row) => row.kind === "directory").map((row) => `${row.path}/`);
-    const wanted = chosen.filter((row) => !carried.some((under) => row.path.startsWith(under)));
+    const sending = chosen.filter((row) => row.state !== "only-there");
+    const carried = sending.filter((row) => row.kind === "directory").map((row) => `${row.path}/`);
+    const wanted = sending.filter((row) => !carried.some((under) => row.path.startsWith(under)));
 
     const byDirectory = new Map<string, string[]>();
     for (const row of wanted) {
@@ -129,10 +178,22 @@
     return [...byDirectory].map(([directory, names]) => ({ directory, names }));
   }
 
+  /**
+   * What was ticked for deletion, with anything inside a ticked directory
+   * left out: removing the directory takes it along.
+   */
+  function toRemove(): string[] {
+    const going = chosen.filter((row) => row.state === "only-there");
+    const carried = going.filter((row) => row.kind === "directory").map((row) => `${row.path}/`);
+    return going
+      .filter((row) => !carried.some((under) => row.path.startsWith(under)))
+      .map((row) => row.path);
+  }
+
   async function send(): Promise<void> {
     running = true;
     try {
-      await onsend(plan(), pane(target).path);
+      await onsend(plan(), toRemove(), pane(target).path);
       onclose();
     } catch (why) {
       failure = why;
@@ -225,7 +286,7 @@
 
         <div class="rows">
           {#each found.rows as row (row.path)}
-            {@const canMove = MOVABLE.includes(row.state)}
+            {@const canMove = movableStates.includes(row.state)}
             <div class="line" class:same={row.state === "same"}>
               <input
                 type="checkbox"
@@ -249,7 +310,9 @@
           {/if}
         </div>
 
-        <p class="hint">{t("compare.only-there.hint")}</p>
+        <p class="hint">
+          {deleteAlong ? t("compare.only-there.deleting") : t("compare.only-there.hint")}
+        </p>
       {/if}
     </div>
 
@@ -257,8 +320,18 @@
       {#if found}
         <button type="button" onclick={() => (found = null)}>{t("compare.again")}</button>
         <span class="gap"></span>
-        <button type="button" class="primary" disabled={running || chosen.length === 0} onclick={() => void send()}>
-          {t("compare.send", { files: chosen.length })}
+        <button
+          type="button"
+          class="primary"
+          disabled={running || chosen.length === 0}
+          onclick={() => void send()}
+        >
+          {toRemove().length === 0
+            ? t("compare.send", { files: chosen.length })
+            : t("compare.send.and-remove", {
+                files: chosen.length - toRemove().length,
+                gone: toRemove().length,
+              })}
         </button>
       {:else}
         <span class="gap"></span>

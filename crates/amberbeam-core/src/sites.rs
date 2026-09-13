@@ -88,6 +88,14 @@ pub struct Site {
     /// this file.
     #[serde(default)]
     pub wastebasket: Option<String>,
+    /// Names a comparison and a watch never look at, as patterns.
+    ///
+    /// Per server because that is where it belongs: what counts as noise in a
+    /// web project is not what counts as noise in a backup, and the person who
+    /// set up the server is the one who knows. Carries no secret — they are
+    /// file names, and the file already holds the address they sit at.
+    #[serde(default)]
+    pub excludes: Vec<String>,
     /// Colour marking in the list, one of the interface's accents.
     pub colour: Option<String>,
 }
@@ -416,6 +424,7 @@ mod tests {
             keep_alive: None,
             remember_password: false,
             wastebasket: None,
+            excludes: Vec::new(),
             colour: None,
         }
     }
@@ -527,7 +536,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 21] = [
+        const ALLOWED: [&str; 22] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -551,6 +560,8 @@ mod tests {
             "passive",
             "latin1",
             "keepAlive",
+            // File names, on a server whose address is already in this file.
+            "excludes",
             "rememberPassword",
             "colour",
         ];

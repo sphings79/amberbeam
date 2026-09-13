@@ -200,10 +200,20 @@
   async function sendComparison(
     from: Side,
     jobs: { directory: string; names: string[] }[],
+    remove: string[],
     into: string,
   ): Promise<void> {
     const source = pane(from);
     const target = pane(from === "left" ? "right" : "left");
+
+    // Deletions happen now rather than through the queue: the queue carries
+    // files from one place to another, and taking one away is not that. They
+    // go first, so a name freed here can be filled by a transfer below.
+    for (const path of remove) {
+      const where = await below(target.endpoint, into, path);
+      await api.removeEntry(target.endpoint, where, target.siteId);
+    }
+
     for (const job of jobs) {
       const directory = job.directory === "" ? source.path : await below(source.endpoint, source.path, job.directory);
       const landing = job.directory === "" ? into : await below(target.endpoint, into, job.directory);
@@ -1527,7 +1537,7 @@
   <CompareDialog
     from={comparing}
     onclose={() => (comparing = null)}
-    onsend={(jobs, into) => sendComparison(comparing ?? "left", jobs, into)}
+    onsend={(jobs, remove, into) => sendComparison(comparing ?? "left", jobs, remove, into)}
   />
 {/if}
 

@@ -237,6 +237,20 @@ export interface Settings {
    * somebody made, not a state to be repaired behind their back.
    */
   editing: EditRule[];
+  /**
+   * Show what a comparison found before anything is queued.
+   *
+   * On by default: four hundred files arriving in the queue unasked is not a
+   * decision anybody made.
+   */
+  reviewComparison: boolean;
+  /**
+   * Carry a deletion across: a file gone here goes there too.
+   *
+   * Off, and it stays off unless somebody says otherwise — a checkout or a
+   * build that cleans up after itself would take files off a server.
+   */
+  deleteAlong: boolean;
 }
 
 /** What a recursive delete is about to remove. */
@@ -398,6 +412,13 @@ export interface Site {
    * thought they were clearing.
    */
   wastebasket: string | null;
+  /**
+   * Names a comparison and a watch never look at, as patterns.
+   *
+   * Per server, because what counts as noise in a web project is not what
+   * counts as noise in a backup.
+   */
+  excludes: string[];
   /** One of the interface's accent names, or null for no marking. */
   colour: string | null;
 }

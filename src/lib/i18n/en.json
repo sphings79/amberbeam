@@ -150,6 +150,8 @@
   "compare.none": "Tick none",
   "compare.again": "Compare again",
   "compare.send": "Line up {files} for transfer",
+  "compare.send.and-remove": "Line up {files}, remove {gone}",
+  "compare.only-there.deleting": "Carrying deletions across is switched on, so entries that exist only on the other side can be ticked — and ticking one removes it there.",
   "compare.nothing": "Nothing to show. Both sides are empty, or everything in them was excluded.",
   "compare.cut-short": "Stopped after five thousand directories. What is below them was not looked at, and is not in this list — so nothing here should be read as \"the rest agrees\".",
   "compare.only-there.hint": "Entries that exist only on the other side are shown and left alone. Nothing here deletes anything.",
@@ -278,6 +280,11 @@
   "update.hint": "Version {version} has been released. Opens the release notes.",
   "settings.check-updates": "Check for new releases",
   "settings.check-updates.hint": "Asks GitHub for the newest release, once shortly after starting. Nothing about you is sent — no version, no identifier, no count. It is the only request AmberBeam makes on its own.",
+  "settings.comparing": "Comparing and watching",
+  "settings.review": "Show what was found before transferring",
+  "settings.review.hint": "On, a comparison hands you the list to pick from. Off, everything that differs goes straight into the queue — held, so it is still yours to start.",
+  "settings.delete-along": "Carry deletions across",
+  "settings.delete-along.hint": "Off, and worth leaving off: a checkout, a build that cleans up after itself or a stray move would otherwise take files off the server, and you would find out from the server.",
   "settings.editing": "Editing",
   "settings.editing.hint": "Which files may be edited where they lie, and what opens them. The first line that matches a file wins. Anything not listed is not offered for editing.",
   "settings.editing.kinds": "php, html, css",
@@ -544,5 +551,7 @@
   "error.wastebasket-failed": "Nothing was deleted: the wastebasket on the server could not take it. It has been switched off for this server, so deleting means deleting again — check the folder before you try once more.",
   "sites.wastebasket": "Wastebasket on the server",
   "sites.wastebasket.placeholder": "empty: delete for good",
-  "sites.wastebasket.hint": "A directory deleted files are moved into, named by the time they were thrown away. Deleting something inside it is final. Local files are never moved — this is the server side only."
+  "sites.wastebasket.hint": "A directory deleted files are moved into, named by the time they were thrown away. Deleting something inside it is final. Local files are never moved — this is the server side only.",
+  "sites.excludes": "Never look at",
+  "sites.excludes.hint": "Names a comparison and a watch skip, as patterns — * stands for anything, and case does not matter. What counts as noise is different on every server, which is why it lives here."
 }

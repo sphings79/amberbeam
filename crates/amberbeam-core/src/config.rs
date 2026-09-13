@@ -79,6 +79,20 @@ pub struct Settings {
     /// folder walks is not consent, it is wearing somebody down.
     #[serde(default)]
     pub conflict_policy: Option<crate::transfer::ConflictPolicy>,
+    /// Show what a comparison found before anything is queued.
+    ///
+    /// On by default. A comparison that queues its own findings is a program
+    /// deciding for somebody what "the same" means, and four hundred files
+    /// arriving in the queue unasked is not a decision anybody made.
+    #[serde(default = "yes")]
+    pub review_comparison: bool,
+    /// Carry a deletion across: a file gone here goes there too.
+    ///
+    /// Off, and it stays off unless somebody says otherwise. A checkout, a
+    /// build that cleans up after itself or a stray move would otherwise take
+    /// files off a server, and the person would find out from the server.
+    #[serde(default)]
+    pub delete_along: bool,
     /// What may be edited where it lies, and what opens it.
     ///
     /// One table answering both, because they are one decision: see
@@ -96,6 +110,11 @@ pub struct Settings {
     pub clear_finished: bool,
 }
 
+/// For `serde(default)` on a field whose default is true.
+fn yes() -> bool {
+    true
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -108,6 +127,8 @@ impl Default for Settings {
             conflict_policy: None,
             clear_finished: false,
             editing: crate::editing::EditRule::shipped(),
+            review_comparison: true,
+            delete_along: false,
         }
     }
 }
@@ -269,6 +290,7 @@ impl Config {
             // new entry starts without one rather than claiming to have it.
             remember_password: false,
             wastebasket: None,
+            excludes: Vec::new(),
             colour: None,
         };
 
