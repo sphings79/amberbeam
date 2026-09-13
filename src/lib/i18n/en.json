@@ -207,6 +207,10 @@
   "delete.title": "Delete",
   "delete.many": "{count} entries",
   "delete.counting": "Counting what would be removed …",
+  "delete.skip.session": "Don't count, this session",
+  "delete.skip.always": "Don't count on this server",
+  "delete.skip.no-site": "This connection was typed in rather than saved, so there is no entry to remember it in.",
+  "delete.uncounted": "Not counted: {count} marked, and whatever lies inside the folders among them goes too.",
   "delete.files": "Files",
   "delete.folders": "Folders",
   "delete.links": "Links",
@@ -599,6 +603,9 @@
   "sites.wastebasket": "Wastebasket on the server",
   "sites.wastebasket.placeholder": "empty: delete for good",
   "sites.wastebasket.hint": "A directory deleted files are moved into, named by the time they were thrown away. Deleting something inside it is final. Local files are never moved — this is the server side only.",
+  "sites.count-before-delete": "Count before deleting",
+  "sites.count-before-delete.hint": "Three files and eleven thousand deserve different answers to the same question, and looking is the only way to tell them apart. On a server that is one listing per directory, so a deep tree can keep you waiting.",
+  "sites.count-before-delete.off": "Off: the question is still asked, it just cannot say how much. Files on this machine are always counted — that costs nothing.",
   "sites.excludes": "Never look at",
   "sites.excludes.hint": "Names a comparison and a watch skip, as patterns — * stands for anything, and case does not matter. What counts as noise is different on every server, which is why it lives here."
 }

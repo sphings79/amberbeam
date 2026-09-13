@@ -88,6 +88,21 @@ pub struct Site {
     /// this file.
     #[serde(default)]
     pub wastebasket: Option<String>,
+    /// Whether to count what a delete would take before asking about it.
+    ///
+    /// On, and it should stay on where it can: "three files" and "eleven
+    /// thousand files" deserve different answers to the same question, and the
+    /// only way to tell them apart is to look.
+    ///
+    /// Looking means one listing per directory, and on a server every listing
+    /// is a round trip — so a deep tree can leave somebody waiting on a count
+    /// they did not want for a delete they were sure about. Off, the question
+    /// is still asked; it just cannot say how much.
+    ///
+    /// Per server because that is where the cost lives. The local side always
+    /// counts: it reads a directory in the time a server takes to say hello.
+    #[serde(default = "yes")]
+    pub count_before_delete: bool,
     /// What a program driving AmberBeam over MCP may do on this server.
     ///
     /// Six switches rather than one, all off, because "may use this server" is
@@ -133,6 +148,11 @@ pub struct Site {
     pub excludes: Vec<String>,
     /// Colour marking in the list, one of the interface's accents.
     pub colour: Option<String>,
+}
+
+/// For `serde(default)` on a field whose default is true.
+fn yes() -> bool {
+    true
 }
 
 impl Site {
@@ -459,6 +479,7 @@ mod tests {
             keep_alive: None,
             remember_password: false,
             wastebasket: None,
+            count_before_delete: true,
             excludes: Vec::new(),
             mcp_see: false,
             mcp_upload: false,
@@ -577,7 +598,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 28] = [
+        const ALLOWED: [&str; 29] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -603,6 +624,7 @@ mod tests {
             "keepAlive",
             // File names, on a server whose address is already in this file.
             "excludes",
+            "countBeforeDelete",
             // Six switches, and the ones that decide what a program driving
             // this one may do with the entry. None of them carries a secret;
             // each of them decides whether one tool answers at all.

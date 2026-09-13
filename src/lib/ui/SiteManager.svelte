@@ -274,6 +274,7 @@
       keepAlive: null,
       rememberPassword: false,
       wastebasket: null,
+      countBeforeDelete: true,
       excludes: [],
       mcpSee: false,
       mcpUpload: false,
@@ -777,6 +778,14 @@
           </label>
         </div>
         <p class="hint">{t("sites.wastebasket.hint")}</p>
+
+        <Switch
+          bind:checked={draft.countBeforeDelete}
+          label={t("sites.count-before-delete")}
+          hint={draft.countBeforeDelete
+            ? t("sites.count-before-delete.hint")
+            : t("sites.count-before-delete.off")}
+        />
 
         <div class="row">
           <label class="grow">

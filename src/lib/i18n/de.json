@@ -207,6 +207,10 @@
   "delete.title": "Löschen",
   "delete.many": "{count} Einträge",
   "delete.counting": "Es wird gezählt, was entfernt würde …",
+  "delete.skip.session": "Nicht zählen, diese Sitzung",
+  "delete.skip.always": "Auf diesem Server nicht zählen",
+  "delete.skip.no-site": "Diese Verbindung wurde eingetippt statt gespeichert, es gibt also keinen Eintrag, der sich das merken könnte.",
+  "delete.uncounted": "Nicht gezählt: {count} markiert, und was in den Ordnern darunter liegt, geht mit.",
   "delete.files": "Dateien",
   "delete.folders": "Ordner",
   "delete.links": "Verweise",
@@ -599,6 +603,9 @@
   "sites.wastebasket": "Papierkorb auf dem Server",
   "sites.wastebasket.placeholder": "leer: endgültig löschen",
   "sites.wastebasket.hint": "Ein Verzeichnis, in das gelöschte Dateien wandern, benannt nach dem Zeitpunkt des Wegwerfens. Löschen darin ist endgültig. Lokale Dateien werden nie verschoben — das gilt nur für die Serverseite.",
+  "sites.count-before-delete": "Vor dem Löschen zählen",
+  "sites.count-before-delete.hint": "Drei Dateien und elftausend verdienen verschiedene Antworten auf dieselbe Frage, und nachsehen ist der einzige Weg, sie auseinanderzuhalten. Auf einem Server ist das eine Abfrage je Verzeichnis — ein tiefer Baum lässt dich also warten.",
+  "sites.count-before-delete.off": "Aus: Gefragt wird weiterhin, nur ohne Mengenangabe. Dateien auf diesem Rechner werden immer gezählt, das kostet nichts.",
   "sites.excludes": "Nie ansehen",
   "sites.excludes.hint": "Namen, die Vergleich und Beobachtung überspringen, als Muster — * steht für beliebiges, Groß- und Kleinschreibung egal. Was Lärm ist, ist auf jedem Server anders, deshalb steht es hier."
 }

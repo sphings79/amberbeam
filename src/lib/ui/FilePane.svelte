@@ -1,5 +1,12 @@
 <script lang="ts">
-  import { api, LOCAL, type DirEntry, type Measurement, type SearchResult } from "../bridge";
+  import {
+    api,
+    LOCAL,
+    type DirEntry,
+    type Measurement,
+    type SearchResult,
+    type Site,
+  } from "../bridge";
   import AskName from "./AskName.svelte";
   import { t } from "../i18n/index.svelte";
   import {
@@ -230,10 +237,60 @@
     });
   }
 
+  /**
+   * The entry this pane's connection came from, where it came from one.
+   *
+   * Read rather than held: the site manager is another window, and an entry it
+   * changed while this was open is an entry this would otherwise still be
+   * answering from memory.
+   */
+  let site = $state<Site | null>(null);
+
+  $effect(() => {
+    const id = view.siteId;
+    if (!id) {
+      site = null;
+      return;
+    }
+    void api.sites().then((all) => (site = all.find((one) => one.id === id) ?? null));
+  });
+
+  /**
+   * The connections that are not to be counted for the rest of this run.
+   *
+   * Per connection rather than per program: a slow server is no reason to stop
+   * counting on the quick one beside it.
+   */
+  let skipped = $state(new Set<string>());
+
+  /**
+   * Whether the count is worth what it costs here.
+   *
+   * Always on this machine: reading a directory takes about as long as a
+   * server takes to say hello. On a server it is one listing per directory,
+   * and a deep tree leaves somebody waiting on a number they did not ask for
+   * — so the entry decides, and this session can decide against it.
+   */
+  let counting = $derived(
+    view.endpoint === LOCAL || !(skipped.has(view.endpoint) || site?.countBeforeDelete === false),
+  );
+
+  /**
+   * Which question the count belongs to.
+   *
+   * Raised when somebody stops waiting for it, so the loop that is halfway
+   * through a tree knows its answer is no longer wanted and stops asking.
+   */
+  let asked = 0;
+
   async function askDelete(): Promise<void> {
     if (chosen.length === 0) return;
     deleting = chosen;
     measured = null;
+    asked += 1;
+    if (!counting) return;
+
+    const mine = asked;
     // Counted before anything is removed, so the warning can say how much.
     const totals: Measurement = {
       files: 0,
@@ -243,6 +300,7 @@
       truncated: false,
     };
     for (const entry of chosen) {
+      if (asked !== mine) return;
       try {
         const path = await api.joinPath(view.endpoint, view.path, entry.name);
         const part = await api.measure(view.endpoint, path);
@@ -257,7 +315,19 @@
         totals.truncated = true;
       }
     }
-    measured = totals;
+    if (asked === mine) measured = totals;
+  }
+
+  /** Stops the count that is running and leaves the question standing. */
+  function stopCounting(forGood: boolean): void {
+    asked += 1;
+    // A new Set rather than one mutated in place: the same rule the panes
+    // follow, because a Set is not deeply reactive and nothing would redraw.
+    skipped = new Set([...skipped, view.endpoint]);
+    if (!forGood || !site) return;
+    // The same switch the entry carries, so "always" means the next start too.
+    const next = { ...site, countBeforeDelete: false };
+    void api.saveSite(next.folder, next);
   }
 
   async function confirmDelete(): Promise<void> {
@@ -637,6 +707,9 @@
   <DeleteDialog
     entries={deleting}
     {measured}
+    {counting}
+    hasSite={site !== null}
+    onskip={stopCounting}
     onconfirm={confirmDelete}
     oncancel={() => ((deleting = null), (measured = null))}
   />

@@ -339,6 +339,7 @@ fn import_apply(
             keep_alive: None,
             remember_password: take_passwords && entry.has_password,
             wastebasket: None,
+            count_before_delete: true,
             excludes: Vec::new(),
             mcp_see: false,
             mcp_upload: false,

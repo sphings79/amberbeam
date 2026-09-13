@@ -777,6 +777,7 @@ async fn save_server(service: &Service, arguments: &Value) -> Result<String, Str
         // Kept only if one was given, and then never readable again.
         remember_password: password.is_some(),
         wastebasket: None,
+        count_before_delete: true,
         excludes: Vec::new(),
         // Open to be looked at, because an entry it made and then could not
         // see would be an entry for nobody. Nothing else: uploading,
@@ -1480,6 +1481,7 @@ mod tests {
             keep_alive: None,
             remember_password: false,
             wastebasket: None,
+            count_before_delete: true,
             excludes: Vec::new(),
             mcp_see: false,
             mcp_upload: false,

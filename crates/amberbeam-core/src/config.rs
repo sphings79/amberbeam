@@ -356,6 +356,7 @@ impl Config {
             // new entry starts without one rather than claiming to have it.
             remember_password: false,
             wastebasket: None,
+            count_before_delete: true,
             excludes: Vec::new(),
             mcp_see: false,
             mcp_upload: false,

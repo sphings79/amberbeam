@@ -8,11 +8,22 @@
     entries: DirEntry[];
     /** What the count found, or null while it is still counting. */
     measured: Measurement | null;
+    /**
+     * Whether a count is happening at all.
+     *
+     * False and no measurement means nobody is going to say how much: the
+     * question is asked on what is on screen, and what lies inside a folder
+     * goes with it uncounted.
+     */
+    counting: boolean;
+    /** Whether there is an entry to write "always" into. */
+    hasSite: boolean;
+    onskip: (forGood: boolean) => void;
     onconfirm: () => void;
     oncancel: () => void;
   }
 
-  let { entries, measured, onconfirm, oncancel }: Props = $props();
+  let { entries, measured, counting, hasSite, onskip, onconfirm, oncancel }: Props = $props();
 
   let total = $derived(
     measured ? measured.files + measured.directories + measured.symlinks : 0,
@@ -31,8 +42,25 @@
       <p class="subject">{t("delete.many", { count: entries.length })}</p>
     {/if}
 
-    {#if !measured}
+    {#if !measured && counting}
       <p class="counting">{t("delete.counting")}</p>
+      <!-- The count is a courtesy, not a condition. Somebody who knows what
+           they marked should not be kept waiting on a number for it. -->
+      <div class="skip">
+        <button type="button" class="link" onclick={() => onskip(false)}>
+          {t("delete.skip.session")}
+        </button>
+        {#if hasSite}
+          <button type="button" class="link" onclick={() => onskip(true)}>
+            {t("delete.skip.always")}
+          </button>
+        {/if}
+      </div>
+      {#if !hasSite}
+        <p class="hint">{t("delete.skip.no-site")}</p>
+      {/if}
+    {:else if !measured}
+      <p class="warning">{t("delete.uncounted", { count: entries.length })}</p>
     {:else}
       <dl>
         <dt>{t("delete.files")}</dt>
@@ -60,7 +88,7 @@
 
     <div class="actions">
       <button type="button" onclick={oncancel}>{t("action.cancel")}</button>
-      <button type="button" class="danger" disabled={!measured} onclick={onconfirm}>
+      <button type="button" class="danger" disabled={!measured && counting} onclick={onconfirm}>
         {t("delete.confirm")}
       </button>
     </div>
@@ -99,6 +127,23 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .skip {
+    display: flex;
+    gap: 12px;
+    margin: 2px 0 10px;
+  }
+
+  .link {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: default;
   }
 
   .counting {

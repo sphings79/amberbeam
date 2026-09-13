@@ -456,6 +456,13 @@ export interface Site {
    */
   excludes: string[];
   /**
+   * Whether to count what a delete would take before asking about it.
+   *
+   * On. Off, the question is still asked; it simply cannot say how much —
+   * which on a deep tree over a server saves a listing per directory.
+   */
+  countBeforeDelete: boolean;
+  /**
    * What a program driving AmberBeam over MCP may do on this server.
    *
    * Six, all off. A server with none of them on is one such a program cannot
