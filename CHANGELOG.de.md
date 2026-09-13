@@ -7,6 +7,50 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.11
+
+Der Update-Hinweis, und das Tastenfenster für alle, die nicht am Mac sitzen.
+
+### Geändert
+
+- **Der Update-Hinweis zeigt alles seit deiner Version.** Wer drei Versionen
+  zurücklag, bekam die neueste angeboten und sah nur deren Notizen, als hätte
+  es die dazwischen nie gegeben — der Fall, in dem „was hat sich geändert" am
+  meisten zählt, am schlechtesten beantwortet.
+
+  Jetzt steht jede Version davor da, neueste zuerst, jede unter ihrer Nummer
+  und dem Satz, mit dem sie anfängt. Waren alle zwanzig abgefragten Releases
+  neuer, sind die davor an dieser Grenze abgeschnitten worden und nicht etwa
+  nicht vorhanden — das sagt das Fenster, mit dem Changelog einen Klick
+  entfernt.
+- **Die Tastenbelegungen heißen nach dem, was sie tun**: *Funktionstasten*,
+  *Ohne Funktionstasten*, *Gemischt*. Zwei der drei Namen waren
+  Betriebssysteme, und unter Linux war keines davon deines.
+
+  Was jede ist, steht jetzt unter ihrem Namen im Fenster **Tasten** — vorher
+  zeigte das nur der Dialog beim ersten Start. So erfährt auch jemand ohne Mac,
+  dass die erste die Belegung der älteren Windows-Programme ist, also das,
+  wofür es dieses Programm gibt. Darunter ein Satz über den Rechner, an dem du
+  sitzt: Linux, Windows oder der Mac, jeweils mit dem, was das für F1 bis F12
+  bedeutet.
+
+### Behoben
+
+- **Fettdruck über einen Zeilenumbruch behielt seine Sternchen.** Diese
+  Notizen brechen bei achtzig Zeichen um, die Einleitung fast jedes Eintrags
+  fängt also auf einer Zeile an und hört auf der nächsten auf; Zeile für Zeile
+  gelesen, fand keine Hälfte je die andere. Im einzigen Fenster, in dem dieses
+  Programm fremden Text zeigt.
+- **Trennlinie und Links standen als Zeichen da.** Ein `---` war eine Zeile
+  aus drei Bindestrichen, ein Link seine eigenen Satzzeichen. Beides steht am Ende jeder Veröffentlichung, war also unter
+  jedem je angebotenen Update zu sehen. Ein Link ist jetzt seine Beschriftung,
+  geöffnet im Systembrowser — und nur dort, wo die Adresse http oder https
+  ist.
+- **Der Dialog beim ersten Start bot tote Knöpfe an.** Die Einstellungen, die
+  er öffnen wollte, gehören im Container dem Rechner an der Tastatur, und die
+  Schale läuft auf einem anderen; beide Links taten schlicht nichts. Erklärung und Skizze bleiben, die Links werden dort nicht
+  mehr gezeichnet.
+
 ## 0.1.10
 
 Was ein Programm, das AmberBeam bedient, erfährt — und wann.

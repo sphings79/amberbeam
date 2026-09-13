@@ -7,6 +7,48 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.11
+
+The update notice, and the keyboard window for everybody who is not on a Mac.
+
+### Changed
+
+- **The update notice shows everything since your version.** Somebody three
+  versions behind was offered the newest release and shown the newest
+  release's notes alone, as if the versions in between had never existed —
+  the case where "what changed" matters most, answered worst.
+
+  Every release ahead of what is running is listed now, newest first, each
+  under its number and the line it opens with. Where all twenty releases the
+  check asks for turned out to be newer, the ones before them were cut off by
+  that limit rather than by not existing, and the window says so with the
+  changelog a click away.
+- **The keyboard layouts are named after what they do**: *Function keys*, *No
+  function keys*, *Mixed*. Two of the three names used to be operating
+  systems, and on Linux neither of them was yours.
+
+  What each one is now sits under its name in the **Keys** window, where only
+  the first-start dialog used to show it — which is how anybody not on a Mac
+  ever learns that the first is the layout of the older Windows clients, the
+  thing this program is for. Under the three, one sentence about the machine
+  you are on: Linux, Windows or the Mac, each with what that means for F1 to
+  F12.
+
+### Fixed
+
+- **Bold that wrapped kept its asterisks.** These notes wrap at eighty
+  columns, so the lead-in that opens almost every entry regularly begins on
+  one line and ends on the next; read line by line, neither half ever found
+  the other. In the one window this project shows somebody else's text in.
+- **A rule was three hyphens and a link was its own punctuation.** Both come
+  from what every release carries at the end, so both were on screen under
+  every update ever offered. A link is its label now, opened in the system's
+  browser — and only ever where the address is http or https.
+- **The first-start dialog offered settings it could not open.** In the
+  container those settings belong to the machine at the keyboard and the shell
+  runs on another one, so both links did nothing at all. The explanation and the sketch stay; the links are not drawn where they
+  would be dead.
+
 ## 0.1.10
 
 What a program driving AmberBeam is told, and when.
