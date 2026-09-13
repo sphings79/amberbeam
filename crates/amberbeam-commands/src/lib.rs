@@ -1302,6 +1302,17 @@ async fn enqueue(service: &Service, request: EnqueueBody) -> Result<usize, Error
         .await
 }
 
+/// Opens a connection that no entry stands behind.
+///
+/// For a shell that was handed the details rather than told which entry to
+/// use. It goes through the same path as everything else, which is the point:
+/// there is one place that knows how to open a connection, and adding a
+/// second would be adding a second set of rules about certificates, host keys
+/// and encryption.
+pub async fn open_anywhere(service: &Service, request: ConnectRequest) -> Result<Connected, Error> {
+    connect(service, request).await
+}
+
 /// Opens a saved server, the way every shell opens one.
 ///
 /// Public so that a shell which is not a window can use the same path: the

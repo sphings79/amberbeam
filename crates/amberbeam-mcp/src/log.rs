@@ -47,6 +47,17 @@ impl Journal {
         &self.path
     }
 
+    /// A tool call, with anything secret in it taken out first.
+    ///
+    /// The arguments are written down because that is the whole point of this
+    /// file — but a quick connection is handed a password, and a log that
+    /// keeps one is a worse leak than the thing it was written to guard
+    /// against. The value goes; the fact that there was one stays, because
+    /// "a password was given" is itself worth being able to read afterwards.
+    pub fn call(&self, name: &str, arguments: &serde_json::Value) {
+        self.note(&format!("call {name} {}", redact(arguments)));
+    }
+
     pub fn note(&self, what: &str) {
         let line = format!("{} {what}\n", stamp());
         if self.aloud {
@@ -68,6 +79,26 @@ impl Journal {
             let _ = file.write_all(line.as_bytes());
         }
     }
+}
+
+/// The same arguments, with the secrets replaced.
+///
+/// By name, and the names are the ones this program's own tools use. Anything
+/// a future tool calls a secret has to be added here — which is why the list
+/// sits next to the log rather than somewhere it can be forgotten.
+fn redact(arguments: &serde_json::Value) -> String {
+    const SECRET: [&str; 4] = ["password", "passphrase", "token", "secret"];
+
+    let Some(fields) = arguments.as_object() else {
+        return arguments.to_string();
+    };
+    let mut copy = fields.clone();
+    for (key, value) in copy.iter_mut() {
+        if SECRET.iter().any(|name| key.to_lowercase().contains(name)) {
+            *value = serde_json::Value::String("(given, not written down)".into());
+        }
+    }
+    serde_json::Value::Object(copy).to_string()
 }
 
 /// `2026-09-13 11:42:07`, in local time, because whoever reads this is here.
@@ -123,6 +154,25 @@ mod tests {
         assert!(written.starts_with("20"), "{written}");
 
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_password_is_never_written_down() {
+        let arguments = serde_json::json!({
+            "host": "example.org",
+            "user": "someone",
+            "password": "hunter2",
+            "passphrase": "also secret",
+        });
+        let written = redact(&arguments);
+        assert!(!written.contains("hunter2"), "{written}");
+        assert!(!written.contains("also secret"), "{written}");
+        // And what is not a secret is still readable, or the log would be
+        // useless for the thing it exists for.
+        assert!(written.contains("example.org"));
+        assert!(written.contains("someone"));
+        // That there was one is worth knowing.
+        assert!(written.contains("given, not written down"));
     }
 
     #[test]

@@ -93,6 +93,20 @@ pub struct Settings {
     /// files off a server, and the person would find out from the server.
     #[serde(default)]
     pub delete_along: bool,
+    /// Whether a program driving this one may connect to a server that is not
+    /// in the list, by being handed the details.
+    ///
+    /// Off. The entries somebody saved are the ones they meant; a server
+    /// nobody wrote down is one nobody vouched for.
+    #[serde(default)]
+    pub mcp_quick_connect: bool,
+    /// Whether such a program may write new entries into the server list.
+    ///
+    /// Off. An entry it creates is one it may use — a server it made and is
+    /// then forbidden to touch would be pointless — which is exactly why this
+    /// is a decision somebody makes once, knowingly.
+    #[serde(default)]
+    pub mcp_create_sites: bool,
     /// What may be edited where it lies, and what opens it.
     ///
     /// One table answering both, because they are one decision: see
@@ -129,6 +143,8 @@ impl Default for Settings {
             editing: crate::editing::EditRule::shipped(),
             review_comparison: true,
             delete_along: false,
+            mcp_quick_connect: false,
+            mcp_create_sites: false,
         }
     }
 }
