@@ -50,6 +50,15 @@ pub use log::Journal;
 const VERSIONS: [&str; 3] = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const OLDEST: &str = "2024-11-05";
 
+/// What every tool says while the whole thing is switched off.
+///
+/// One sentence rather than a silence: a client that somehow calls anyway
+/// deserves to be told why nothing works, and "connection closed" tells
+/// nobody anything.
+const SWITCHED_OFF: &str =
+    "AmberBeam is not open to being driven by a program. That is one switch in AmberBeam itself, \
+     and only the person at that machine can turn it on.";
+
 /// The most of a file that is ever handed over in one piece.
 ///
 /// The same ceiling as editing one: what travels through a single message is
@@ -152,12 +161,31 @@ async fn handle(
             ))
         }
         "ping" => Some(result_for(&id, json!({}))),
-        "tools/list" => Some(result_for(&id, json!({ "tools": tools() }))),
+        "tools/list" => {
+            // Switched off means there is nothing on offer, not a list of
+            // things that all refuse. A client that asked while it was off
+            // shows an assistant with no tools, which is the honest picture.
+            let offered = if service.config.settings().mcp_enabled {
+                tools()
+            } else {
+                journal.note("tools/list while switched off: nothing offered");
+                Vec::new()
+            };
+            Some(result_for(&id, json!({ "tools": offered })))
+        }
         "tools/call" => {
             let name = params.get("name").and_then(Value::as_str).unwrap_or("");
             let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
             journal.call(name, &arguments);
-            let answer = call(service, passed, name, &arguments).await;
+            // And the other half of the same switch. A client that read the
+            // list an hour ago still holds it; the switch is read here, at the
+            // moment of the call, so turning it off takes effect at once and
+            // without anybody restarting anything.
+            let answer = if service.config.settings().mcp_enabled {
+                call(service, passed, name, &arguments).await
+            } else {
+                Err(SWITCHED_OFF.to_string())
+            };
             match answer {
                 Ok(text) => Some(result_for(&id, json!({ "content": [text_block(&text)] }))),
                 Err(why) => {
@@ -687,8 +715,9 @@ async fn save_server(service: &Service, arguments: &Value) -> Result<String, Str
         .map_err(|why| format!("the entry could not be written: {}", say(&why)))?;
 
     Ok(format!(
-        "{name} is in the server list now, and these tools may use it. Writing to it and \
-         deleting on it are separate switches and are still off."
+        "{name} is in the server list now and may be looked at. Uploading, downloading, making \
+         directories, renaming and deleting are five switches of their own on that entry, and \
+         all five are off until somebody at that machine turns them on."
     ))
 }
 
@@ -732,6 +761,88 @@ impl May {
             May::Remove => "Deleting on",
         }
     }
+}
+
+/// What a tool wants to do with this machine's own files.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Locally {
+    Read,
+    Write,
+}
+
+/// Whether a path on this machine may be touched, and where it really is.
+///
+/// Two questions, answered together because neither is any use alone: the
+/// switch says whether reading or writing here is allowed at all, and the list
+/// says where. An empty list means nowhere — "anywhere this account can reach"
+/// is `~/.ssh` and everything else that happens to be readable, handed over
+/// because a list was left blank.
+///
+/// The path is resolved before it is compared. A prefix test on the text alone
+/// is beaten by `..` and by a symlink pointing out of the allowed directory,
+/// and this is exactly the caller to expect both from. A file that does not
+/// exist yet — the target of a fetch — is resolved through the directory it
+/// would land in, which does.
+fn local_path(service: &Service, what: Locally, path: &str) -> Result<(), String> {
+    let settings = service.config.settings();
+    match what {
+        Locally::Read if !settings.mcp_local_read => {
+            return Err(
+                "Reading files on this machine is switched off. It is a setting in \
+                        AmberBeam, under what a program driving it may do, and only the person \
+                        at that machine can turn it on."
+                    .into(),
+            )
+        }
+        Locally::Write if !settings.mcp_local_write => {
+            return Err(
+                "Writing files on this machine is switched off. It is a setting in \
+                        AmberBeam, under what a program driving it may do, and only the person \
+                        at that machine can turn it on."
+                    .into(),
+            )
+        }
+        _ => {}
+    }
+
+    if settings.mcp_local_paths.is_empty() {
+        return Err(format!(
+            "No directory on this machine has been given to a program driving AmberBeam, so \
+             {path} cannot be reached. The list is in AmberBeam's settings and it starts empty."
+        ));
+    }
+
+    let real = resolved(std::path::Path::new(path))
+        .ok_or_else(|| format!("{path} is not a path on this machine."))?;
+    let allowed = settings
+        .mcp_local_paths
+        .iter()
+        .filter_map(|root| resolved(std::path::Path::new(root)))
+        .any(|root| real == root || real.starts_with(&root));
+
+    if allowed {
+        Ok(())
+    } else {
+        Err(format!(
+            "{path} is not inside any directory AmberBeam was given. The directories a program \
+             driving it may read and write in are a list in its settings, and this is not under \
+             one of them."
+        ))
+    }
+}
+
+/// The real place a path names, with symlinks followed.
+///
+/// A path that is not there yet is resolved through the directory it would sit
+/// in: that is how the target of a fetch is checked before anything is
+/// written, and a directory that is not there either is no answer at all.
+fn resolved(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    if let Ok(real) = path.canonicalize() {
+        return Some(real);
+    }
+    let parent = path.parent()?;
+    let name = path.file_name()?;
+    Some(parent.canonicalize().ok()?.join(name))
 }
 
 /// Whether a server exists at all as far as these tools are concerned.
@@ -783,6 +894,9 @@ async fn send_file(
 ) -> Result<String, String> {
     let local = text(arguments, "local_path").ok_or("this needs local_path")?;
     let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
+    // Both halves have to agree: the server's own switch said this may be
+    // uploaded to, and this says the file may be read at all and from there.
+    local_path(service, Locally::Read, &local)?;
     if !std::path::Path::new(&local).is_file() {
         return Err(format!("{local} is not a file on this machine"));
     }
@@ -832,6 +946,7 @@ async fn fetch_file(
 ) -> Result<String, String> {
     let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
     let local = text(arguments, "local_path").ok_or("this needs local_path")?;
+    local_path(service, Locally::Write, &local)?;
     if std::path::Path::new(&local).exists() {
         return Err(format!(
             "{local} is already there. Nothing is written over; choose another name."
@@ -955,6 +1070,9 @@ async fn compare_directories(
 ) -> Result<String, String> {
     let remote = text(arguments, "remote_path").ok_or("compare_directories needs remote_path")?;
     let local = text(arguments, "local_path").ok_or("compare_directories needs local_path")?;
+    // A comparison reads both sides. The far one was allowed by the entry's
+    // own switch; this one is allowed here or not at all.
+    local_path(service, Locally::Read, &local)?;
     let how = match text(arguments, "how").as_deref() {
         Some("size") => How::Size,
         Some("checksum") => How::Checksum,
@@ -1200,6 +1318,34 @@ mod tests {
         ] {
             assert!(open(&one));
         }
+    }
+
+    #[test]
+    fn a_path_is_resolved_before_it_is_compared() {
+        // The whole point of resolving: a prefix test on the text alone lets
+        // `..` walk straight out of the directory somebody allowed.
+        let root = std::env::temp_dir().join(format!("amberbeam-mcp-roots-{}", std::process::id()));
+        let inside = root.join("allowed");
+        let outside = root.join("elsewhere");
+        std::fs::create_dir_all(&inside).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+
+        let real = resolved(&inside).expect("it is there");
+        let up = resolved(&inside.join("../elsewhere/secret.txt")).expect("through its parent");
+        assert!(
+            !up.starts_with(&real),
+            "{up:?} climbed out of {real:?} and the check must see it"
+        );
+
+        // A file that is not there yet still answers, through the directory it
+        // would land in -- which is how a fetch is checked before it writes.
+        let coming = resolved(&inside.join("not-yet.txt")).expect("through its parent");
+        assert!(coming.starts_with(&real), "{coming:?}");
+
+        // And a path whose directory does not exist either is no answer.
+        assert!(resolved(&root.join("nowhere/at/all.txt")).is_none());
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     fn a_site() -> Site {
