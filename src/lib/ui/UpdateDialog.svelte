@@ -14,7 +14,7 @@
    */
   import { api, type Release } from "../bridge";
   import { describe } from "./errors";
-  import { pieces } from "./notes";
+  import { pieces, type Span } from "./notes";
   import { t } from "../i18n/index.svelte";
   import { trap } from "./trap";
 
@@ -66,6 +66,21 @@
   }
 </script>
 
+<!--
+  One piece of a line: bold, a link, or the characters as they were written.
+  A link opens in the system's browser rather than in here, and only exists at
+  all where the address was http or https — see `inline` in notes.ts.
+-->
+{#snippet span(part: Span)}
+  {#if part.href}
+    <button type="button" class="link" onclick={() => api.openUrl(part.href ?? "")}>
+      {part.text}
+    </button>
+  {:else if part.strong}
+    <strong>{part.text}</strong>
+  {:else}{part.text}{/if}
+{/snippet}
+
 <div class="backdrop" role="presentation">
   <div class="dialog" use:trap role="dialog" aria-modal="true" aria-label={t("update.dialog.title")}>
     <header>
@@ -93,13 +108,15 @@
           {:else if piece.kind === "bullet"}
             <p class="bullet">
               {#each piece.parts as part, at (at)}
-                {#if part.strong}<strong>{part.text}</strong>{:else}{part.text}{/if}
+                {@render span(part)}
               {/each}
             </p>
+          {:else if piece.kind === "rule"}
+            <hr />
           {:else}
             <p class:under={piece.kind === "under"}>
               {#each piece.parts as part, at (at)}
-                {#if part.strong}<strong>{part.text}</strong>{:else}{part.text}{/if}
+                {@render span(part)}
               {/each}
             </p>
           {/if}
@@ -223,6 +240,12 @@
     color: var(--accent);
     text-decoration: underline;
     cursor: default;
+  }
+
+  .notes hr {
+    margin: 14px 0 10px;
+    border: none;
+    border-top: 1px solid var(--border);
   }
 
   .notes h3.version {
