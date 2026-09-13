@@ -7,6 +7,34 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.10
+
+What a program driving AmberBeam is told, and when.
+
+### Changed
+
+- **`list_servers` says how this machine stands.** It is the call where such a
+  program works out what it can do, and it said nothing about the local side —
+  so an upload was planned, attempted, and only then refused. It now ends with
+  which directories may be read or written, or with the fact that none has
+  been opened and every upload and download will be refused whatever a server
+  allows. Each server also says what its six switches add up to, in words.
+
+  A caller that has to attempt something in order to learn it is a caller
+  planning around half a picture — and the half it was missing is the half
+  somebody at that machine has to go and change.
+- **Two obstacles are said at once.** Reading here switched off *and* no
+  directory named used to be two refusals a call apart: clear the first, ask
+  again, meet the second. One sentence now, when both are true.
+
+### Fixed
+
+- **A call that was never going to be allowed no longer opens a connection
+  first.** Naming a server and opening it are two things now, and every switch
+  is asked before anything reaches the network — so a refusal no longer costs
+  somebody's password being used to reach a machine that had nothing to do
+  with the reason.
+
 ## 0.1.9
 
 Every permission its own switch, and a switch that looks like one.

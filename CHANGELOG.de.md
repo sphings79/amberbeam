@@ -7,6 +7,35 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.10
+
+Was ein Programm, das AmberBeam bedient, erfährt — und wann.
+
+### Geändert
+
+- **`list_servers` sagt, wie es auf diesem Rechner steht.** Das ist der
+  Aufruf, mit dem so ein Programm sich sein Bild macht, und er schwieg über
+  die lokale Seite — ein Upload wurde geplant, versucht und erst dann
+  abgelehnt. Jetzt steht am Ende, welche Verzeichnisse gelesen oder
+  geschrieben werden dürfen, oder dass keines freigegeben ist und Hoch- wie
+  Herunterladen scheitern werden, egal was ein Server erlaubt. Jeder Server
+  sagt außerdem in Worten, was seine sechs Schalter ergeben.
+
+  Wer etwas versuchen muss, um es zu erfahren, plant mit einem halben Bild —
+  und die fehlende Hälfte ist die, die jemand an diesem Rechner ändern muss.
+- **Zwei Hindernisse werden auf einmal genannt.** Lesen hier ausgeschaltet
+  *und* kein Verzeichnis eingetragen waren zwei Ablehnungen im Abstand eines
+  Aufrufs: das erste beheben, noch einmal fragen, auf das zweite stoßen. Jetzt
+  ein Satz, wenn beides zutrifft.
+
+### Behoben
+
+- **Ein Aufruf, der nie erlaubt gewesen wäre, baut keine Verbindung mehr auf.**
+  Einen Server benennen und ihn öffnen sind jetzt zwei Dinge, und jeder
+  Schalter wird gefragt, bevor irgendetwas ins Netz geht — eine Ablehnung
+  kostet also nicht mehr, dass jemandes Passwort benutzt wird, um einen
+  Rechner zu erreichen, an dem es gar nicht lag.
+
 ## 0.1.9
 
 Jedes Recht ein eigener Schalter — und ein Schalter, der aussieht wie einer.
