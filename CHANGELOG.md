@@ -7,6 +7,45 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.12
+
+Three things that were in the way, and a count nobody has to wait for.
+
+### Added
+
+- **Count before deleting**, a switch on the server entry, on. Deleting a
+  folder counts what is in it first so the question can say whether it is three
+  files or eleven thousand. On a server that is one listing per directory, and
+  a tree of a hundred folders is a hundred round trips before the question even
+  appears.
+
+  So the count is a courtesy now rather than a condition. While it runs the
+  dialog offers a way out — for this session, or for this server for good,
+  which writes the same switch. Either stops the count that is running. This
+  session means this connection: a slow server is no reason to stop counting on
+  the quick one beside it. Files on this machine are always counted; that costs
+  nothing.
+
+### Fixed
+
+- **A pane never heard that a directory had changed.** Send a file and the side
+  it landed on went on showing what it showed before, until somebody pressed
+  refresh or walked out of the directory and back in.
+
+  The core says what it wrote now — a transfer that arrived, a directory made,
+  something renamed or taken away — and the panes showing that directory follow,
+  whoever did the writing: this window, a watch running by itself, or a program
+  driving the whole thing over MCP.
+- **New file and new folder did nothing in the desktop app.** They asked for
+  the name with a browser prompt, and the webview has no panel for that one: it
+  answers null the moment it is called, so the command gave up without a word.
+  It worked in the container, which is why it went unnoticed. Both now ask in a
+  box of this program's own — the one the server list has used all along.
+- **Renaming a file turned its name into an ellipsis.** The box was there, with
+  the name in it, one hair too wide for the column — and a column that clips
+  replaces what does not fit with `…` entirely. It takes what is left beside
+  the symbol now, however narrow that is.
+
 ## 0.1.11
 
 The update notice, and the keyboard window for everybody who is not on a Mac.

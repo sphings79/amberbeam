@@ -7,6 +7,47 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.12
+
+Drei Dinge, die im Weg standen, und ein Zählen, auf das niemand warten muss.
+
+### Hinzugefügt
+
+- **Vor dem Löschen zählen**, ein Schalter im Servereintrag, an. Einen Ordner
+  zu löschen zählt erst, was darin liegt, damit die Frage sagen kann, ob es
+  drei Dateien sind oder elftausend. Auf einem Server ist das eine Abfrage je
+  Verzeichnis, und ein Baum aus hundert Ordnern sind hundert Hin- und Rückwege,
+  bevor die Frage überhaupt erscheint.
+
+  Das Zählen ist jetzt eine Höflichkeit und keine Bedingung. Während es läuft,
+  bietet der Dialog zwei Auswege — für diese Sitzung oder für diesen Server
+  dauerhaft, was denselben Schalter setzt. Beide brechen das laufende Zählen
+  ab. „Diese Sitzung" heißt diese Verbindung: Ein langsamer Server ist kein
+  Grund, auf dem schnellen daneben nicht mehr zu zählen. Dateien auf diesem
+  Rechner werden immer gezählt, das kostet nichts.
+
+### Behoben
+
+- **Ein Bereich erfuhr nie, dass sich ein Verzeichnis geändert hatte.** Nach
+  dem Übertragen zeigte die Seite, auf der die Datei landete, weiter das Alte —
+  bis jemand aktualisierte oder aus dem Verzeichnis heraus und wieder hinein
+  ging.
+
+  Der Kern sagt jetzt, was er geschrieben hat: eine angekommene Übertragung,
+  ein angelegtes Verzeichnis, etwas Umbenanntes oder Entferntes. Die Bereiche,
+  die dieses Verzeichnis zeigen, ziehen nach — egal wer geschrieben hat: dieses
+  Fenster, eine laufende Beobachtung oder ein Programm, das das Ganze über MCP
+  bedient.
+- **Neue Datei und Neuer Ordner taten in der Desktop-App gar nichts.** Sie
+  fragten den Namen über den Browser-Dialog ab, und dafür hat das Webview kein
+  Fenster: Es antwortet sofort mit nichts, und der Befehl gab wortlos auf. Im
+  Container lief es, deshalb fiel es nicht auf. Beide fragen jetzt in einer Box
+  dieses Programms — der, die die Serverliste die ganze Zeit benutzt hat.
+- **Umbenennen machte aus dem Dateinamen drei Punkte.** Das Feld war da, mit
+  dem Namen darin, eine Haaresbreite zu breit für die Spalte — und eine Spalte,
+  die abschneidet, ersetzt das, was nicht passt, vollständig durch „…". Jetzt
+  nimmt es, was neben dem Symbol übrig bleibt, wie schmal das auch ist.
+
 ## 0.1.11
 
 Der Update-Hinweis, und das Tastenfenster für alle, die nicht am Mac sitzen.
