@@ -19,6 +19,7 @@ import type {
   Listing,
   ConflictPolicy,
   EnqueueRequest,
+  McpActivity,
   Measurement,
   Queue,
   QuickConnectEntry,
@@ -147,6 +148,7 @@ export const api: AmberBeamApi = {
 
   settings: () => send<Settings>("settings"),
   setSettings: (value: Settings) => send<void>("set_settings", { value }),
+  mcpActivity: () => send<McpActivity>("mcp_activity"),
 
   sites: () => send<Site[]>("sites"),
   siteFolders: () => send<string[]>("site_folders"),

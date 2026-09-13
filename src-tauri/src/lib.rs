@@ -577,7 +577,7 @@ fn over_stdio() {
         config,
     });
 
-    let journal = amberbeam_mcp::Journal::beside(service.config.root());
+    let journal = amberbeam_mcp::Journal::beside(&service.config);
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(why) => {

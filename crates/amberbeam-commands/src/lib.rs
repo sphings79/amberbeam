@@ -28,7 +28,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use amberbeam_core::compare::{compare, Asking, How};
-use amberbeam_core::config::{AuthKind, Config, QuickConnectEntry, Settings};
+use amberbeam_core::config::{
+    AuthKind, Config, QuickConnectEntry, Settings, MCP_CLOSED, MCP_OPENED,
+};
 use amberbeam_core::editing::{how_to_open, Edits};
 use amberbeam_core::endpoint::EndpointId;
 use amberbeam_core::error::Error;
@@ -540,6 +542,7 @@ pub const COMMANDS: &[&str] = &[
     "forget_session_secret",
     "settings",
     "set_settings",
+    "mcp_activity",
     "ui_state",
     "set_ui_state",
     "newer_release",
@@ -568,6 +571,63 @@ pub const COMMANDS: &[&str] = &[
     "end_edit",
     "end_edits",
 ];
+
+/// What the shell a program drives has been doing.
+///
+/// Read out of its log rather than asked of it: that shell is a separate
+/// process, started by somebody else's client, and there is nothing here to
+/// ask. The log is the only thing both ends can see.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpActivity {
+    /// How many clients have a connection open, as far as the log can tell.
+    ///
+    /// One line says a client arrived and one says it went; what is left over
+    /// is what is still there. A shell that was killed outright never wrote
+    /// its second line, so this can read high — which is why the lines are
+    /// shown as well, with the time on each of them.
+    pub attached: usize,
+    /// The last lines, oldest first, exactly as they were written.
+    pub lines: Vec<String>,
+    /// Where the file is, for somebody who wants the whole of it.
+    pub path: String,
+}
+
+/// The tail of the log, and what it says about right now.
+fn mcp_activity(config: &Config) -> McpActivity {
+    const SHOWN: usize = 40;
+
+    let path = config.mcp_log();
+    let text = std::fs::read_to_string(&path).unwrap_or_default();
+
+    // Counted over the whole file rather than the tail: a connection opened
+    // yesterday and never closed is exactly the case worth noticing, and its
+    // opening line may be long out of the last forty.
+    let mut attached: usize = 0;
+    for line in text.lines() {
+        if line.ends_with(MCP_OPENED) {
+            attached += 1;
+        } else if line.ends_with(MCP_CLOSED) {
+            attached = attached.saturating_sub(1);
+        }
+    }
+
+    let lines: Vec<String> = text
+        .lines()
+        .rev()
+        .take(SHOWN)
+        .map(str::to_string)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+
+    McpActivity {
+        attached,
+        lines,
+        path: path.to_string_lossy().into_owned(),
+    }
+}
 
 fn out<T: Serialize>(value: T) -> Result<Value, Error> {
     serde_json::to_value(value).map_err(Error::other)
@@ -823,6 +883,7 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
             service.queue.set_clear_after(clearing(&it.value)).await;
             out(service.config.set_settings(&it.value)?)
         }
+        "mcp_activity" => out(mcp_activity(&service.config)),
         "ui_state" => out(service.config.ui_state()),
         "set_ui_state" => {
             let it: Valued<Value> = taking(command, args)?;

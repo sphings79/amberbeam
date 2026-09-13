@@ -94,7 +94,7 @@ pub async fn serve(service: Arc<Service>, journal: Journal) -> std::io::Result<(
     let mut out = tokio::io::stdout();
     let passed = Passed::default();
 
-    journal.note("started");
+    journal.note(amberbeam_core::config::MCP_OPENED);
     while let Some(line) = lines.next_line().await? {
         let line = line.trim().to_string();
         if line.is_empty() {
@@ -107,7 +107,7 @@ pub async fn serve(service: Arc<Service>, journal: Journal) -> std::io::Result<(
         out.write_all(b"\n").await?;
         out.flush().await?;
     }
-    journal.note("the other end closed the connection");
+    journal.note(amberbeam_core::config::MCP_CLOSED);
     Ok(())
 }
 

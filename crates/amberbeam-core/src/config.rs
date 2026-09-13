@@ -152,6 +152,15 @@ pub struct Settings {
     pub clear_finished: bool,
 }
 
+/// The line in `mcp.log` that says a client opened a connection, and the one
+/// that says it went away.
+///
+/// Here for the same reason as the file name: one end writes them, the other
+/// counts them, and a window that reports "a program is connected" from a
+/// string it guessed is a window that is confidently wrong.
+pub const MCP_OPENED: &str = "a client connected";
+pub const MCP_CLOSED: &str = "the client went away";
+
 /// For `serde(default)` on a field whose default is true.
 fn yes() -> bool {
     true
@@ -254,6 +263,15 @@ impl Config {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// What the shell a program drives writes down, and what the window that
+    /// shows it reads back.
+    ///
+    /// Named here rather than at either end: two crates agreeing on a file
+    /// name by writing it out twice is two crates that eventually disagree.
+    pub fn mcp_log(&self) -> PathBuf {
+        self.root.join("mcp.log")
     }
 
     /// The server list. Its own module, because folders, moving and renaming

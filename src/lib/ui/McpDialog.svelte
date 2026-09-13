@@ -12,7 +12,7 @@
    * button: a window that can be closed without applying is a window that
    * leaves somebody sure they granted something they did not.
    */
-  import { api, type Settings, type Site } from "../bridge";
+  import { api, type McpActivity, type Settings, type Site } from "../bridge";
   import { t } from "../i18n/index.svelte";
   import Switch from "./Switch.svelte";
   import { trap } from "./trap";
@@ -30,6 +30,22 @@
 
   /** Only a window with a file system of the viewer's own can point at one. */
   const canBrowse = api.shell === "desktop";
+
+  /**
+   * What the shell has been doing, asked for again while this is open.
+   *
+   * Only while it is open: a window nobody is looking at has no business
+   * reading a file every few seconds, and the moment somebody does look is
+   * the moment they want it current.
+   */
+  let activity = $state<McpActivity | null>(null);
+
+  $effect(() => {
+    const look = () => void api.mcpActivity().then((seen) => (activity = seen));
+    look();
+    const timer = window.setInterval(look, 4000);
+    return () => window.clearInterval(timer);
+  });
 
   $effect(() => {
     void api.settings().then((loaded) => (settings = loaded));
@@ -232,6 +248,23 @@
             onchange={(on) => change({ mcpCreateSites: on })}
           />
         </div>
+
+        <h3>{t("mcp.happening")}</h3>
+        <p class="hint">
+          {#if activity && activity.attached > 0}
+            {t("mcp.happening.attached", { count: activity.attached })}
+          {:else}
+            {t("mcp.happening.quiet")}
+          {/if}
+        </p>
+        {#if activity && activity.lines.length > 0}
+          <!-- As it was written, in the order it was written. A log rearranged
+               for the window is a log that cannot be compared with the file. -->
+          <pre class="written">{activity.lines.join("\n")}</pre>
+          <p class="hint">{t("mcp.happening.where", { path: activity.path })}</p>
+        {:else}
+          <p class="hint">{t("mcp.happening.nothing")}</p>
+        {/if}
 
         {#if command === null}
           <h3>{t("mcp.setup")}</h3>
@@ -440,6 +473,14 @@
     background: var(--surface-2);
     color: var(--text);
     cursor: default;
+  }
+
+  .written {
+    /* Tall enough to read a few lines and no taller: this is the bottom of a
+       window whose subject is the switches above it. */
+    max-height: 180px;
+    overflow-y: auto;
+    white-space: pre;
   }
 
   pre {

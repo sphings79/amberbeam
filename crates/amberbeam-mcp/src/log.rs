@@ -13,6 +13,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use amberbeam_core::config::Config;
+
 /// The file, and the lock that keeps two calls from interleaving in it.
 #[derive(Debug)]
 pub struct Journal {
@@ -32,9 +34,10 @@ impl Journal {
         }
     }
 
-    /// Beside the configuration, which is where somebody would look.
-    pub fn beside(config: &Path) -> Self {
-        Self::at(config.join("mcp.log"))
+    /// Beside the configuration, which is where somebody would look — and the
+    /// path is the core's to name, because the window reads the same file.
+    pub fn beside(config: &Config) -> Self {
+        Self::at(config.mcp_log())
     }
 
     /// Quiet on standard error. For tests, which have no use for it.

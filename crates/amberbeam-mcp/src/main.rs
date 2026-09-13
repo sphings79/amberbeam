@@ -77,7 +77,7 @@ async fn main() {
         config,
     });
 
-    let journal = Journal::beside(service.config.root());
+    let journal = Journal::beside(&service.config);
     if let Err(why) = amberbeam_mcp::serve(service, journal).await {
         eprintln!("the connection ended badly: {why}");
         std::process::exit(1);

@@ -204,6 +204,16 @@ export type ConnectionState =
   | { state: "disconnected" }
   | { state: "failed"; error: CoreError };
 
+/** What the MCP shell wrote down, and what it says about right now. */
+export interface McpActivity {
+  /** How many clients hold a connection, as far as the log can tell. */
+  attached: number;
+  /** The last lines, oldest first. */
+  lines: string[];
+  /** Where the file is, for somebody who wants the whole of it. */
+  path: string;
+}
+
 /** What applies when a connection says nothing of its own. */
 export interface Settings {
   /** Transfers at once. null lets the protocol decide: SFTP 8, FTP 4. */
@@ -818,6 +828,13 @@ export interface AmberBeamApi {
 
   settings(): Promise<Settings>;
   setSettings(value: Settings): Promise<void>;
+  /**
+   * What the shell a program drives has been doing lately.
+   *
+   * Read out of its log, because that shell is a separate process started by
+   * somebody else's client and there is nothing here to ask.
+   */
+  mcpActivity(): Promise<McpActivity>;
 
   /** Whatever the window wants back on the next start. */
   // --- The site manager ---
