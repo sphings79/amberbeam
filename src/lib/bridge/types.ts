@@ -905,6 +905,14 @@ export interface AmberBeamApi {
    * point at it than to type the path.
    */
   chooseFile(title: string): Promise<string | null>;
+  /**
+   * The same for a directory.
+   *
+   * Its own method rather than a flag on the one above, because the two are
+   * different dialogs on every system and a caller that passed the wrong
+   * boolean would get a file picker that refuses everything it is shown.
+   */
+  chooseFolder(title: string): Promise<string | null>;
   /** Asks the system where to write a file. */
   chooseSaveFile(title: string, suggested: string): Promise<string | null>;
 

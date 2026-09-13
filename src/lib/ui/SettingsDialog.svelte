@@ -62,16 +62,6 @@
     if (chosen) await changeRule(index, { openWith: "program", program: chosen });
   }
 
-  /**
-   * The path of the program a client would have to start, and null where
-   * there is none to give.
-   *
-   * Asked for rather than written down, because this is the one line in the
-   * client's configuration that has to be exactly right: a wrong path fails
-   * silently over there, with an assistant that simply has no tools.
-   */
-  let command = $state<string | null>(null);
-  let copied = $state(false);
 
   /**
    * Written out rather than handed to JSON.stringify, which puts a one-item
@@ -81,35 +71,8 @@
    * The path itself still goes through the encoder: a Windows one is full of
    * backslashes, and each of them has to be doubled in JSON.
    */
-  const snippet = $derived(
-    command === null
-      ? ""
-      : [
-          "{",
-          '  "mcpServers": {',
-          '    "amberbeam": {',
-          `      "command": ${JSON.stringify(command)},`,
-          '      "args": ["--mcp"]',
-          "    }",
-          "  }",
-          "}",
-        ].join("\n"),
-  );
-
-  async function copySnippet(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(snippet);
-      copied = true;
-      window.setTimeout(() => (copied = false), 2000);
-    } catch {
-      // The clipboard can be refused. The block is selectable either way, so
-      // there is nothing to report and nothing lost.
-    }
-  }
-
   $effect(() => {
     void api.settings().then((loaded) => (settings = loaded));
-    void api.mcpCommand().then((path) => (command = path));
   });
 
   /** Saved as it is changed: a dialog with an OK button that can be lost is
@@ -213,39 +176,6 @@
           hint={t("settings.delete-along.hint")}
           onchange={(on) => change({ deleteAlong: on })}
         />
-
-        <h3>{t("settings.mcp")}</h3>
-        <p class="hint">{t("settings.mcp.hint")}</p>
-
-        <Switch
-          checked={settings.mcpQuickConnect}
-          label={t("settings.mcp.quick-connect")}
-          hint={t("settings.mcp.quick-connect.hint")}
-          onchange={(on) => change({ mcpQuickConnect: on })}
-        />
-
-        <Switch
-          checked={settings.mcpCreateSites}
-          label={t("settings.mcp.create-sites")}
-          hint={t("settings.mcp.create-sites.hint")}
-          onchange={(on) => change({ mcpCreateSites: on })}
-        />
-
-        {#if command === null}
-          <p class="hint">{t("settings.mcp.web")}</p>
-        {:else}
-          <div class="setup">
-            <span class="label">{t("settings.mcp.setup")}</span>
-            <button type="button" onclick={copySnippet}>
-              {copied ? t("settings.mcp.copied") : t("settings.mcp.copy")}
-            </button>
-          </div>
-          <!-- Shown rather than only copied: somebody about to paste a path
-               into a file that starts a program on their machine is entitled
-               to read it first. -->
-          <pre>{snippet}</pre>
-          <p class="hint">{t("settings.mcp.setup.hint")}</p>
-        {/if}
 
         <h3>{t("settings.editing")}</h3>
         <p class="hint">{t("settings.editing.hint")}</p>
@@ -375,38 +305,6 @@
     border-top: 1px solid var(--border);
     font-size: 0.84rem;
     font-weight: 600;
-  }
-
-  .setup {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .setup .label {
-    flex: 1;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  pre {
-    /* The body is a column that scrolls, and a box with an overflow of its own
-       has no automatic minimum height in one -- so without this it is squeezed
-       to a line and a half while the text is still in there. */
-    flex: none;
-    margin: 6px 0 0;
-    padding: 10px 12px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 0.6rem;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.72rem;
-    line-height: 1.5;
-    color: var(--text-muted);
-    /* A path can be long, and a dialog that grows sideways with it is a dialog
-       whose other fields move. */
-    overflow-x: auto;
   }
 
   .rules {

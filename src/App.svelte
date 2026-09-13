@@ -79,6 +79,7 @@
   import Editor from "./lib/ui/Editor.svelte";
   import SiteManager from "./lib/ui/SiteManager.svelte";
   import Icon from "./lib/ui/Icon.svelte";
+  import McpDialog from "./lib/ui/McpDialog.svelte";
   import SettingsDialog from "./lib/ui/SettingsDialog.svelte";
   import { certificateQuestion, describe, hostKeyQuestion } from "./lib/ui/errors";
   import FilePane from "./lib/ui/FilePane.svelte";
@@ -323,6 +324,7 @@
   let splitRatio = $state(START.splitRatio);
   let settingsOpen = $state(false);
   let transferSettingsOpen = $state(false);
+  let mcpOpen = $state(false);
 
   /**
    * Where the server log and the queue sit relative to the file panes.
@@ -1220,6 +1222,11 @@
     <button type="button" class="settings" onclick={() => (transferSettingsOpen = true)}>
       {t("settings.title")}
     </button>
+    <!-- Beside the settings and not inside them: every line in there is a
+         permission, and permissions are not a preference. -->
+    <button type="button" class="settings" onclick={() => (mcpOpen = true)}>
+      {t("mcp.title")}
+    </button>
     <button type="button" class="settings" onclick={() => (comparing = focusedSide())}>
       {t("compare.title")}
     </button>
@@ -1422,6 +1429,10 @@
     onconnect={(request, historyId) => attempt(request, historyId, quickFor ?? "left")}
     onclose={() => ((quickFor = null), (connectFailure = null), (pendingRequest = null))}
   />
+{/if}
+
+{#if mcpOpen}
+  <McpDialog onclose={() => (mcpOpen = false)} />
 {/if}
 
 {#if transferSettingsOpen}

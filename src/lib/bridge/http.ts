@@ -294,6 +294,11 @@ export function makeApi(target: Target): AmberBeamApi {
       // uploading arrives with the service itself in M7.
       return null;
     },
+    async chooseFolder(): Promise<string | null> {
+      // Likewise: a browser has no way to hand over a path, and the directory
+      // this would be picking from is on the machine running the service.
+      return null;
+    },
     async chooseSaveFile(): Promise<string | null> {
       // Likewise: a browser downloads rather than writes, which is a different
       // shape of the same job and belongs with the service.

@@ -217,6 +217,10 @@ export const api: AmberBeamApi = {
     const chosen = await openDialog({ title, multiple: false, directory: false });
     return typeof chosen === "string" ? chosen : null;
   },
+  async chooseFolder(title: string): Promise<string | null> {
+    const chosen = await openDialog({ title, multiple: false, directory: true });
+    return typeof chosen === "string" ? chosen : null;
+  },
   async chooseSaveFile(title: string, suggested: string): Promise<string | null> {
     return await saveDialog({ title, defaultPath: suggested });
   },
