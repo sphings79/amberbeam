@@ -7,6 +7,81 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.7
+
+Telling two sides apart, and keeping one of them up to date by itself.
+
+### Added
+
+- **Comparing two directories.** The button reads both panes as they stand and
+  says what differs — only here, only there, differs, same — and hands the
+  list over with the differences ticked.
+
+  Three rules to choose between, and each is a compromise said out loud. Size
+  alone is cheapest and blind to any change that keeps the length. Size and
+  time is the usual answer, with a two-second window: FTP reports times to the
+  second at best, plenty of servers round to the minute, and a file that
+  travels arrives a moment after it was read — without that window every file
+  you ever copied reads as changed. Size and contents reads both files end to
+  end and ignores the clocks; over a server it costs what transferring them
+  would, which is why it is a choice and not the default.
+
+  Whether to walk the whole tree is asked before anything runs, because on a
+  server every listing is a round trip and a project with a `node_modules` in
+  it is thousands of them. If the walk stops at its own limit it says so:
+  everything missing from a list that is quietly incomplete looks exactly like
+  agreement.
+
+  What is ticked goes into the queue **held**. A comparison can turn out to
+  mean four hundred files, and setting that going the instant somebody presses
+  a button is not a decision they made.
+- **Watching a directory.** One press and what changes on this machine goes up
+  by itself, with a strip above the panes saying which directory, where it is
+  going and how many files have gone — and one press to stop it. Something
+  that uploads files whenever they change must not be invisible.
+
+  One direction, because only one is possible: the operating system says the
+  moment a local file is written, and no server can say anything of the kind.
+  Watching the far side would mean asking it over and over, which is a
+  standing load on somebody else's machine rather than a background service.
+- **Names never to look at**, per server entry — `.git`, `node_modules`,
+  `*.log`. What counts as noise is different on every server, so it sits with
+  the server rather than in one global field that would be wrong for all but
+  one of them.
+- **Two switches**, under *Comparing and watching*: whether a comparison hands
+  over the list before queueing anything, which is on; and whether a deletion
+  is carried across, which is off and should stay off unless somebody means it
+  — a checkout or a build that cleans up after itself would otherwise take
+  files off a server.
+- **The installer window has a background**: the program's own dark surface,
+  the icon, and an arrow from the application to the folder it belongs in,
+  instead of a bare folder with two icons in it.
+
+### Fixed
+
+- **The icon in the Dock was white.** The white was a frame, and the frame was
+  the system's: since macOS 26 every icon goes into a rounded square macOS
+  draws itself, and this artwork brought its own — so it arrived inside a
+  second one. It is drawn edge to edge now and the corners are the system's
+  business. On macOS 13 and 14, which mask nothing, the icon is a square.
+- **Uploading a folder to some FTP servers created nothing.** The check before
+  making a directory asked whether it could be listed, and one widely used
+  server answers a listing of a directory that does not exist with a success
+  and no rows — so nothing was created, and every file that was to go into it
+  failed with "not found".
+- **Every new file uploaded to an FTP server raised the "already exists"
+  question**, offering to overwrite a file of zero bytes that was not there.
+  Asking such a server about a missing file answered "zero bytes, no date"
+  rather than "not there", and the queue reads that as a file already at the
+  target.
+- **A service politely refusing an unauthenticated request was announced as a
+  crash.** The window went up before asking whether it was allowed to, and one
+  of the refusals painted "AmberBeam could not start. This is a bug. Please
+  report it" over a program that was about to start perfectly well.
+- **The container always said it could not check for updates.** That check ran
+  three seconds after the page loaded, which is before anybody can have typed
+  a password.
+
 ## 0.1.6
 
 Three days old and already one of those: the close button.

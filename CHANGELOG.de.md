@@ -7,6 +7,84 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.7
+
+Zwei Seiten auseinanderhalten — und eine davon von selbst aktuell halten.
+
+### Hinzugefügt
+
+- **Zwei Verzeichnisse vergleichen.** Der Knopf liest beide Seiten, wie sie
+  stehen, und sagt, was verschieden ist — nur hier, nur dort, verschieden,
+  gleich — und gibt die Liste heraus, Unterschiede angehakt.
+
+  Drei Regeln zur Wahl, und jede ist ein ausgesprochener Kompromiss. Nur die
+  Größe ist am billigsten und blind für jede Änderung, die die Länge behält.
+  Größe und Zeit ist die übliche Antwort, mit einem Zwei-Sekunden-Fenster: FTP
+  meldet Zeiten bestenfalls sekundengenau, viele Server runden auf Minuten, und
+  eine übertragene Datei kommt einen Moment später an, als sie gelesen wurde —
+  ohne dieses Fenster gilt jede je kopierte Datei als geändert. Größe und
+  Inhalt liest beide Dateien vollständig und ignoriert die Uhren; über einen
+  Server kostet das so viel wie das Übertragen, deshalb ist es eine Wahl und
+  keine Voreinstellung.
+
+  Ob der ganze Baum durchlaufen wird, wird vorher gefragt, denn auf einem
+  Server ist jede Auflistung ein Hin und Zurück, und ein Projekt mit einem
+  `node_modules` darin sind Tausende. Hält der Lauf an seiner eigenen Grenze
+  an, sagt er es: Was in einer stillschweigend unvollständigen Liste fehlt,
+  sieht genau aus wie Übereinstimmung.
+
+  Das Angehakte geht **angehalten** in die Warteschlange. Ein Vergleich kann
+  sich als vierhundert Dateien herausstellen, und das im selben Moment
+  loszuschicken ist keine Entscheidung, die jemand getroffen hat.
+- **Ein Verzeichnis beobachten.** Ein Druck, und was sich auf diesem Rechner
+  ändert, geht von selbst hinauf — mit einer Leiste über den Seiten: welches
+  Verzeichnis, wohin, wie viele Dateien bisher, und ein Druck hält es an. Was
+  Dateien hochlädt, sobald sie sich ändern, darf nicht unsichtbar sein.
+
+  Eine Richtung, weil nur eine möglich ist: Das Betriebssystem sagt in dem
+  Moment Bescheid, in dem eine lokale Datei geschrieben wird, und kein Server
+  kann dergleichen. Die andere Seite zu beobachten hieße, sie immer wieder zu
+  fragen — eine Dauerlast auf der Maschine eines anderen statt eines
+  Hintergrunddienstes.
+- **Namen, die nie angesehen werden**, pro Servereintrag — `.git`,
+  `node_modules`, `*.log`. Was Lärm ist, ist auf jedem Server anders, also
+  steht es beim Server und nicht in einem globalen Feld, das für alle bis auf
+  einen falsch wäre.
+- **Zwei Schalter** unter *Vergleichen und Beobachten*: ob ein Vergleich die
+  Liste zeigt, bevor etwas eingereiht wird — an; und ob Löschen mitgezogen
+  wird — aus, und das sollte es bleiben, wenn es niemand ausdrücklich will:
+  Ein Checkout oder ein aufräumender Build nähme sonst Dateien vom Server.
+- **Das Installer-Fenster hat einen Hintergrund**: die dunkle Fläche des
+  Programms, das Icon und ein Pfeil von der Anwendung zum Ordner, in den sie
+  gehört — statt eines nackten Ordners mit zwei Symbolen darin.
+
+### Behoben
+
+- **Das Icon im Dock war weiß.** Das Weiß war ein Rahmen, und der Rahmen war
+  der des Systems: Seit macOS 26 kommt jedes Icon in ein abgerundetes Quadrat,
+  das macOS selbst zeichnet, und diese Grafik brachte ihr eigenes mit — sie
+  landete also in einem zweiten. Jetzt ist sie randfüllend, und die Ecken sind
+  Sache des Systems. Auf macOS 13 und 14, die nichts maskieren, ist das Icon
+  ein Quadrat.
+- **Einen Ordner auf manche FTP-Server zu laden erzeugte gar nichts.** Die
+  Prüfung vor dem Anlegen eines Verzeichnisses fragte, ob es sich auflisten
+  lässt, und ein weit verbreiteter Server beantwortet die Auflistung eines
+  Verzeichnisses, das es nicht gibt, mit Erfolg und null Zeilen — also wurde
+  nichts angelegt, und jede Datei, die hineingehörte, scheiterte mit „nicht
+  gefunden".
+- **Jede neue Datei auf einem FTP-Server löste die Überschreiben-Frage aus**
+  und bot an, eine Datei von null Bytes zu überschreiben, die es nicht gab.
+  Fragt man so einen Server nach einer fehlenden Datei, antwortete er „null
+  Bytes, kein Datum" statt „nicht da", und die Warteschlange liest das als
+  Datei, die schon am Ziel liegt.
+- **Ein Dienst, der eine nicht angemeldete Anfrage höflich ablehnt, wurde als
+  Absturz gemeldet.** Das Fenster ging auf, bevor es fragte, ob es darf, und
+  eine der Absagen malte „AmberBeam could not start. This is a bug. Please
+  report it" über ein Programm, das gleich einwandfrei startete.
+- **Der Container sagte immer, er könne nicht nach Updates sehen.** Diese
+  Prüfung lief drei Sekunden nach dem Laden der Seite — also bevor irgendwer
+  ein Passwort getippt haben kann.
+
 ## 0.1.6
 
 Drei Tage alt und schon so einer: der Schließen-Knopf.
