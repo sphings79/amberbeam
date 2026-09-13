@@ -251,6 +251,10 @@ export interface Settings {
    * build that cleans up after itself would take files off a server.
    */
   deleteAlong: boolean;
+  /** Whether a program driving this may connect to a server not in the list. */
+  mcpQuickConnect: boolean;
+  /** Whether it may write new entries into the list. */
+  mcpCreateSites: boolean;
 }
 
 /** What a recursive delete is about to remove. */
@@ -419,6 +423,17 @@ export interface Site {
    * counts as noise in a backup.
    */
   excludes: string[];
+  /**
+   * Whether a program driving AmberBeam over MCP may use this server.
+   *
+   * Off. A server nobody opened is one such a program cannot see, cannot list
+   * and cannot name — absent rather than refused.
+   */
+  mcp: boolean;
+  /** Whether it may change anything there: send a file, make a directory. */
+  mcpWrite: boolean;
+  /** Whether it may delete there. Its own switch, and the last to turn on. */
+  mcpDelete: boolean;
   /** One of the interface's accent names, or null for no marking. */
   colour: string | null;
 }
@@ -991,6 +1006,13 @@ export interface AmberBeamApi {
    * not what somebody sitting here meant.
    */
   openWith(path: string, program: string | null): Promise<boolean>;
+  /**
+   * The path of the program that is running, for the line a client needs.
+   *
+   * Null where there is nothing to point at: a browser cannot say what runs
+   * on the machine serving it, and the answer there is a different one.
+   */
+  mcpCommand(): Promise<string | null>;
   /**
    * Shows the directory the copies being edited live in.
    *

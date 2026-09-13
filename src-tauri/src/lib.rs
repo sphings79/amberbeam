@@ -451,6 +451,18 @@ async fn open_with(
     command.arg(&path).spawn().map(|_| ()).map_err(Error::other)
 }
 
+/// What to write in a client's configuration so it can start this.
+///
+/// The path of the program that is running, which is the one thing a person
+/// cannot be expected to know: inside an application bundle it is several
+/// directories down from anything they ever see. Asked for rather than
+/// guessed, because a wrong path in that file fails with nothing on screen.
+#[tauri::command]
+fn mcp_command() -> Result<String, Error> {
+    let program = std::env::current_exe().map_err(Error::from)?;
+    Ok(program.to_string_lossy().into_owned())
+}
+
 /// Shows the directory the copies being edited live in.
 ///
 /// Takes nothing, on purpose. "Open this folder" with a path in it is a
@@ -691,6 +703,7 @@ pub fn run() {
             open_url,
             open_with,
             show_edits_folder,
+            mcp_command,
             open_system_keyboard,
             write_text_file,
             read_text_file,

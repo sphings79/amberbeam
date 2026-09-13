@@ -279,6 +279,9 @@
       rememberPassword: false,
       wastebasket: null,
       excludes: [],
+      mcp: false,
+      mcpWrite: false,
+      mcpDelete: false,
       colour: null,
     };
   }
@@ -800,6 +803,38 @@
         </div>
         <p class="hint">{t("sites.excludes.hint")}</p>
 
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={draft.mcp}
+            onchange={(event) => {
+              if (!draft) return;
+              draft.mcp = event.currentTarget.checked;
+              // What may be done here only means anything while the server is
+              // reachable at all. Turning it off and on again should not bring
+              // back a permission somebody gave once and forgot.
+              if (!draft.mcp) {
+                draft.mcpWrite = false;
+                draft.mcpDelete = false;
+              }
+            }}
+          />
+          <span>{t("sites.mcp")}</span>
+        </label>
+        <p class="hint">{t("sites.mcp.hint")}</p>
+
+        {#if draft.mcp}
+          <label class="check indent">
+            <input type="checkbox" bind:checked={draft.mcpWrite} />
+            <span>{t("sites.mcp.write")}</span>
+          </label>
+          <label class="check indent">
+            <input type="checkbox" bind:checked={draft.mcpDelete} />
+            <span>{t("sites.mcp.delete")}</span>
+          </label>
+          <p class="hint indent">{t("sites.mcp.change.hint")}</p>
+        {/if}
+
         <div class="row">
           <label class="narrow">
             <span>{t("settings.concurrency")}</span>
@@ -1178,6 +1213,12 @@
 
   label.check input {
     width: auto;
+  }
+
+  /* Stepped in because these two only exist while the one above them is on,
+     and a flat list would read as three equal choices. */
+  .indent {
+    margin-left: 22px;
   }
 
   input,

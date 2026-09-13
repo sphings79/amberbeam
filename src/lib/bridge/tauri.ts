@@ -274,6 +274,7 @@ export const api: AmberBeamApi = {
     await invoke<void>("open_with", { path, program });
     return true;
   },
+  mcpCommand: () => invoke<string>("mcp_command"),
   async onClosing(handler: () => Promise<boolean>): Promise<Unsubscribe> {
     // Prevented only when the answer is to stay. Tauri waits for this handler
     // before it looks, so the question can be asked inside it -- and the

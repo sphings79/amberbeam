@@ -356,6 +356,12 @@ export function makeApi(target: Target): AmberBeamApi {
       // would not put it in front of the person who asked.
       return false;
     },
+    async mcpCommand(): Promise<string | null> {
+      // There is a program to point a client at, but it is not this one and it
+      // is not on this machine. The container's own instructions say how to
+      // reach it; a path made up here would be a path to nothing.
+      return null;
+    },
     async onClosing(): Promise<Unsubscribe> {
       // Closing a tab is not the program ending: the service carries on, and
       // the copies it holds are swept when it next starts. A browser would not
