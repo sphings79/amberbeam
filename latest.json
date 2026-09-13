@@ -1,0 +1,19 @@
+{
+  "version": "0.1.12",
+  "notes": "## 0.1.12\n\nThree things that were in the way, and a count nobody has to wait for.\n\n### Added\n\n- **Count before deleting**, a switch on the server entry, on. Deleting a\n  folder counts what is in it first so the question can say whether it is three\n  files or eleven thousand. On a server that is one listing per directory, and\n  a tree of a hundred folders is a hundred round trips before the question even\n  appears.\n\n  So the count is a courtesy now rather than a condition. While it runs the\n  dialog offers a way out \u2014 for this session, or for this server for good,\n  which writes the same switch. Either stops the count that is running. This\n  session means this connection: a slow server is no reason to stop counting on\n  the quick one beside it. Files on this machine are always counted; that costs\n  nothing.\n\n### Fixed\n\n- **A pane never heard that a directory had changed.** Send a file and the side\n  it landed on went on showing what it showed before, until somebody pressed\n  refresh or walked out of the directory and back in.\n\n  The core says what it wrote now \u2014 a transfer that arrived, a directory made,\n  something renamed or taken away \u2014 and the panes showing that directory follow,\n  whoever did the writing: this window, a watch running by itself, or a program\n  driving the whole thing over MCP.\n- **New file and new folder did nothing in the desktop app.** They asked for\n  the name with a browser prompt, and the webview has no panel for that one: it\n  answers null the moment it is called, so the command gave up without a word.\n  It worked in the container, which is why it went unnoticed. Both now ask in a\n  box of this program's own \u2014 the one the server list has used all along.\n- **Renaming a file turned its name into an ellipsis.** The box was there, with\n  the name in it, one hair too wide for the column \u2014 and a column that clips\n  replaces what does not fit with `\u2026` entirely. It takes what is left beside\n  the symbol now, however narrow that is.",
+  "pub_date": "2026-09-13T20:22:09Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcGVZOGNtNGhDMitkL2tSU0t4UVJYUFZVRC9hWVZOcVdQNjJBa0xiN1VXYVpsK0pkR0Z6UWgwNzlhYnhLZ2h0TCs5N3k4TWFvdTIvbzZEbGpSUk5OZ0E0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzMwNzQ0CWZpbGU6QW1iZXJCZWFtLmFwcC50YXIuZ3oKd0NoclFYWWp3ejlPc2RaTHVXdDRZWUlIUUt6NHBDNUhkY0xwUWh5RTM4SnlMaXE2MjFaeFRGYW0vZ1c0dEUzWngzdnUrSjFteGJ3cGhDRkFQd3B6RGc9PQo=",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.12/AmberBeam.app.tar.gz"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFRBYklMdXBWMG0rM3JNOWJhOUN2OHQ4dFkrQVhEQTBPajc1NDcwWGRGUmk3NHRRTUN1Vllkd3ZCdGIxbExlS1k3YzN5VmxyWVlteWMxeFFWL0x4cFFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzMwODQyCWZpbGU6QW1iZXJCZWFtXzAuMS4xMl94NjQtc2V0dXAuZXhlCnZxUlFoV3ppalFqdTBBam5ySFMza0paQ1htSU5lRFpqNXNlTlNMTVREWjFyR0ZKUVRLUno1dGFBdUJRczZ5LzcreEc5MEZHWXRrUXFmOWdlQjF4SUFBPT0K",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.12/AmberBeam_0.1.12_x64-setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFhzQURFdHR4MTk4ZGppOE40Um53UFJCK2NXNm9QSUJGczBQc25CVFYvdks5UTlZbFVRVlVveXl2MnhpcU9EOTdJZ0pkOUQ4MFZLeWFTV2FxSUdzaUE4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5MzMwNzc1CWZpbGU6QW1iZXJCZWFtXzAuMS4xMl9hbWQ2NC5BcHBJbWFnZQpZWE9wTXo0NDJzeHVFM1B2eUwraVdPbFZBenZqR0ZadXBsL1YzSmFZNTVwb004VXI0S3dRWkFpN1hpMHBNRTlVM3ZyeHNsL0kyT1ZnVkRXc0VhSUJDQT09Cg==",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.12/AmberBeam_0.1.12_amd64.AppImage"
+    }
+  }
+}
