@@ -7,6 +7,65 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.9
+
+Jedes Recht ein eigener Schalter — und ein Schalter, der aussieht wie einer.
+
+### Hinzugefügt
+
+- **Ein eigenes Fenster für das, was ein Programm darf.** Der Knopf
+  **KI-Assistenten**, neben **Einstellungen**: Jede Zeile darin ist ein Recht,
+  und ein Recht ist keine Vorliebe. Von oben nach unten — ob ein Programm
+  AmberBeam überhaupt bedienen darf, was es mit den Dateien dieses Rechners
+  darf, was jeder gespeicherte Server erlaubt, was es außerhalb der Liste
+  darf, und unten das Log.
+- **Ein Schalter, der alles ausmacht.** Solange er aus ist, bekommt ein
+  Assistent überhaupt keine Werkzeuge angeboten — eine leere Liste statt elf
+  Dingen, die ablehnen — und was trotzdem ankommt, bekommt einen Satz, der
+  sagt, wo der Schalter sitzt.
+
+  Er wird bei jedem Aufruf gelesen: Ausschalten legt auch einen Client stumm,
+  der seit Stunden läuft, sofort und ohne Neustart von irgendetwas.
+- **Sechs Schalter je Server statt drei**: ansehen, hochladen, herunterladen,
+  Verzeichnisse anlegen, umbenennen, löschen. Alle aus, jeder beim Namen
+  gefragt, und die Ablehnung sagt, welcher es war.
+
+  „Darf diesen Server benutzen" war nie eine Frage. Eine Konfigurationsdatei
+  lesen, eine zurückschreiben, ein Verzeichnis aufräumen und eines leeren sind
+  vier verschiedene Mengen Vertrauen, und wer das erste gab, hat dem letzten
+  nicht zugestimmt. Ein Server, an dem keiner an ist, existiert für diese
+  Werkzeuge weiterhin nicht.
+- **Auch die lokale Seite hat Schalter**, dazu eine Liste von Verzeichnissen,
+  in denen sie gelten. Eine Datei hochzuladen heißt, hier eine zu lesen; eine
+  herunterzuladen heißt, hier zu schreiben. Die Liste fängt leer an, und leer
+  heißt nirgends — „überall, wo dieses Konto hinkommt" ist `~/.ssh` und alles
+  andere, was zufällig lesbar ist, hergegeben, weil eine Liste leer blieb.
+
+  Pfade werden aufgelöst, bevor sie geprüft werden: Weder ein `..` noch ein
+  Symlink in einem erlaubten Verzeichnis führt heraus, und das Ziel eines
+  Downloads wird über sein Verzeichnis geprüft, bevor etwas geschrieben wird.
+- **Das Fenster zeigt, was passiert ist**: die letzten vierzig Zeilen des Logs
+  so, wie sie geschrieben wurden, und einen Satz dazu, ob gerade ein Client
+  verbunden ist. Schalter sagen, was erlaubt ist; sie sagen nicht, was getan
+  wurde, und ein vor Wochen gegebenes Recht ist unsichtbar, bis es jemand
+  benutzt.
+
+### Geändert
+
+- **Eine Einstellung sieht aus wie eine Einstellung.** Siebzehn trugen einen
+  Haken — das, was die Zeilen tragen, die man auswählt — und der einzige Weg,
+  beides auseinanderzuhalten, war, jede Zeile zu lesen. Jetzt sind es
+  Schalter, in der Form, die jeder kennt; was man auswählt, behält den Haken.
+- **Von den alten drei Schaltern wird nichts übernommen.** Ein einmal grob
+  gegebenes Recht ist kein Einverständnis für die feineren darunter — wer das
+  unter 0.1.8 eingerichtet hat, richtet es neu ein.
+
+### Behoben
+
+- **Ein gequetschter Satz in der Schnellverbindung.** Unter **Mehr** teilte
+  sich die Zeile über den Zwischennamen eine Reihe mit drei Knöpfen, was ihre
+  Erklärung auf gut hundert Pixel und ein Wort je Zeile zusammendrückte.
+
 ## 0.1.8
 
 AmberBeam einem Programm in die Hand geben — und jeder Schalter, der

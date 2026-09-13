@@ -7,6 +7,64 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.9
+
+Every permission its own switch, and a switch that looks like one.
+
+### Added
+
+- **A window of its own for what a program may do.** The **AI assistants**
+  button, beside **Settings**: every line in it is a permission, and a
+  permission is not a preference. What is in it, top to bottom — whether a
+  program may drive AmberBeam at all, what it may do with this machine's own
+  files, what each saved server allows, what it may do past the list, and the
+  log at the bottom.
+- **One switch that turns it all off.** While it is off an assistant is
+  offered no tools at all — an empty list rather than eleven things that
+  refuse — and anything that still arrives is answered with one sentence
+  saying where the switch is.
+
+  It is read at the moment of every call, so turning it off stops a client
+  that has been running for hours, at once, without restarting anything.
+- **Six switches per server instead of three**: look at it, upload, download,
+  make directories, rename, delete. All off, each asked for by name, and the
+  refusal says which one it was.
+
+  "May use this server" was never one question. Reading a configuration file,
+  putting one back, tidying a directory and emptying one are four different
+  amounts of trust, and somebody who granted the first had not agreed to the
+  last. A server with none of them on still does not exist as far as those
+  tools are concerned.
+- **The local side has switches too**, and a list of directories they apply
+  in. Sending a file up means reading one here; fetching one means writing
+  here. The list starts empty, and empty means nowhere — "anywhere this
+  account can reach" is `~/.ssh` and everything else that happens to be
+  readable, handed over because a list was left blank.
+
+  Paths are resolved before they are checked, so neither a `..` nor a symlink
+  inside an allowed directory leads out of one, and the target of a fetch is
+  checked through the directory it would land in before anything is written.
+- **The window shows what has happened**: the last forty lines of the log as
+  they were written, and one sentence saying whether a client is connected
+  right now. Switches say what is allowed; they do not say what was done, and
+  a permission granted weeks ago is invisible until somebody uses it.
+
+### Changed
+
+- **A setting looks like a setting.** Seventeen of them were wearing a tick,
+  which is what the rows somebody picks from wear, and the only way to tell
+  the two apart was to read every line. They are switches now, in the shape
+  everybody knows, and the rows somebody picks from keep their ticks.
+- **Nothing carries over from the old three switches.** A permission given
+  once under a coarser name is not consent to the finer ones underneath it, so
+  anybody who set this up under 0.1.8 sets it up again.
+
+### Fixed
+
+- **A squeezed sentence in Quick connect.** Under **More**, the row about
+  writing through a temporary name shared one line with three buttons, which
+  left its explanation about a hundred pixels wide and one word to a line.
+
 ## 0.1.8
 
 Handing AmberBeam to a program, and every switch that decides how far it gets.
