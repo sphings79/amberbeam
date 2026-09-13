@@ -131,6 +131,7 @@ Kurze Seiten über das, was nicht offensichtlich ist, auf Deutsch und Englisch:
 - [Erste Schritte](docs/getting-started.de.md) — verbinden, Dateien bewegen, die Warteschlange
 - [Die Tastatur](docs/keyboard.de.md) — die Belegungen und das F-Tasten-Problem auf dem Mac
 - [Dateien dort bearbeiten, wo sie liegen](docs/editing.de.md) — Kopie herunter, Speichern hinauf
+- [Vergleichen und Beobachten](docs/comparing.de.md) — was verschieden ist, und was damit geschieht
 - [Server mitbringen](docs/importing.de.md) — aus fünf anderen Programmen
 - [Wo die Geheimnisse liegen](docs/security.de.md) — Passwörter, Host-Keys, Zertifikate
 

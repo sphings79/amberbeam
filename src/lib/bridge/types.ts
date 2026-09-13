@@ -183,7 +183,7 @@ export type LogDirection = "sent" | "received" | "note";
 export type CoreEvent =
   | { event: "log"; endpoint: string; direction: LogDirection; text: string }
   | { event: "comparing"; directories: number; rows: number }
-  | { event: "watched"; id: string; sent: number }
+  | { event: "watched"; id: string; sent: number; refused: number }
   | {
       event: "edited";
       id: string;
@@ -712,6 +712,9 @@ export interface AmberBeamApi {
     targetEndpoint: string;
     targetRoot: string;
     targetTitle: string | null;
+    /** The far side's server entry, which is what says whether a deletion
+        goes into a wastebasket. Passed always; the core decides. */
+    siteId: string | null;
     excludes: string[];
   }): Promise<Watch>;
   stopWatch(id: string): Promise<Watch | null>;

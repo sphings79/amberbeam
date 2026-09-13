@@ -84,6 +84,16 @@ Welche Dateien überhaupt bearbeitet werden dürfen, steht in der Tabelle unter
 liest, wenn es diesen Dienst bedient. Der Rest steht unter
 [Eine Datei dort bearbeiten, wo sie liegt](editing.de.md).
 
+## Vergleichen und Beobachten
+
+Beides geht hier, und die lokale Seite ist `/data`. Es zu beobachten heißt: Der
+Dienst merkt, was sich in diesem Volume ändert, und schickt es hinauf — was man
+wissen sollte, denn eine Beobachtung überdauert den Browsertab, der sie
+gestartet hat. Sie läuft, bis jemand sie anhält oder der Dienst endet. Die
+Leiste über den Seiten zeigt, was läuft, egal wie viele Browser hinsehen.
+
+Siehe [Vergleichen und Beobachten](comparing.de.md).
+
 ## Was er nicht tut
 
 **Er spricht selbst kein TLS.** Stell einen Reverse Proxy davor, der auf dieser

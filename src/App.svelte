@@ -180,12 +180,18 @@
   async function startWatching(from: Side): Promise<void> {
     const source = pane(from);
     const target = pane(from === "left" ? "right" : "left");
+    // The entry's own list, and the entry itself: one says what never to look
+    // at, the other what deleting means over there.
+    const site = target.siteId
+      ? (await api.sites().catch(() => [])).find((one) => one.id === target.siteId)
+      : undefined;
     await api.startWatch({
       root: source.path,
       targetEndpoint: target.endpoint,
       targetRoot: target.path,
       targetTitle: target.title,
-      excludes: [],
+      siteId: target.siteId,
+      excludes: site?.excludes ?? [],
     });
     await refreshWatches();
   }
@@ -663,6 +669,10 @@
     // What a watch has sent, so the strip can count without asking on a timer.
     if (event.event === "watched") {
       void refreshWatches();
+      // And what it could not do. A watch runs while nobody is looking, so a
+      // deletion the server would not carry out has to end up somewhere it
+      // can be read afterwards.
+      if (event.refused > 0) note(t("watch.refused", { count: event.refused }));
       return;
     }
     if (event.event !== "edited") return;

@@ -80,7 +80,16 @@ pub enum Event {
     /// than appearing to have stopped.
     Comparing { directories: usize, rows: usize },
     /// A watched directory changed and something went up because of it.
-    Watched { id: String, sent: usize },
+    ///
+    /// `refused` counts what the far side would not take — a deletion on a
+    /// server that will not rename, most often. Nobody is looking at a watch
+    /// while it runs, so what it could not do has to be said rather than
+    /// counted as nothing.
+    Watched {
+        id: String,
+        sent: usize,
+        refused: usize,
+    },
     /// Something happened to a file that is open for editing.
     ///
     /// Its own event because nobody is looking: the file is open in another

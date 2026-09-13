@@ -127,6 +127,7 @@ export const api: AmberBeamApi = {
     targetEndpoint: string;
     targetRoot: string;
     targetTitle: string | null;
+    siteId: string | null;
     excludes: string[];
   }) => send<Watch>("start_watch", it),
   stopWatch: (id: string) => send<Watch | null>("stop_watch", { id }),

@@ -42,7 +42,7 @@ use amberbeam_core::secrets::{MemoryStore, Secret, SecretStore};
 use amberbeam_core::sftp::{AuthMethod, ConnectParams, HostKeyDecision};
 use amberbeam_core::sites::Site;
 use amberbeam_core::transfer::ConflictPolicy;
-use amberbeam_core::watch::Watches;
+use amberbeam_core::watch::{Remover, Watches};
 use amberbeam_core::CoreInfo;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -414,6 +414,10 @@ struct Watching {
     root: String,
     target_endpoint: String,
     target_root: String,
+    /// The server entry behind the far side, when there is one. It is what
+    /// says whether a deletion goes into a wastebasket.
+    #[serde(default)]
+    site_id: Option<String>,
     #[serde(default)]
     target_title: Option<String>,
     #[serde(default)]
@@ -902,11 +906,33 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
 
         "start_watch" => {
             let it: Watching = taking(command, args)?;
+            // What a watch does when a file goes away is the same thing the
+            // delete command does: into the wastebasket where the entry names
+            // one, and gone where it does not. Handed over rather than left
+            // for the core to invent a second answer to.
+            let removing = Arc::clone(service);
+            let site = it.site_id.clone();
+            let remover: Remover = Arc::new(move |endpoint: String, path: String| {
+                let service = Arc::clone(&removing);
+                let site_id = site.clone();
+                Box::pin(async move {
+                    remove(
+                        &service,
+                        Removing {
+                            endpoint,
+                            path,
+                            site_id,
+                        },
+                    )
+                    .await
+                    .is_ok()
+                })
+            });
             out(service
                 .watches
                 .start(
                     &service.queue,
-                    &service.sessions,
+                    remover,
                     service.events.clone(),
                     it.root,
                     it.target_endpoint,

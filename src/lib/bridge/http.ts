@@ -186,6 +186,7 @@ export function makeApi(target: Target): AmberBeamApi {
       targetEndpoint: string;
       targetRoot: string;
       targetTitle: string | null;
+      siteId: string | null;
       excludes: string[];
     }) => call<Watch>("start_watch", it),
     stopWatch: (id: string) => call<Watch | null>("stop_watch", { id }),

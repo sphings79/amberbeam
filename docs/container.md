@@ -81,6 +81,16 @@ Which files may be edited at all is the table under **Settings → Editing**,
 and it is the same table the desktop program reads when it drives this
 service. See [Editing a file where it lies](editing.md) for the rest of it.
 
+## Comparing and watching
+
+Both work here, and the local side is `/data`. Watching it means the service
+notices what changes in that volume and sends it up — which is worth knowing,
+because a watch outlives the browser tab that started it. It runs until
+somebody stops it or the service does. The strip above the panes shows what is
+running, however many browsers are looking.
+
+See [Comparing and watching](comparing.md).
+
 ## What it does not do
 
 **It does not speak TLS itself.** Put a reverse proxy in front of it, which is

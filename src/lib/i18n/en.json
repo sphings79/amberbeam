@@ -126,6 +126,7 @@
   "cmd.transfer": "Transfer marked",
   "compare.title": "Compare",
   "watch.running": "Watching {root} — what changes goes to {target}: {into}",
+  "watch.refused": "{count} of the watched changes could not be carried out on the server. A deletion needs a rename, and plenty of FTP servers refuse to rename at all — what is up there is unchanged.",
   "watch.sent": "{sent} sent",
   "watch.stop": "Stop",
   "watch.title": "Watch",

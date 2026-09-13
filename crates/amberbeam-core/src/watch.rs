@@ -13,7 +13,9 @@
 //! the noise stops.
 
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,7 +28,6 @@ use crate::compare::excluded;
 use crate::endpoint::EndpointId;
 use crate::error::{Error, Result};
 use crate::events::{Event, Events};
-use crate::registry::Sessions;
 use crate::runner::{EnqueueRequest, Runner};
 use crate::transfer::ConflictPolicy;
 
@@ -42,6 +43,17 @@ const SETTLE: Duration = Duration::from_millis(400);
 /// Something writing continuously — a build, a log — would otherwise keep
 /// resetting the wait and never send anything at all.
 const AT_LATEST: Duration = Duration::from_secs(3);
+
+/// How a watch is to remove something on the far side.
+///
+/// Handed in rather than done here, and that is the point: what "delete" means
+/// depends on whether the server entry names a wastebasket, and this crate
+/// knows nothing about server entries. A watch that deleted for itself would
+/// be a second answer to a question that already has one — and the wrong one
+/// exactly where it matters most, because nobody is looking while a watch
+/// runs.
+pub type Remover =
+    Arc<dyn Fn(String, String) -> Pin<Box<dyn Future<Output = bool> + Send>> + Send + Sync>;
 
 /// One directory being watched.
 #[derive(Debug, Clone, Serialize)]
@@ -121,7 +133,7 @@ impl Watches {
     pub async fn start(
         &self,
         queue: &Arc<Runner>,
-        sessions: &Arc<Sessions>,
+        remove: Remover,
         events: Events,
         root: String,
         target_endpoint: String,
@@ -194,7 +206,6 @@ impl Watches {
         let counted = Arc::new(AtomicUsize::new(0));
         let counting = Arc::clone(&counted);
         let queue = Arc::clone(queue);
-        let sessions = Arc::clone(sessions);
         let mine = id.clone();
         let root_for_task = root.clone();
         tokio::spawn(async move {
@@ -231,9 +242,9 @@ impl Watches {
                 }
                 let batch: Vec<PathBuf> = waiting.drain().collect();
                 oldest = None;
-                let sent = send_up(
+                let (sent, refused) = send_up(
                     &queue,
-                    &sessions,
+                    &remove,
                     &root_for_task,
                     &target_endpoint,
                     &target_root,
@@ -242,11 +253,12 @@ impl Watches {
                     batch,
                 )
                 .await;
-                if sent > 0 {
+                if sent > 0 || refused > 0 {
                     counting.fetch_add(sent, Ordering::Relaxed);
                     events.emit(Event::Watched {
                         id: mine.clone(),
                         sent,
+                        refused,
                     });
                 }
             }
@@ -300,15 +312,16 @@ impl Watches {
 #[allow(clippy::too_many_arguments)]
 async fn send_up(
     queue: &Arc<Runner>,
-    sessions: &Arc<Sessions>,
+    remove: &Remover,
     root: &str,
     target_endpoint: &str,
     target_root: &str,
     excludes: &[String],
     delete_along: bool,
     batch: Vec<PathBuf>,
-) -> usize {
+) -> (usize, usize) {
     let mut sent = 0;
+    let mut refused = 0;
     for path in batch {
         let Some(relative) = below(root, &path) else {
             continue;
@@ -341,10 +354,16 @@ async fn send_up(
             if !delete_along {
                 continue;
             }
-            let endpoint = EndpointId::new(target_endpoint.to_string());
             let there = format!("{}/{}", into.trim_end_matches('/'), name.to_string_lossy());
-            if sessions.remove(&endpoint, &there).await.is_ok() {
+            if remove(target_endpoint.to_string(), there).await {
                 sent += 1;
+            } else {
+                // Plenty of FTP servers refuse to rename at all, and a
+                // wastebasket is a rename. Said rather than swallowed: the
+                // file is still up there, and somebody who asked for
+                // deletions to be carried across should not have to find that
+                // out from the server.
+                refused += 1;
             }
             continue;
         }
@@ -367,9 +386,11 @@ async fn send_up(
         };
         if queue.enqueue(&request).await.is_ok() {
             sent += 1;
+        } else {
+            refused += 1;
         }
     }
-    sent
+    (sent, refused)
 }
 
 /// Where a path sits below the watched directory, with forward slashes.

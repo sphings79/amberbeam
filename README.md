@@ -125,6 +125,7 @@ Short pages on the things that are not obvious, in English and German:
 - [Getting started](docs/getting-started.md) — connecting, moving files, the queue
 - [The keyboard](docs/keyboard.md) — the layouts, and the Mac function key problem
 - [Editing a file where it lies](docs/editing.md) — a copy down, a save back up
+- [Comparing and watching](docs/comparing.md) — what differs, and what to do about it
 - [Bringing your servers with you](docs/importing.md) — from five other programs
 - [Where the secrets are](docs/security.md) — passwords, host keys, certificates
 

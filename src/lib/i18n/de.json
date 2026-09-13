@@ -126,6 +126,7 @@
   "cmd.transfer": "Markierte übertragen",
   "compare.title": "Vergleichen",
   "watch.running": "Beobachtet {root} — was sich ändert, geht nach {target}: {into}",
+  "watch.refused": "{count} der beobachteten Änderungen ließen sich auf dem Server nicht ausführen. Löschen braucht ein Umbenennen, und viele FTP-Server verweigern das grundsätzlich — was dort liegt, ist unverändert.",
   "watch.sent": "{sent} übertragen",
   "watch.stop": "Anhalten",
   "watch.title": "Beobachten",
