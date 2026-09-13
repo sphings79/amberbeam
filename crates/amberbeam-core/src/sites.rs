@@ -95,6 +95,21 @@ pub struct Site {
     /// list and cannot name — not "may look but not touch", but absent.
     #[serde(default)]
     pub mcp: bool,
+    /// Whether such a program may change anything on this server: send a file,
+    /// make a directory, rename something.
+    ///
+    /// Off, and separate from [`Site::mcp`] on purpose. Being allowed to look
+    /// is not being allowed to alter, and the two are asked for at different
+    /// moments by somebody who means different things.
+    #[serde(default)]
+    pub mcp_write: bool,
+    /// Whether it may delete on this server.
+    ///
+    /// Its own switch, off, and the last one anybody should turn on. A program
+    /// acting on what it read can misread; everything else it does can be
+    /// undone by doing it again, and this cannot.
+    #[serde(default)]
+    pub mcp_delete: bool,
     /// Names a comparison and a watch never look at, as patterns.
     ///
     /// Per server because that is where it belongs: what counts as noise in a
@@ -433,6 +448,8 @@ mod tests {
             wastebasket: None,
             excludes: Vec::new(),
             mcp: false,
+            mcp_write: false,
+            mcp_delete: false,
             colour: None,
         }
     }
@@ -544,7 +561,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 23] = [
+        const ALLOWED: [&str; 25] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -570,9 +587,12 @@ mod tests {
             "keepAlive",
             // File names, on a server whose address is already in this file.
             "excludes",
-            // A switch, and the one that decides whether a program driving
-            // this one can see the entry at all.
+            // Three switches, and the ones that decide what a program driving
+            // this one may do with the entry: see it, change it, lose things
+            // on it.
             "mcp",
+            "mcpWrite",
+            "mcpDelete",
             "rememberPassword",
             "colour",
         ];

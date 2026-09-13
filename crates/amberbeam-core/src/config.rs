@@ -308,6 +308,8 @@ impl Config {
             wastebasket: None,
             excludes: Vec::new(),
             mcp: false,
+            mcp_write: false,
+            mcp_delete: false,
             colour: None,
         };
 

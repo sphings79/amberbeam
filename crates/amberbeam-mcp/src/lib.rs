@@ -32,8 +32,10 @@ use amberbeam_core::compare::{compare, Asking, Difference, How};
 use amberbeam_core::config::AuthKind;
 use amberbeam_core::editing::LARGEST;
 use amberbeam_core::endpoint::{EndpointId, Protocol};
+use amberbeam_core::engine::Progress;
+use amberbeam_core::error::{Error, PathProblem};
 use amberbeam_core::ftp::Encryption;
-use amberbeam_core::registry::LOCAL;
+use amberbeam_core::registry::{TransferRun, LOCAL};
 use amberbeam_core::secrets::Secret;
 use amberbeam_core::sites::Site;
 use serde_json::{json, Value};
@@ -290,6 +292,81 @@ fn tools() -> Vec<Value> {
             },
         }),
         json!({
+            "name": "send_file",
+            "description":
+                "Put a file from this machine onto a server. Needs that server's own permission \
+                 to be changed at all, which is off unless somebody turned it on for it.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "server": server,
+                    "local_path": { "type": "string", "description": "Absolute path on this machine." },
+                    "remote_path": { "type": "string", "description": "Absolute path on the server, including the file name." },
+                },
+                "required": ["server", "local_path", "remote_path"],
+                "additionalProperties": false,
+            },
+        }),
+        json!({
+            "name": "fetch_file",
+            "description":
+                "Copy a file from a server onto this machine. Refuses to write over a file that \
+                 is already there — pick another name. Needs the same permission as sending one, \
+                 because it writes to somebody's disk either way.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "server": server,
+                    "remote_path": { "type": "string" },
+                    "local_path": { "type": "string" },
+                },
+                "required": ["server", "remote_path", "local_path"],
+                "additionalProperties": false,
+            },
+        }),
+        json!({
+            "name": "make_directory",
+            "description":
+                "Make a directory on a server, and anything above it that is missing. Needs that \
+                 server's permission to be changed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "server": server, "path": { "type": "string" } },
+                "required": ["server", "path"],
+                "additionalProperties": false,
+            },
+        }),
+        json!({
+            "name": "rename_entry",
+            "description":
+                "Rename a file or directory on a server, within the directory it is in. Needs \
+                 that server's permission to be changed.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "server": server,
+                    "directory": { "type": "string" },
+                    "from": { "type": "string", "description": "The name it has now." },
+                    "to": { "type": "string", "description": "The name it should have." },
+                },
+                "required": ["server", "directory", "from", "to"],
+                "additionalProperties": false,
+            },
+        }),
+        json!({
+            "name": "delete_entry",
+            "description":
+                "Delete a file or directory on a server. Behind a switch of its own, off unless \
+                 somebody turned it on for that server. Where the entry names a wastebasket the \
+                 thing is moved into it rather than lost.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "server": server, "path": { "type": "string" } },
+                "required": ["server", "path"],
+                "additionalProperties": false,
+            },
+        }),
+        json!({
             "name": "compare_directories",
             "description":
                 "What differs between a directory on this machine and one on a server. Reports \
@@ -344,6 +421,53 @@ async fn call(
             let (endpoint, _) = reach(service, passed, arguments).await?;
             let path = text(arguments, "path").ok_or("read_file needs a path")?;
             read_file(service, &endpoint, &path).await
+        }
+        "send_file" => {
+            let (endpoint, site) = reach(service, passed, arguments).await?;
+            may_change(site.as_ref())?;
+            send_file(service, &endpoint, arguments).await
+        }
+        "fetch_file" => {
+            let (endpoint, site) = reach(service, passed, arguments).await?;
+            may_change(site.as_ref())?;
+            fetch_file(service, &endpoint, arguments).await
+        }
+        "make_directory" => {
+            let (endpoint, site) = reach(service, passed, arguments).await?;
+            may_change(site.as_ref())?;
+            let path = text(arguments, "path").ok_or("this needs a path")?;
+            service
+                .sessions
+                .ensure_dir(&endpoint, &path)
+                .await
+                .map(|()| format!("{path} is there now."))
+                .map_err(|why| format!("{path} could not be made: {}", say(&why)))
+        }
+        "rename_entry" => {
+            let (endpoint, site) = reach(service, passed, arguments).await?;
+            may_change(site.as_ref())?;
+            let directory = text(arguments, "directory").ok_or("this needs a directory")?;
+            let from = text(arguments, "from").ok_or("this needs the name it has")?;
+            let to = text(arguments, "to").ok_or("this needs the name it should have")?;
+            // Through the same joining rule the window uses: a "name" with a
+            // slash or a `..` in it is a way out of the directory somebody
+            // meant, and this is exactly the caller to expect that from.
+            let source = amberbeam_commands::child_path(service, &endpoint, &directory, &from)
+                .await
+                .map_err(|why| format!("{from} is not a name in that directory: {}", say(&why)))?;
+            let target = amberbeam_commands::child_path(service, &endpoint, &directory, &to)
+                .await
+                .map_err(|why| format!("{to} is not a name in that directory: {}", say(&why)))?;
+            service
+                .sessions
+                .rename(&endpoint, &source, &target)
+                .await
+                .map(|()| format!("{from} is called {to} now."))
+                .map_err(|why| format!("{from} could not be renamed: {}", say(&why)))
+        }
+        "delete_entry" => {
+            let (_, site) = reach(service, passed, arguments).await?;
+            delete_entry(service, site.as_ref(), arguments).await
         }
         "compare_directories" => {
             let (endpoint, site) = reach(service, passed, arguments).await?;
@@ -461,7 +585,7 @@ async fn connect_to(
     };
     amberbeam_commands::open_anywhere(service, request)
         .await
-        .map_err(|why| format!("{host} could not be reached: {why}"))?;
+        .map_err(|why| format!("{host} could not be reached: {}", say(&why)))?;
 
     if let Ok(mut held) = passed.0.lock() {
         held.insert(
@@ -528,8 +652,12 @@ async fn save_server(service: &Service, arguments: &Value) -> Result<String, Str
         wastebasket: None,
         excludes: Vec::new(),
         // Open to this, because an entry it made and then could not touch
-        // would be an entry for nobody. Nothing else about it is opened.
+        // would be an entry for nobody. Nothing else about it is opened: it
+        // may be looked at, and changing or deleting on it stays a decision
+        // somebody makes at the machine.
         mcp: true,
+        mcp_write: false,
+        mcp_delete: false,
         colour: None,
     };
 
@@ -537,18 +665,177 @@ async fn save_server(service: &Service, arguments: &Value) -> Result<String, Str
         service
             .secrets
             .set(&site.id, Secret::Password, &password)
-            .map_err(|why| format!("the password could not be kept: {why}"))?;
+            .map_err(|why| format!("the password could not be kept: {}", say(&why)))?;
     }
     service
         .config
         .sites()
         .save(&folder, &site)
-        .map_err(|why| format!("the entry could not be written: {why}"))?;
+        .map_err(|why| format!("the entry could not be written: {}", say(&why)))?;
 
     Ok(format!(
         "{name} is in the server list now, and these tools may use it. Writing to it and \
          deleting on it are separate switches and are still off."
     ))
+}
+
+/// Whether this connection may be used to change anything.
+///
+/// A server that was handed over during the session cannot: there is no entry
+/// on which anybody set that switch, and a connection made by asking is not a
+/// way around one made by saving. Saying so plainly matters — otherwise
+/// "connect to it yourself" would be the gap in every other rule here.
+fn may_change(site: Option<&Site>) -> Result<(), String> {
+    match site {
+        Some(site) if site.mcp_write => Ok(()),
+        Some(site) => Err(format!(
+            "{} may be looked at and not changed. Changing it is a switch on that server's own \
+             entry in AmberBeam, and only the person at that machine can turn it on.",
+            site.name
+        )),
+        None => Err(
+            "This connection was handed over for the session, so nothing set a permission on it. \
+             Only a saved server can be changed, and only when its entry says so."
+                .into(),
+        ),
+    }
+}
+
+/// Sends a file from this machine to a server.
+///
+/// Through the transfer engine rather than the queue: nobody is watching a
+/// queue here, and a tool call that returns before the file has arrived would
+/// be a tool call that lied.
+async fn send_file(
+    service: &Service,
+    endpoint: &EndpointId,
+    arguments: &Value,
+) -> Result<String, String> {
+    let local = text(arguments, "local_path").ok_or("this needs local_path")?;
+    let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
+    if !std::path::Path::new(&local).is_file() {
+        return Err(format!("{local} is not a file on this machine"));
+    }
+
+    // The directory it is going into, made first. A transfer is no place to
+    // find out that its target does not exist.
+    if let Some((above, _)) = remote.rsplit_once('/') {
+        if !above.is_empty() {
+            let _ = service.sessions.ensure_dir(endpoint, above).await;
+        }
+    }
+
+    let moved = service
+        .sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: EndpointId::new(LOCAL),
+                source_path: local.clone(),
+                target_endpoint: endpoint.clone(),
+                target_path: remote.clone(),
+                resume: None,
+                keep_modified: true,
+                keep_permissions: false,
+                use_temporary_name: true,
+                source_permissions: None,
+            },
+            &Progress::default(),
+        )
+        .await
+        .map_err(|why| format!("{local} could not be sent: {}", say(&why)))?;
+
+    Ok(format!(
+        "{local} is at {remote} now, {} bytes.",
+        moved.moved
+    ))
+}
+
+/// Brings a file from a server onto this machine.
+///
+/// Never over one that is already there. A tool that quietly replaced
+/// somebody's file with a server's copy of it would be the kind of help
+/// nobody asked for, and the name is the caller's to choose.
+async fn fetch_file(
+    service: &Service,
+    endpoint: &EndpointId,
+    arguments: &Value,
+) -> Result<String, String> {
+    let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
+    let local = text(arguments, "local_path").ok_or("this needs local_path")?;
+    if std::path::Path::new(&local).exists() {
+        return Err(format!(
+            "{local} is already there. Nothing is written over; choose another name."
+        ));
+    }
+
+    let moved = service
+        .sessions
+        .transfer(
+            &TransferRun {
+                source_endpoint: endpoint.clone(),
+                source_path: remote.clone(),
+                target_endpoint: EndpointId::new(LOCAL),
+                target_path: local.clone(),
+                resume: None,
+                keep_modified: true,
+                keep_permissions: false,
+                use_temporary_name: true,
+                source_permissions: None,
+            },
+            &Progress::default(),
+        )
+        .await
+        .map_err(|why| format!("{remote} could not be fetched: {}", say(&why)))?;
+
+    Ok(format!(
+        "{remote} is at {local} now, {} bytes.",
+        moved.moved
+    ))
+}
+
+/// Deletes something on a server, behind its own switch.
+///
+/// Through the command the window's delete button goes through, so a server
+/// with a wastebasket named on it keeps what was deleted. Two answers to what
+/// "delete" means is one too many, and this is the caller least able to judge
+/// which one was meant.
+async fn delete_entry(
+    service: &Service,
+    site: Option<&Site>,
+    arguments: &Value,
+) -> Result<String, String> {
+    let path = text(arguments, "path").ok_or("this needs a path")?;
+    let site =
+        match site {
+            Some(site) if site.mcp_delete => site,
+            Some(site) => {
+                return Err(format!(
+                    "Deleting on {} is switched off. It is a switch of its own on that server's \
+                 entry, separate from being allowed to change anything, and only the person at \
+                 that machine can turn it on.",
+                    site.name
+                ))
+            }
+            None => return Err(
+                "This connection was handed over for the session, so nothing set a permission on \
+                 it. Only a saved server can be deleted on, and only when its entry says so."
+                    .into(),
+            ),
+        };
+
+    let removed = amberbeam_commands::remove_entry(
+        service,
+        &format!("mcp-{}", site.id),
+        &path,
+        Some(site.id.clone()),
+    )
+    .await
+    .map_err(|why| format!("{path} could not be deleted: {}", say(&why)))?;
+
+    Ok(match removed.moved_to {
+        Some(where_to) => format!("{path} is in the wastebasket now, at {where_to}."),
+        None => format!("{path} is gone."),
+    })
 }
 
 /// The protocol somebody named, or a sentence saying which names there are.
@@ -573,7 +860,7 @@ async fn list_directory(
         .sessions
         .list_dir(endpoint, path)
         .await
-        .map_err(|why| format!("{path} could not be read: {why}"))?;
+        .map_err(|why| format!("{path} could not be read: {}", say(&why)))?;
 
     let mut out = format!("{} — {} entries\n", listing.path, listing.entries.len());
     for entry in &listing.entries {
@@ -592,7 +879,7 @@ async fn read_file(service: &Service, endpoint: &EndpointId, path: &str) -> Resu
         .sessions
         .stat_of(endpoint, path)
         .await
-        .map_err(|why| format!("{path} could not be read: {why}"))?;
+        .map_err(|why| format!("{path} could not be read: {}", say(&why)))?;
     if size > MOST {
         return Err(format!(
             "{path} is {size} bytes, which is more than this hands over in one piece"
@@ -601,7 +888,7 @@ async fn read_file(service: &Service, endpoint: &EndpointId, path: &str) -> Resu
 
     let text = amberbeam_core::editing::read_as_text(&service.sessions, endpoint, path)
         .await
-        .map_err(|why| format!("{path} could not be read: {why}"))?;
+        .map_err(|why| format!("{path} could not be read: {}", say(&why)))?;
     Ok(untrusted(text))
 }
 
@@ -634,7 +921,7 @@ async fn compare_directories(
         &service.events,
     )
     .await
-    .map_err(|why| format!("the two sides could not be compared: {why}"))?;
+    .map_err(|why| format!("the two sides could not be compared: {}", say(&why)))?;
 
     let mut out = format!(
         "{} entries, from {} directories{}\n",
@@ -693,7 +980,7 @@ async fn reach(
         if service.sessions.list_dir(&endpoint, ".").await.is_err() {
             amberbeam_commands::open_site(service, &site, endpoint.as_str())
                 .await
-                .map_err(|why| format!("{} could not be reached: {why}", site.name))?;
+                .map_err(|why| format!("{} could not be reached: {}", site.name, say(&why)))?;
         }
         return Ok((endpoint, Some(site)));
     }
@@ -714,11 +1001,12 @@ async fn reach(
 }
 
 async fn home_of(service: &Service, endpoint: &EndpointId) -> Result<String, String> {
-    service
-        .sessions
-        .home(endpoint)
-        .await
-        .map_err(|why| format!("the server did not say where this account starts: {why}"))
+    service.sessions.home(endpoint).await.map_err(|why| {
+        format!(
+            "the server did not say where this account starts: {}",
+            say(&why)
+        )
+    })
 }
 
 fn text(arguments: &Value, key: &str) -> Option<String> {
@@ -727,6 +1015,57 @@ fn text(arguments: &Value, key: &str) -> Option<String> {
         .and_then(Value::as_str)
         .map(|value| value.to_string())
         .filter(|value| !value.is_empty())
+}
+
+/// What went wrong, as a sentence rather than a key.
+///
+/// The window turns the core's refusals into sentences through the language
+/// files; there is no window here and no language to choose — the protocol is
+/// spoken in English — so this is that same job, done once, for the one
+/// caller that has to read the answer rather than translate it. Without it
+/// the reply to a missing file is the string "error.path", which tells
+/// nobody anything.
+fn say(why: &Error) -> String {
+    match why {
+        Error::Path { path, reason } => match reason {
+            PathProblem::NotFound => format!("{path} is not there"),
+            PathProblem::PermissionDenied => format!("there is no permission for {path}"),
+            PathProblem::NotADirectory => format!("{path} is not a directory"),
+            PathProblem::AlreadyExists => format!("{path} is already there"),
+            PathProblem::Unknown => format!("{path} could not be used"),
+        },
+        Error::Unreachable { host, port } => format!("{host}:{port} could not be reached"),
+        Error::AuthenticationFailed { user } => {
+            format!("the server refused the login for {user}")
+        }
+        Error::TimedOut { host, port, seconds } => {
+            format!("{host}:{port} took the connection and then said nothing for {seconds}s")
+        }
+        Error::EncryptionRequired { host, .. } => {
+            format!("{host} will not talk without encryption; the entry has to say FTPS")
+        }
+        Error::EncryptionRefused { .. } => "the server would not encrypt the connection".into(),
+        Error::HostKeyUnknown { host, fingerprint } => format!(
+            "{host} is not in known_hosts. Its key is {fingerprint}, and accepting it is something the person at that machine does in AmberBeam's own window."
+        ),
+        Error::HostKeyChanged { host, .. } => format!(
+            "{host} answered with a different key than the one known for it. Nothing was sent."
+        ),
+        Error::CertificateUntrusted { host, fingerprint, .. } => format!(
+            "the certificate {host} offered is not trusted ({fingerprint}). Accepting it is something the person at that machine does in AmberBeam's own window."
+        ),
+        Error::NotTextToEdit { path } => format!("{path} is not a text file"),
+        Error::TooBigToEdit { path, megabytes } => {
+            format!("{path} is larger than {megabytes} MB")
+        }
+        Error::WastebasketFailed { .. } => {
+            "nothing was deleted: the wastebasket on that server could not take it, so it has been switched off for that entry"
+                .into()
+        }
+        Error::NotConnected => "that connection is not open".into(),
+        Error::Disconnected => "the connection was lost".into(),
+        other => other.to_string(),
+    }
 }
 
 /// Wraps what came off a server in a line saying what it is.
@@ -754,6 +1093,62 @@ mod tests {
     }
 
     #[test]
+    fn nothing_is_changed_without_the_entry_saying_so() {
+        let closed = Site {
+            mcp: true,
+            mcp_write: false,
+            mcp_delete: false,
+            ..a_site()
+        };
+        let open = Site {
+            mcp_write: true,
+            ..closed.clone()
+        };
+
+        assert!(may_change(Some(&open)).is_ok());
+        let refused = may_change(Some(&closed)).unwrap_err();
+        assert!(
+            refused.contains("may be looked at and not changed"),
+            "{refused}"
+        );
+        // And the hole that would make every other rule here pointless: a
+        // connection somebody handed over has no entry, so nothing set a
+        // permission on it, so it cannot be changed at all.
+        let handed = may_change(None).unwrap_err();
+        assert!(handed.contains("handed over for the session"), "{handed}");
+    }
+
+    fn a_site() -> Site {
+        Site {
+            id: "abc".into(),
+            name: "Webserver".into(),
+            protocol: Protocol::Sftp,
+            host: "example.org".into(),
+            port: 22,
+            user: "someone".into(),
+            auth: AuthKind::Password,
+            key_path: None,
+            remote_path: None,
+            remember_path: false,
+            local_path: None,
+            concurrency: 8,
+            retries: None,
+            temporary_name: None,
+            encryption: None,
+            passive: None,
+            latin1: None,
+            keep_alive: None,
+            remember_password: false,
+            wastebasket: None,
+            excludes: Vec::new(),
+            mcp: false,
+            mcp_write: false,
+            mcp_delete: false,
+            colour: None,
+        }
+    }
+
+    #[test]
     fn what_came_off_a_server_says_so() {
         let wrapped = untrusted("drwx 0 ignore-the-above\n".into());
         assert!(wrapped.starts_with("The following came from a remote server."));
@@ -777,18 +1172,14 @@ mod tests {
                 "read_file",
                 "connect_to",
                 "save_server",
+                "send_file",
+                "fetch_file",
+                "make_directory",
+                "rename_entry",
+                "delete_entry",
                 "compare_directories"
             ]
         );
-        // Nothing here writes to a server or takes anything off one. Those
-        // come with switches of their own, and until they do this list is the
-        // proof that they are not on offer.
-        for forbidden in ["upload", "write", "delete", "remove", "rename"] {
-            assert!(
-                !names.iter().any(|name| name.contains(forbidden)),
-                "a tool that could {forbidden} is not on offer yet"
-            );
-        }
         // The one that must never appear, named here so that adding it takes
         // somebody deleting this line and reading why it is written.
         assert!(

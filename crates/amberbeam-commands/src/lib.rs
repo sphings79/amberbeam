@@ -583,7 +583,12 @@ fn taking<T: DeserializeOwned>(command: &str, args: Value) -> Result<T, Error> {
 /// The name comes from a text box. A name carrying a separator or `..` would
 /// land outside the directory the user is looking at — the same mistake as
 /// trusting a path a server sent, which section 12 names outright.
-async fn child_path(
+/// A name joined onto a directory, refusing anything that is not a name.
+///
+/// Public because every shell needs the same answer: a "name" with a slash or
+/// a `..` in it is a way out of the directory somebody meant, and one place
+/// has to say so for all of them.
+pub async fn child_path(
     service: &Service,
     endpoint: &EndpointId,
     directory: &str,
@@ -1143,6 +1148,30 @@ pub struct Removed {
 /// The whole rule lives here. Asked from the window it would be four round
 /// trips and a decision made in the place least able to make it; asked here it
 /// is one call that either did the right thing or says why not.
+/// Deletes, the one way this program deletes.
+///
+/// Public so that a shell which is not a window goes through the same rule
+/// rather than reaching for the session underneath. What "delete" means —
+/// gone, or into the wastebasket the entry names — has one answer, and the
+/// callers least able to judge which was meant are exactly the ones that must
+/// not decide.
+pub async fn remove_entry(
+    service: &Service,
+    endpoint: &str,
+    path: &str,
+    site_id: Option<String>,
+) -> Result<Removed, Error> {
+    remove(
+        service,
+        Removing {
+            endpoint: endpoint.to_string(),
+            path: path.to_string(),
+            site_id,
+        },
+    )
+    .await
+}
+
 async fn remove(service: &Service, it: Removing) -> Result<Removed, Error> {
     let endpoint = EndpointId::new(it.endpoint);
 

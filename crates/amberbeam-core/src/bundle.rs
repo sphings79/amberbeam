@@ -158,6 +158,8 @@ pub fn apply(
             wastebasket: None,
             excludes: Vec::new(),
             mcp: false,
+            mcp_write: false,
+            mcp_delete: false,
             ..entry.site.clone()
         };
         let folder = match (into.trim(), entry.folder.as_str()) {
@@ -209,6 +211,8 @@ mod tests {
             wastebasket: None,
             excludes: Vec::new(),
             mcp: false,
+            mcp_write: false,
+            mcp_delete: false,
             colour: None,
         }
     }
