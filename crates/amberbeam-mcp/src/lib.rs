@@ -445,8 +445,9 @@ async fn call(
         "connect_to" => connect_to(service, passed, arguments).await,
         "save_server" => save_server(service, arguments).await,
         "list_directory" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::See)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::See)?;
+            let endpoint = opened(service, &which).await?;
             let path = match text(arguments, "path") {
                 Some(path) => path,
                 None => home_of(service, &endpoint).await?,
@@ -454,25 +455,36 @@ async fn call(
             list_directory(service, &endpoint, &path).await
         }
         "read_file" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::See)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::See)?;
             let path = text(arguments, "path").ok_or("read_file needs a path")?;
+            let endpoint = opened(service, &which).await?;
             read_file(service, &endpoint, &path).await
         }
         "send_file" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::Upload)?;
+            // Both halves before the connection: a refusal that arrives after
+            // a server has been opened has used somebody's password to reach a
+            // machine the call was never allowed to touch.
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::Upload)?;
+            let local = text(arguments, "local_path").ok_or("this needs local_path")?;
+            local_path(service, Locally::Read, &local)?;
+            let endpoint = opened(service, &which).await?;
             send_file(service, &endpoint, arguments).await
         }
         "fetch_file" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::Download)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::Download)?;
+            let local = text(arguments, "local_path").ok_or("this needs local_path")?;
+            local_path(service, Locally::Write, &local)?;
+            let endpoint = opened(service, &which).await?;
             fetch_file(service, &endpoint, arguments).await
         }
         "make_directory" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::Create)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::Create)?;
             let path = text(arguments, "path").ok_or("this needs a path")?;
+            let endpoint = opened(service, &which).await?;
             service
                 .sessions
                 .ensure_dir(&endpoint, &path)
@@ -481,11 +493,12 @@ async fn call(
                 .map_err(|why| format!("{path} could not be made: {}", say(&why)))
         }
         "rename_entry" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::Rename)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::Rename)?;
             let directory = text(arguments, "directory").ok_or("this needs a directory")?;
             let from = text(arguments, "from").ok_or("this needs the name it has")?;
             let to = text(arguments, "to").ok_or("this needs the name it should have")?;
+            let endpoint = opened(service, &which).await?;
             // Through the same joining rule the window uses: a "name" with a
             // slash or a `..` in it is a way out of the directory somebody
             // meant, and this is exactly the caller to expect that from.
@@ -503,15 +516,28 @@ async fn call(
                 .map_err(|why| format!("{from} could not be renamed: {}", say(&why)))
         }
         "delete_entry" => {
-            let (_, site) = reach(service, passed, arguments).await?;
-            delete_entry(service, site.as_ref(), arguments).await
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::Remove)?;
+            let site = which
+                .site()
+                .expect("a permission was granted, so there is an entry");
+            let path = text(arguments, "path").ok_or("this needs a path")?;
+            let _ = opened(service, &which).await?;
+            delete_entry(service, site, &path).await
         }
         "compare_directories" => {
-            let (endpoint, site) = reach(service, passed, arguments).await?;
-            may(site.as_ref(), May::See)?;
+            let which = named(service, passed, arguments)?;
+            may(which.site(), May::See)?;
+            let local =
+                text(arguments, "local_path").ok_or("compare_directories needs local_path")?;
+            local_path(service, Locally::Read, &local)?;
             // A server that was handed over has no entry, and so no list of
             // names to skip. Nothing is assumed on its behalf.
-            let excludes = site.map(|site| site.excludes).unwrap_or_default();
+            let excludes = which
+                .site()
+                .map(|site| site.excludes.clone())
+                .unwrap_or_default();
+            let endpoint = opened(service, &which).await?;
             compare_directories(service, &excludes, &endpoint, arguments).await
         }
         other => Err(format!("there is no tool called {other}")),
@@ -535,8 +561,9 @@ fn list_servers(service: &Service, passed: &Passed) -> String {
         .map(|held| held.values().cloned().collect())
         .unwrap_or_default();
 
+    let settings = service.config.settings();
+
     if open.is_empty() && handed.is_empty() {
-        let settings = service.config.settings();
         let mut out = String::from(
             "No server has been opened to this. Somebody has to turn it on for an entry in \
              AmberBeam's server list before any of these tools can reach one.",
@@ -544,29 +571,91 @@ fn list_servers(service: &Service, passed: &Passed) -> String {
         if settings.mcp_quick_connect {
             out.push_str(" You may connect to one by being given its details: see connect_to.");
         }
+        out.push_str("\n\n");
+        out.push_str(&this_machine(&settings));
         return out;
     }
 
     let mut out = String::from("Servers you may use:\n");
     for site in open {
         out.push_str(&format!(
-            "- {} — {} as {} over {}\n",
+            "- {} — {} as {} over {}. Allowed: {}\n",
             site.name,
             site.host,
             site.user,
-            site.protocol.as_str()
+            site.protocol.as_str(),
+            allows(&site)
         ));
     }
     for one in handed {
         out.push_str(&format!(
-            "- {} — {} as {} over {}, for this session only\n",
+            "- {} — {} as {} over {}, for this session only. Allowed: looking at it and nothing \
+             else, because nothing set a permission on a connection that was handed over.\n",
             one.name,
             one.host,
             one.user,
             one.protocol.as_str()
         ));
     }
+    out.push('\n');
+    out.push_str(&this_machine(&settings));
     out
+}
+
+/// What one entry's six switches add up to, in words.
+fn allows(site: &Site) -> String {
+    let mut allowed: Vec<&str> = Vec::new();
+    for (on, what) in [
+        (site.mcp_see, "looking at it"),
+        (site.mcp_upload, "uploading"),
+        (site.mcp_download, "downloading"),
+        (site.mcp_create, "making directories"),
+        (site.mcp_rename, "renaming"),
+        (site.mcp_remove, "deleting"),
+    ] {
+        if on {
+            allowed.push(what);
+        }
+    }
+    allowed.join(", ")
+}
+
+/// How this machine's own files stand, said before anything is attempted.
+///
+/// Because the alternative is a caller planning an upload, calling for it, and
+/// only then being told that nothing here is open — and then, having asked
+/// somebody to fix that, finding the second half of the same answer waiting.
+/// This is the call where a program works out what it can do, so this is where
+/// it belongs.
+fn this_machine(settings: &amberbeam_core::config::Settings) -> String {
+    let read = settings.mcp_local_read;
+    let write = settings.mcp_local_write;
+
+    if settings.mcp_local_paths.is_empty() {
+        return "On this machine: nothing is open to you. No directory has been given, so \
+                uploading a file from here and downloading one to here will both be refused \
+                whatever a server allows. Somebody at that machine adds directories in \
+                AmberBeam's AI assistants window."
+            .into();
+    }
+
+    let doing = match (read, write) {
+        (true, true) => "read and written",
+        (true, false) => "read, not written",
+        (false, true) => "written, not read",
+        (false, false) => {
+            return "On this machine: nothing is open to you. Directories have been named but \
+                    both reading and writing here are switched off, so uploading from here and \
+                    downloading to here will both be refused."
+                .into()
+        }
+    };
+
+    format!(
+        "On this machine, files may be {doing}, and only inside: {}. Anywhere else is refused, \
+         and a path is resolved before it is checked, so `..` and symlinks lead nowhere.",
+        settings.mcp_local_paths.join(", ")
+    )
 }
 
 /// Connects to a server that is not in the list.
@@ -785,30 +874,37 @@ enum Locally {
 /// would land in, which does.
 fn local_path(service: &Service, what: Locally, path: &str) -> Result<(), String> {
     let settings = service.config.settings();
-    match what {
-        Locally::Read if !settings.mcp_local_read => {
-            return Err(
-                "Reading files on this machine is switched off. It is a setting in \
-                        AmberBeam, under what a program driving it may do, and only the person \
-                        at that machine can turn it on."
-                    .into(),
-            )
-        }
-        Locally::Write if !settings.mcp_local_write => {
-            return Err(
-                "Writing files on this machine is switched off. It is a setting in \
-                        AmberBeam, under what a program driving it may do, and only the person \
-                        at that machine can turn it on."
-                    .into(),
-            )
-        }
-        _ => {}
-    }
+    let allowed_at_all = match what {
+        Locally::Read => settings.mcp_local_read,
+        Locally::Write => settings.mcp_local_write,
+    };
+    let doing = match what {
+        Locally::Read => "Reading files on this machine",
+        Locally::Write => "Writing files on this machine",
+    };
+    let nowhere = settings.mcp_local_paths.is_empty();
 
-    if settings.mcp_local_paths.is_empty() {
+    // Both at once when both are wrong. Telling somebody about one obstacle,
+    // waiting for them to clear it and then telling them about the second is
+    // how a caller spends two round trips learning one thing.
+    if !allowed_at_all && nowhere {
         return Err(format!(
-            "No directory on this machine has been given to a program driving AmberBeam, so \
-             {path} cannot be reached. The list is in AmberBeam's settings and it starts empty."
+            "{doing} is switched off, and no directory here has been opened either. Both live \
+             in AmberBeam's own AI assistants window, and only the person at that machine can \
+             change them."
+        ));
+    }
+    if !allowed_at_all {
+        return Err(format!(
+            "{doing} is switched off. It is a switch in AmberBeam's AI assistants window, and \
+             only the person at that machine can turn it on."
+        ));
+    }
+    if nowhere {
+        return Err(format!(
+            "No directory on this machine has been opened to a program driving AmberBeam, so \
+             {path} cannot be reached. The list is in AmberBeam's AI assistants window and it \
+             starts empty."
         ));
     }
 
@@ -894,9 +990,6 @@ async fn send_file(
 ) -> Result<String, String> {
     let local = text(arguments, "local_path").ok_or("this needs local_path")?;
     let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
-    // Both halves have to agree: the server's own switch said this may be
-    // uploaded to, and this says the file may be read at all and from there.
-    local_path(service, Locally::Read, &local)?;
     if !std::path::Path::new(&local).is_file() {
         return Err(format!("{local} is not a file on this machine"));
     }
@@ -946,7 +1039,6 @@ async fn fetch_file(
 ) -> Result<String, String> {
     let remote = text(arguments, "remote_path").ok_or("this needs remote_path")?;
     let local = text(arguments, "local_path").ok_or("this needs local_path")?;
-    local_path(service, Locally::Write, &local)?;
     if std::path::Path::new(&local).exists() {
         return Err(format!(
             "{local} is already there. Nothing is written over; choose another name."
@@ -984,19 +1076,11 @@ async fn fetch_file(
 /// with a wastebasket named on it keeps what was deleted. Two answers to what
 /// "delete" means is one too many, and this is the caller least able to judge
 /// which one was meant.
-async fn delete_entry(
-    service: &Service,
-    site: Option<&Site>,
-    arguments: &Value,
-) -> Result<String, String> {
-    let path = text(arguments, "path").ok_or("this needs a path")?;
-    may(site, May::Remove)?;
-    let site = site.expect("a permission was granted, so there is an entry");
-
+async fn delete_entry(service: &Service, site: &Site, path: &str) -> Result<String, String> {
     let removed = amberbeam_commands::remove_entry(
         service,
         &format!("mcp-{}", site.id),
-        &path,
+        path,
         Some(site.id.clone()),
     )
     .await
@@ -1070,9 +1154,6 @@ async fn compare_directories(
 ) -> Result<String, String> {
     let remote = text(arguments, "remote_path").ok_or("compare_directories needs remote_path")?;
     let local = text(arguments, "local_path").ok_or("compare_directories needs local_path")?;
-    // A comparison reads both sides. The far one was allowed by the entry's
-    // own switch; this one is allowed here or not at all.
-    local_path(service, Locally::Read, &local)?;
     let how = match text(arguments, "how").as_deref() {
         Some("size") => How::Size,
         Some("checksum") => How::Checksum,
@@ -1132,11 +1213,31 @@ async fn compare_directories(
 /// One endpoint per server, named after it, so a second tool call on the same
 /// one costs nothing and a program working through a directory does not open
 /// a login per file.
-async fn reach(
-    service: &Service,
-    passed: &Passed,
-    arguments: &Value,
-) -> Result<(EndpointId, Option<Site>), String> {
+/// A server these tools may use, named but not yet connected to.
+enum Named {
+    /// An entry somebody saved, with the switches they set on it.
+    Saved(Box<Site>),
+    /// A connection handed over for this session, which carries no switches.
+    Handed(EndpointId),
+}
+
+impl Named {
+    /// The entry, where there is one. `None` is a handed-over connection, and
+    /// every permission answers no to that.
+    fn site(&self) -> Option<&Site> {
+        match self {
+            Named::Saved(site) => Some(site),
+            Named::Handed(_) => None,
+        }
+    }
+}
+
+/// Which server a call means, without touching the network.
+///
+/// Separate from opening it on purpose: every switch is asked before anything
+/// is connected, so a call that was never going to be allowed does not first
+/// use somebody's password to reach a server it may not touch.
+fn named(service: &Service, passed: &Passed, arguments: &Value) -> Result<Named, String> {
     let wanted = text(arguments, "server").ok_or("this needs the name of a server")?;
     let wanted = wanted.trim().to_string();
 
@@ -1147,15 +1248,8 @@ async fn reach(
         .into_iter()
         .map(|filed| filed.site)
         .find(|site| open(site) && site.name.eq_ignore_ascii_case(&wanted));
-
     if let Some(site) = saved {
-        let endpoint = EndpointId::new(format!("mcp-{}", site.id));
-        if service.sessions.list_dir(&endpoint, ".").await.is_err() {
-            amberbeam_commands::open_site(service, &site, endpoint.as_str())
-                .await
-                .map_err(|why| format!("{} could not be reached: {}", site.name, say(&why)))?;
-        }
-        return Ok((endpoint, Some(site)));
+        return Ok(Named::Saved(Box::new(site)));
     }
 
     let handed = passed
@@ -1164,13 +1258,29 @@ async fn reach(
         .ok()
         .and_then(|held| held.get(&wanted.to_lowercase()).cloned());
     if let Some(one) = handed {
-        return Ok((EndpointId::new(one.endpoint), None));
+        return Ok(Named::Handed(EndpointId::new(one.endpoint)));
     }
 
     Err(format!(
         "there is no server called {wanted} that this may use. list_servers shows the ones \
          there are."
     ))
+}
+
+/// The connection, opened now that everything has said yes.
+async fn opened(service: &Service, which: &Named) -> Result<EndpointId, String> {
+    match which {
+        Named::Handed(endpoint) => Ok(endpoint.clone()),
+        Named::Saved(site) => {
+            let endpoint = EndpointId::new(format!("mcp-{}", site.id));
+            if service.sessions.list_dir(&endpoint, ".").await.is_err() {
+                amberbeam_commands::open_site(service, site, endpoint.as_str())
+                    .await
+                    .map_err(|why| format!("{} could not be reached: {}", site.name, say(&why)))?;
+            }
+            Ok(endpoint)
+        }
+    }
 }
 
 async fn home_of(service: &Service, endpoint: &EndpointId) -> Result<String, String> {
