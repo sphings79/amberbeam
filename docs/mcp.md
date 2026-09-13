@@ -13,15 +13,20 @@ is one process talking to another over standard input and output; nothing
 listens on a port and nothing leaves the machine that is not a transfer you
 would have made anyway.
 
-**Everything here is off until you switch it on**, and there is no single
-switch that turns it all on at once. That is the point of the page.
+**Everything here is off until you switch it on.** There is one switch that
+turns it all off at once and none that turns it all on: every permission is
+its own, and that is the point of the page.
+
+Everything about it is in one window: the **AI assistants** button, beside
+**Settings**. It is its own window on purpose — every line in it is a
+permission, and a permission is not a preference.
 
 ## Switching it on
 
 ### 1. Tell the client where AmberBeam is
 
-**Settings → AI assistants (MCP)** ends with the block to paste into the
-client's configuration, with the path of your installation already in it:
+The window ends with the block to paste into the client's configuration, with
+the path of your installation already in it:
 
 ```json
 {
@@ -46,23 +51,59 @@ to answer.
 
 Restart the client afterwards. These files are read once, at startup.
 
-### 2. Open the servers it may use
+### 2. Turn the whole thing on
 
-Nothing is reachable until an entry says so. In the server's own entry:
+**Let a program drive AmberBeam**, at the top of the window, is off. While it
+is off the shell offers an assistant **no tools at all** — not eleven things
+that refuse, an empty list — and anything that still arrives is answered with
+one sentence saying where the switch is.
+
+It is read at the moment of every call, so turning it off stops a client that
+has been running for hours, at once, without restarting anything.
+
+Everything under it is stepped back while it is off. The switches still work:
+setting up what will be allowed before allowing anything is a reasonable way
+round, and a greyed-out form cannot be read.
+
+### 3. Say what it may do on this machine
+
+Sending a file up means reading one here; fetching one means writing here.
+Both are their own switch, both off, and both only ever apply **inside the
+directories you list**.
+
+The list starts empty, and empty means nowhere. "Anywhere this account can
+reach" is `~/.ssh` and everything else that happens to be readable, handed
+over because a list was left blank.
+
+Paths are resolved before they are checked, so neither a `..` nor a symlink
+inside an allowed directory leads out of one. A file that does not exist yet —
+the target of a fetch — is resolved through the directory it would land in,
+which does, so it is checked before anything is written.
+
+### 4. Say what it may do on each server
+
+Six switches per server, all off:
 
 | | |
 |---|---|
-| **Available to AI assistants** | Off. This is the one that makes the server exist at all. |
-| **May change things here** | Off. Sending a file, making a directory, renaming. |
-| **May delete here** | Off. Its own switch, and the last one to turn on. |
+| **Look at it** | List directories, read a text file, compare. |
+| **Upload** | Put a file there. |
+| **Download** | Take one from there — which writes here, so the local side has to allow it too. |
+| **Make directories** | And anything above them that is missing. |
+| **Rename** | Within the directory something is in. |
+| **Delete** | The last one anybody turns on. |
 
-The last two only appear once the first is on, and switching the first off
-clears both — a permission given once and forgotten cannot come back with the
-server.
+Six rather than one because "may use this server" was never one question.
+Reading a configuration file, putting one back, tidying a directory and
+emptying one are four different amounts of trust.
 
-### 3. Decide about servers that are not in the list
+A server with **none** of them on does not exist as far as those tools are
+concerned. Each tool asks its own switch by name, and the refusal says which
+one is off.
 
-**Settings → AI assistants (MCP)**, both off:
+### 5. Decide about servers that are not in the list
+
+Two more, both off:
 
 **May connect to servers that are not in the list.** On, a program can hand
 over a host, a user and a password of its own and work with that connection.
@@ -72,12 +113,12 @@ be changed** — no entry, so no permission — which is deliberate: otherwise
 
 **May add servers to the list.** On, a program can write a new entry, password
 and all. The password goes into the system's credential store like any other
-and cannot be read back out. A new entry is not opened to the assistant by
-doing this; that is still your switch to flip.
+and cannot be read back out. An entry made that way may be **looked at** and
+nothing else; the other five stay yours to switch on.
 
 ## The three rules
 
-**A server nobody opened does not exist.** Not listed-but-refused — absent. It
+**A server with no switch on does not exist.** Not listed-but-refused — absent. It
 cannot be named, listed or reached, and no answer hints that there is anything
 else on your machine.
 
@@ -95,17 +136,17 @@ be told that what it is reading is not talking to it.
 
 | | |
 |---|---|
-| `list_servers` | The servers you opened to it. Never a password. |
-| `list_directory` | One directory: names, sizes, times. |
-| `read_file` | One text file. Refuses anything that looks binary, and anything over 20 MB. |
-| `compare_directories` | What differs between a directory here and one there. Reports only. |
+| `list_servers` | The servers you opened to it, and never a password. |
+| `list_directory` | One directory: names, sizes, times. Needs *look at it*. |
+| `read_file` | One text file. Needs *look at it*. Refuses anything that looks binary, and anything over 20 MB. |
+| `compare_directories` | What differs between a directory here and one there. Reports only. Needs *look at it* and *may read files here*. |
 | `connect_to` | A server not in the list, by being given its details. Off by default. |
 | `save_server` | Writes an entry into the list. Off by default. |
-| `send_file` | A file from this machine onto a server. Needs *may change*. |
-| `fetch_file` | A file from a server onto this machine. Needs *may change* — it writes to your disk either way — and refuses to write over a file that is there. |
-| `make_directory` | And anything above it that is missing. Needs *may change*. |
-| `rename_entry` | Within the directory it is in. Needs *may change*. |
-| `delete_entry` | Behind its own switch. Goes into the wastebasket where the entry names one. |
+| `send_file` | A file from this machine onto a server. Needs *upload* and *may read files here*. |
+| `fetch_file` | A file from a server onto this machine. Needs *download* and *may write files here*, and refuses to write over a file that is there. |
+| `make_directory` | And anything above it that is missing. Needs *make directories*. |
+| `rename_entry` | Within the directory it is in. Needs *rename*. |
+| `delete_entry` | Needs *delete*. Goes into the wastebasket where the entry names one. |
 
 That is the whole list, written out by hand one tool at a time. It is
 deliberately **not** the set of commands the window uses: that one answers to
@@ -144,6 +185,14 @@ given stays, the value goes.
 
 It is never rotated or trimmed. A log that deletes its own past cannot answer
 the question it exists for.
+
+The last forty lines are at the bottom of the **AI assistants** window, with
+one sentence above them saying whether a client is connected right now. That
+count comes out of the same file, because there is nothing to ask: the shell
+is a separate process started by somebody else's client, and the file is the
+only thing both ends can see. One line says a client arrived and one says it
+went — so a shell that was killed outright never wrote its second line and
+reads as still connected, which is why the lines are shown with their times.
 
 ## In the container
 

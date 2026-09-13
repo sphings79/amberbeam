@@ -14,15 +14,20 @@ redet über Standardein- und -ausgabe mit einem anderen; nichts lauscht an
 einem Port, und nichts verlässt den Rechner, das nicht ohnehin eine
 Übertragung wäre.
 
-**Alles hier ist aus, bis du es anmachst**, und es gibt keinen einen Schalter,
-der alles auf einmal anmacht. Darum geht es auf dieser Seite.
+**Alles hier ist aus, bis du es anmachst.** Es gibt einen Schalter, der alles
+auf einmal ausmacht, und keinen, der alles auf einmal anmacht: Jedes Recht ist
+ein eigenes, und darum geht es auf dieser Seite.
+
+Alles dazu steht in einem Fenster: der Knopf **KI-Assistenten**, neben
+**Einstellungen**. Ein eigenes Fenster mit Absicht — jede Zeile darin ist ein
+Recht, und ein Recht ist keine Vorliebe.
 
 ## Anschalten
 
 ### 1. Dem Client sagen, wo AmberBeam liegt
 
-**Einstellungen → KI-Assistenten (MCP)** endet mit dem Block für die
-Konfiguration des Clients, mit dem Pfad deiner Installation schon darin:
+Das Fenster endet mit dem Block für die Konfiguration des Clients, mit dem
+Pfad deiner Installation schon darin:
 
 ```json
 {
@@ -48,23 +53,60 @@ Schlüsselbund-Abfrage hängen, die niemand beantwortet.
 
 Danach den Client neu starten. Diese Dateien werden einmal beim Start gelesen.
 
-### 2. Die Server freigeben, die es benutzen darf
+### 2. Das Ganze anschalten
 
-Erreichbar ist nichts, solange kein Eintrag es sagt. Im Eintrag des Servers:
+**Ein Programm darf AmberBeam bedienen**, ganz oben im Fenster, ist aus.
+Solange das aus ist, bekommt ein Assistent **überhaupt keine Werkzeuge**
+angeboten — keine elf, die ablehnen, sondern eine leere Liste — und was
+trotzdem ankommt, bekommt einen Satz, der sagt, wo der Schalter sitzt.
+
+Er wird bei jedem Aufruf gelesen: Ausschalten legt auch einen Client still,
+der seit Stunden läuft, sofort und ohne dass irgendetwas neu gestartet wird.
+
+Alles darunter ist zurückgenommen, solange er aus ist. Bedienbar bleibt es:
+erst einrichten, dann freigeben, ist eine vernünftige Reihenfolge — und ein
+ausgegrautes Formular kann man nicht lesen.
+
+### 3. Sagen, was es auf diesem Rechner darf
+
+Eine Datei hochzuladen heißt, hier eine zu lesen; eine herunterzuladen heißt,
+hier zu schreiben. Beides ist ein eigener Schalter, beides aus, und beides
+gilt nur **innerhalb der Verzeichnisse, die du einträgst**.
+
+Die Liste fängt leer an, und leer heißt nirgends. „Überall, wo dieses Konto
+hinkommt" ist `~/.ssh` und alles andere, was zufällig lesbar ist —
+hergegeben, weil eine Liste leer blieb.
+
+Pfade werden aufgelöst, bevor sie geprüft werden: Weder ein `..` noch ein
+Symlink in einem erlaubten Verzeichnis führt aus einem heraus. Eine Datei, die
+es noch nicht gibt — das Ziel eines Downloads —, wird über das Verzeichnis
+aufgelöst, in dem sie landen würde; so wird sie geprüft, bevor etwas
+geschrieben wird.
+
+### 4. Sagen, was es auf jedem Server darf
+
+Sechs Schalter je Server, alle aus:
 
 | | |
 |---|---|
-| **Für KI-Assistenten freigegeben** | Aus. Der Schalter, der den Server überhaupt erst existieren lässt. |
-| **Darf hier etwas ändern** | Aus. Datei hochladen, Verzeichnis anlegen, umbenennen. |
-| **Darf hier löschen** | Aus. Ein eigener Schalter, und der letzte, den man anmacht. |
+| **Ansehen** | Verzeichnisse auflisten, eine Textdatei lesen, vergleichen. |
+| **Hochladen** | Eine Datei dorthin legen. |
+| **Herunterladen** | Eine von dort holen — das schreibt hier, also muss die lokale Seite es auch erlauben. |
+| **Verzeichnisse anlegen** | Und alles darüber, was fehlt. |
+| **Umbenennen** | Innerhalb des Verzeichnisses, in dem etwas liegt. |
+| **Löschen** | Der letzte, den man anmacht. |
 
-Die beiden letzten erscheinen erst, wenn der erste an ist, und den ersten
-auszuschalten löscht beide — ein einmal gegebenes und vergessenes Recht kann
-nicht mit dem Server zurückkommen.
+Sechs statt einem, weil „darf diesen Server benutzen" nie eine Frage war. Eine
+Konfigurationsdatei lesen, eine zurückschreiben, ein Verzeichnis aufräumen und
+eines leeren sind vier verschiedene Mengen Vertrauen.
 
-### 3. Entscheiden, was mit Servern außerhalb der Liste ist
+Ein Server, an dem **keiner** an ist, existiert für diese Werkzeuge nicht.
+Jedes Werkzeug fragt seinen eigenen Schalter beim Namen, und die Ablehnung
+sagt, welcher aus ist.
 
-**Einstellungen → KI-Assistenten (MCP)**, beide aus:
+### 5. Entscheiden, was mit Servern außerhalb der Liste ist
+
+Zwei weitere, beide aus:
 
 **Darf sich mit Servern verbinden, die nicht in der Liste stehen.** An, kann
 ein Programm Adresse, Benutzer und Passwort selbst mitgeben und mit dieser
@@ -76,12 +118,12 @@ Schalter oben vorbei.
 **Darf Server in die Liste eintragen.** An, kann ein Programm einen neuen
 Eintrag schreiben, Passwort inbegriffen. Das Passwort geht in den
 Passwortspeicher des Systems wie jedes andere und ist nicht zurückzulesen.
-Freigegeben ist ein so entstandener Eintrag damit noch nicht; dieser Schalter
-bleibt deiner.
+Ein so entstandener Eintrag darf **angesehen** werden und sonst nichts; die
+anderen fünf bleiben deine Entscheidung.
 
 ## Die drei Regeln
 
-**Ein Server, den niemand freigegeben hat, existiert nicht.** Nicht
+**Ein Server, an dem kein Schalter an ist, existiert nicht.** Nicht
 aufgelistet-aber-abgelehnt, sondern nicht vorhanden. Er ist nicht zu benennen,
 nicht aufzulisten, nicht zu erreichen, und keine Antwort deutet an, dass auf
 deinem Rechner noch etwas anderes liegt.
@@ -102,16 +144,16 @@ ihm spricht.
 | | |
 |---|---|
 | `list_servers` | Die Server, die du freigegeben hast. Nie ein Passwort. |
-| `list_directory` | Ein Verzeichnis: Namen, Größen, Zeiten. |
-| `read_file` | Eine Textdatei. Verweigert alles, was binär aussieht, und alles über 20 MB. |
-| `compare_directories` | Was sich zwischen einem Verzeichnis hier und einem dort unterscheidet. Nur Bericht. |
+| `list_directory` | Ein Verzeichnis: Namen, Größen, Zeiten. Braucht *Ansehen*. |
+| `read_file` | Eine Textdatei. Braucht *Ansehen*. Verweigert alles, was binär aussieht, und alles über 20 MB. |
+| `compare_directories` | Was sich zwischen einem Verzeichnis hier und einem dort unterscheidet. Nur Bericht. Braucht *Ansehen* und *darf hier lesen*. |
 | `connect_to` | Ein Server außerhalb der Liste, dessen Daten mitgegeben werden. Standardmäßig aus. |
 | `save_server` | Schreibt einen Eintrag in die Liste. Standardmäßig aus. |
-| `send_file` | Eine Datei von diesem Rechner auf einen Server. Braucht *darf ändern*. |
-| `fetch_file` | Eine Datei von einem Server auf diesen Rechner. Braucht dasselbe Recht — es schreibt so oder so auf jemandes Platte — und überschreibt keine vorhandene Datei. |
-| `make_directory` | Und alles darüber, was fehlt. Braucht *darf ändern*. |
-| `rename_entry` | Innerhalb des Verzeichnisses, in dem es liegt. Braucht *darf ändern*. |
-| `delete_entry` | Hinter einem eigenen Schalter. Landet im Papierkorb, wo der Eintrag einen nennt. |
+| `send_file` | Eine Datei von diesem Rechner auf einen Server. Braucht *Hochladen* und *darf hier lesen*. |
+| `fetch_file` | Eine Datei von einem Server auf diesen Rechner. Braucht *Herunterladen* und *darf hier schreiben*, und überschreibt keine vorhandene Datei. |
+| `make_directory` | Und alles darüber, was fehlt. Braucht *Verzeichnisse anlegen*. |
+| `rename_entry` | Innerhalb des Verzeichnisses, in dem es liegt. Braucht *Umbenennen*. |
+| `delete_entry` | Braucht *Löschen*. Landet im Papierkorb, wo der Eintrag einen nennt. |
 
 Das ist die ganze Liste, von Hand geschrieben, ein Werkzeug nach dem anderen.
 Es ist ausdrücklich **nicht** der Befehlssatz, den das Fenster benutzt: Der
@@ -152,6 +194,14 @@ verschwindet.
 
 Sie wird nie rotiert oder gekürzt. Ein Log, das seine eigene Vergangenheit
 löscht, kann die Frage nicht beantworten, für die es da ist.
+
+Die letzten vierzig Zeilen stehen unten im Fenster **KI-Assistenten**, mit
+einem Satz darüber, ob gerade ein Client verbunden ist. Diese Zahl kommt aus
+derselben Datei, weil es nichts zu fragen gibt: Die Schale ist ein eigener
+Prozess, von jemandes Client gestartet, und die Datei ist das Einzige, was
+beide Enden sehen. Eine Zeile sagt, dass ein Client kam, eine, dass er ging —
+eine hart abgeschossene Schale schreibt ihre zweite nie und gilt dann noch als
+verbunden. Auch deshalb stehen die Zeilen mit Uhrzeit dabei.
 
 ## Im Container
 
