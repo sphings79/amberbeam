@@ -19,6 +19,7 @@
     fromFile,
     keysFor,
     label,
+    PLATFORM,
     resetAll,
     SCHEMES,
     setScheme,
@@ -92,10 +93,19 @@
           class:active={currentScheme() === name}
           onclick={() => setScheme(name as SchemeName)}
         >
-          {t(`scheme.${name}`)}
+          <span class="name">{t(`scheme.${name}`)}</span>
+          <!-- The command key spelled as it is on this keyboard. The
+               descriptions used to say ⌘ outright, which was true everywhere
+               they were shown -- and they were only ever shown on a Mac. -->
+          <span class="what">{t(`scheme.${name}.what`, { key: label("Mod") })}</span>
         </button>
       {/each}
     </div>
+
+    <!-- What holds on the machine in front of somebody. The names above say
+         what a layout does, not where it came from, and this says why one of
+         them may need something of the system and the others never do. -->
+    <p class="hint">{t(`keys.system.${PLATFORM}`)}</p>
 
     {#if changed()}
       <p class="hint">
@@ -208,6 +218,29 @@
 
   .choices button {
     flex: 1;
+    /* The name over its explanation, so three of them read as three choices
+       rather than as a row of words. */
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-align: left;
+    align-items: flex-start;
+  }
+
+  .choices .name {
+    font-weight: 600;
+  }
+
+  .choices .what {
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: var(--text-faint);
+    font-weight: 400;
+  }
+
+  .choices button.active .what {
+    color: inherit;
+    opacity: 0.85;
   }
 
   .choices button.active {

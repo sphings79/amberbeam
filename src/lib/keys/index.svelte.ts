@@ -160,5 +160,5 @@ export function fromFile(text: string): boolean {
 }
 
 export { bindingOf, label } from "./schemes";
-export { ACTIONS, SCHEMES, schemeBindings, setupApplies } from "./schemes";
+export { ACTIONS, PLATFORM, SCHEMES, schemeBindings, setupApplies } from "./schemes";
 export type { Action, Bindings, SchemeName } from "./schemes";

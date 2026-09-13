@@ -57,8 +57,16 @@ export const ACTIONS: Action[] = [
   "fullscreen",
 ];
 
-/** Which keyboard somebody is sitting at, as far as the shortcuts care. */
-export type Platform = "mac" | "other";
+/**
+ * Which keyboard somebody is sitting at.
+ *
+ * Only the Mac is different for the shortcuts themselves — everywhere else F1
+ * to F12 are function keys and the command key is Ctrl. The other three are
+ * told apart anyway, because the keys window says what holds on the machine in
+ * front of you, and "not a Mac" is not something to say to somebody sitting at
+ * Linux.
+ */
+export type Platform = "mac" | "windows" | "linux" | "other";
 
 /**
  * Worked out once, from the only thing a plain module can ask.
@@ -69,7 +77,12 @@ export type Platform = "mac" | "other";
 function detect(): Platform {
   const nav = (globalThis as { navigator?: { userAgentData?: { platform?: string }; platform?: string; userAgent?: string } }).navigator;
   const name = nav?.userAgentData?.platform ?? nav?.platform ?? nav?.userAgent ?? "";
-  return /mac/i.test(name) ? "mac" : "other";
+  if (/mac/i.test(name)) return "mac";
+  if (/win/i.test(name)) return "windows";
+  // X11 and CrOS both answer to the same keyboard rules as Linux, and both
+  // appear instead of the word in some of these strings.
+  if (/linux|x11|cros|bsd/i.test(name)) return "linux";
+  return "other";
 }
 
 export const PLATFORM: Platform = detect();

@@ -167,7 +167,7 @@
       {#each SCHEMES as name (name)}
         <button type="button" class="scheme" onclick={() => choose(name)}>
           <span class="name">{t(`scheme.${name}`)}</span>
-          <span class="what">{t(`scheme.${name}.what`)}</span>
+          <span class="what">{t(`scheme.${name}.what`, { key: label("Mod") })}</span>
           <!-- The last two lines sit at the bottom of every card, whatever the
                description above them runs to. Three cards whose facts start at
                three different heights read as three different kinds of thing. -->

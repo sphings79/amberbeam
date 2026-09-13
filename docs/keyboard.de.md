@@ -36,14 +36,20 @@ Belegungen an.
 
 | | Was es ist | Was es braucht |
 |---|---|---|
-| **Windows-Stil** | Die Funktionstasten wie auf einem PC | F3, F4 und F11 in den Systemeinstellungen freigeben |
+| **Funktionstasten** | F5, F6, F8 und der Rest, so belegt wie in den älteren Windows-Programmen | F3, F4 und F11 in den Systemeinstellungen freigeben |
 | **Gemischt** | Funktionstasten, wo das System sie lässt, ⌘ für die drei anderen | Nichts |
-| **Mac-freundlich** | Gar keine Funktionstaste | Nichts |
+| **Ohne Funktionstasten** | Keine einzige, alles liegt auf ⌘ | Nichts |
 
-Alle drei gibt es auch unter Windows und Linux, unter **Tasten**, und ⌘ liest
-sich dort als Strg. Einen Grund zu wählen hat dort nur die Windows-Belegung;
-die beiden anderen bleiben, damit eine vom Mac mitgebrachte Belegung weiter
-funktioniert.
+Benannt nach dem, was sie tun, statt nach einem System — zwei der drei Namen
+waren vorher Betriebssysteme, und keines davon war das, vor dem ein
+Linux-Benutzer saß.
+
+Alle drei gibt es auch unter Windows und Linux, unter **Tasten**, wo ⌘ sich als
+Strg liest und wo keine davon eine Systemeinstellung braucht: F1 bis F12 sind
+dort Funktionstasten, und nichts wartet dahinter. Einen Grund zu wählen hat
+dort nur die erste; die beiden anderen bleiben, damit eine vom Mac
+mitgebrachte Belegung weiter funktioniert. Das Fenster **Tasten** sagt, auf
+welchem System du gerade bist.
 
 Jede Taste jeder Belegung lässt sich ändern: **Tasten ▸ Tasten ändern**, Zeile
 anklicken, gewünschte Taste drücken. Eine weggenommene Taste sagt, wem sie

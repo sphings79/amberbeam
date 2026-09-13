@@ -36,13 +36,19 @@ layouts.
 
 | | What it is | What it needs |
 |---|---|---|
-| **Windows style** | The function keys as they are on a PC | F3, F4 and F11 given up in System Settings |
+| **Function keys** | F5, F6, F8 and the rest, laid out as the older Windows clients laid them out | F3, F4 and F11 given up in System Settings |
 | **Mixed** | Function keys where the system allows, ⌘ for the three it does not | Nothing |
-| **Mac-friendly** | No function key at all | Nothing |
+| **No function keys** | Not one of them; everything on ⌘ | Nothing |
 
-All three exist on Windows and Linux too, under **Keys**, and read ⌘ as Ctrl
-there. Only the Windows layout has a reason to be chosen; the other two are
-kept so a layout carried over from a Mac still works.
+They are named after what they do rather than after a system, because two of
+the three names used to be operating systems and neither of them was the one a
+Linux user was sitting at.
+
+All three exist on Windows and Linux too, under **Keys**, where ⌘ reads as
+Ctrl and where none of them needs a system setting — F1 to F12 are function
+keys there and nothing is waiting behind them. Only the first has a reason to
+be chosen; the other two are kept so a layout carried over from a Mac still
+works. The **Keys** window says which of those you are on.
 
 Every key in every layout can be changed: **Keys ▸ Change the keys**, click a
 row, press the key you want. A key taken from another action says which. A

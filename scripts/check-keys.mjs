@@ -46,7 +46,17 @@ function complain(message) {
   failed = true;
 }
 
-const PLATFORMS = ["mac", "other"];
+const PLATFORMS = ["mac", "windows", "linux", "other"];
+
+// The keys window says what holds on the machine in front of somebody, and it
+// picks that sentence by the platform's own name. A platform without one shows
+// nothing at all, which is exactly the state Linux was in before it had a name
+// of its own here.
+for (const platform of PLATFORMS) {
+  if (!catalogue[`keys.system.${platform}`]) {
+    complain(`${platform}: nothing says what holds there — keys.system.${platform} is missing.`);
+  }
+}
 
 for (const platform of PLATFORMS) {
   for (const scheme of SCHEMES) {
