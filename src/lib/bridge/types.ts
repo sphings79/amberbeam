@@ -371,12 +371,20 @@ export interface Release {
   version: string;
   url: string;
   /**
-   * What the release says about itself, as written.
+   * What has happened since the version that is running, as written.
+   *
+   * Every release in between, newest first, each under its own number — not
+   * the newest one alone. Somebody three versions behind is exactly who wants
+   * to read this.
    *
    * Text from the network, and treated as nothing else: the window builds its
    * own structure from it and never hands it to the browser as markup.
    */
   notes: string;
+  /** Whether there may be older entries than the ones in `notes`. */
+  older: boolean;
+  /** Where the whole of it is written down. */
+  changelog: string;
 }
 
 /**

@@ -85,7 +85,11 @@
       {:else}
         {#each parts as piece, index (index)}
           {#if piece.kind === "heading"}
-            <h3>{piece.text}</h3>
+            {#if piece.level <= 2}
+              <h3 class="version">{piece.text}</h3>
+            {:else}
+              <h3>{piece.text}</h3>
+            {/if}
           {:else if piece.kind === "bullet"}
             <p class="bullet">
               {#each piece.parts as part, at (at)}
@@ -100,6 +104,18 @@
             </p>
           {/if}
         {/each}
+      {/if}
+      {#if release.older}
+        <!-- GitHub is asked for a fixed number of releases. When every one of
+             them was newer than this build, the ones before were cut off by
+             that limit rather than by not existing, and saying so beats
+             implying the list is complete. -->
+        <p class="hint">
+          {t("update.dialog.older")}
+          <button type="button" class="link" onclick={() => api.openUrl(release.changelog)}>
+            {t("update.dialog.older.link")}
+          </button>
+        </p>
       {/if}
     </div>
 
@@ -197,6 +213,31 @@
     padding: 4px 16px 12px;
     font-size: 0.82rem;
     line-height: 1.5;
+  }
+
+  .link {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: default;
+  }
+
+  .notes h3.version {
+    margin: 20px 0 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  /* The first one opens the list rather than dividing it. */
+  .notes h3.version:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
 
   .notes h3 {

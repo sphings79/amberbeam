@@ -20,7 +20,7 @@ fn answer() -> String {
 
 #[test]
 fn the_first_release_is_found_even_though_it_is_a_pre_release() {
-    let found = read_answer(&answer()).expect("a release");
+    let found = read_answer(&answer(), "0.0.1").expect("a release");
     assert_eq!(found.tag, "v0.1.0");
     assert_eq!(found.version, "0.1.0");
     assert!(found
@@ -32,7 +32,7 @@ fn the_first_release_is_found_even_though_it_is_a_pre_release() {
 fn somebody_running_that_very_version_is_not_told_to_update() {
     // The other half of the promise. A notice that fires for the version
     // already installed is worse than none: it never goes away.
-    let found = read_answer(&answer()).expect("a release");
+    let found = read_answer(&answer(), "0.0.1").expect("a release");
     assert!(!is_newer("0.1.0", &found.version));
     assert!(!is_newer("0.2.0", &found.version));
     assert!(is_newer("0.0.9", &found.version));
@@ -48,7 +48,7 @@ fn this_build_never_thinks_it_is_older_than_the_last_release() {
     // What must never happen is the other direction: a build that would tell
     // its own user about an update, meaning somebody shipped a program older
     // than what is already out.
-    let found = read_answer(&answer()).expect("a release");
+    let found = read_answer(&answer(), "0.0.1").expect("a release");
     assert!(
         !is_newer(env!("CARGO_PKG_VERSION"), &found.version),
         "this build calls itself {} while {} is published",

@@ -16,7 +16,7 @@ export interface Span {
 }
 
 export type Piece =
-  | { kind: "heading"; text: string }
+  | { kind: "heading"; text: string; level: number }
   | { kind: "bullet"; parts: Span[] }
   /** A second paragraph belonging to the point above it. */
   | { kind: "under"; parts: Span[] }
@@ -53,9 +53,16 @@ export function pieces(notes: string): Piece[] {
     const broken = blankBefore;
     blankBefore = false;
 
-    const heading = /^#{1,6}\s+(.*)$/.exec(line);
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
-      out.push({ kind: "heading", text: heading[1] ?? "" });
+      // The level is kept because a set of notes covering several releases
+      // has two kinds of heading in it: the version, and the sections inside
+      // it. Drawn the same size they read as one long list.
+      out.push({
+        kind: "heading",
+        text: heading[2] ?? "",
+        level: (heading[1] ?? "#").length,
+      });
       continue;
     }
 

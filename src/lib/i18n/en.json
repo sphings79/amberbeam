@@ -522,6 +522,8 @@
   "filter.close": "Stop filtering",
   "update.dialog.title": "Update to {version}",
   "update.dialog.nothing": "This release says nothing about itself.",
+  "update.dialog.older": "Older entries than these are not listed here.",
+  "update.dialog.older.link": "The whole changelog",
   "update.dialog.where": "Opens the release page in your browser.",
   "update.dialog.later": "Later",
   "update.dialog.download": "Download",

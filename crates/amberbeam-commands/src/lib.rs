@@ -694,10 +694,12 @@ pub async fn dispatch(service: &Arc<Service>, command: &str, args: Value) -> Res
 
         "newer_release" => {
             let it: Answering = taking(command, args)?;
-            let release = amberbeam_core::update::read_answer(&it.answer);
-            out(release.filter(|release| {
-                amberbeam_core::update::is_newer(&service.version, &release.version)
-            }))
+            // The version that is running goes in, because what comes back is
+            // everything since it rather than the newest release alone.
+            out(amberbeam_core::update::read_answer(
+                &it.answer,
+                &service.version,
+            ))
         }
 
         // --- Connections ---
