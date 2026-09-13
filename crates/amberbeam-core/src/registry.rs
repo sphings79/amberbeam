@@ -359,6 +359,49 @@ impl Sessions {
         session.stat(path).await
     }
 
+    /// Where an account starts, on a connection that is already open.
+    pub async fn home(&self, endpoint: &EndpointId) -> Result<String> {
+        self.find(endpoint).await?.home().await
+    }
+
+    /// A whole file, up to a ceiling.
+    ///
+    /// For the few things that want a file's contents rather than a copy of
+    /// it on disk — reading one to show it, or to decide what it is. The
+    /// ceiling is the caller's, and a file over it is refused rather than
+    /// half read: half a file is not a shorter file, it is a wrong one.
+    pub async fn read_all(&self, endpoint: &EndpointId, path: &str, most: u64) -> Result<Vec<u8>> {
+        use tokio::io::AsyncReadExt;
+
+        let session = self.find(endpoint).await?;
+        let (size, _) = session.stat(path).await?;
+        if size > most {
+            return Err(Error::other(format!(
+                "{path} is {size} bytes, which is more than was asked for"
+            )));
+        }
+
+        let (mut reader, hold) = session.open_read(path, 0).await?;
+        let mut bytes = Vec::with_capacity(size as usize);
+        // Borrowed for the read, because the reader is handed back afterwards:
+        // over FTP the server's verdict arrives on the control connection, and
+        // a transfer nobody asked about is a transfer nobody knows succeeded.
+        let read = (&mut reader)
+            .take(most + 1)
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(Error::from);
+        session.finish_read(reader, hold).await?;
+        read?;
+
+        if bytes.len() as u64 > most {
+            return Err(Error::other(format!(
+                "{path} turned out to be larger than was asked for"
+            )));
+        }
+        Ok(bytes)
+    }
+
     /// What a file's bytes come to, for telling two of them apart.
     ///
     /// Reads the whole file. Over a server that is the cost of transferring

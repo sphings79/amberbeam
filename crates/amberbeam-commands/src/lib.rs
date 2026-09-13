@@ -1302,6 +1302,42 @@ async fn enqueue(service: &Service, request: EnqueueBody) -> Result<usize, Error
         .await
 }
 
+/// Opens a saved server, the way every shell opens one.
+///
+/// Public so that a shell which is not a window can use the same path: the
+/// secrets are fetched here, at the moment of connecting, and never travel to
+/// whatever asked. That arrangement is what makes "a program driving this one
+/// cannot read a password" true rather than merely promised.
+pub async fn open_site(service: &Service, site: &Site, endpoint: &str) -> Result<Connected, Error> {
+    connect(
+        service,
+        ConnectRequest {
+            endpoint: endpoint.to_string(),
+            site_id: Some(site.id.clone()),
+            protocol: site.protocol,
+            host: site.host.clone(),
+            port: site.port,
+            user: site.user.clone(),
+            auth: site.auth,
+            password: None,
+            key_path: site.key_path.clone(),
+            passphrase: None,
+            accept_fingerprint: None,
+            concurrency: Some(site.concurrency),
+            retries: site.retries,
+            temporary_name: site.temporary_name,
+            // An entry that says nothing about encryption means plain FTP,
+            // which is what it meant before the field existed.
+            encryption: site.encryption.unwrap_or_default(),
+            passive: site.passive,
+            latin1: site.latin1,
+            keep_alive: site.keep_alive,
+            accept_certificate: None,
+        },
+    )
+    .await
+}
+
 async fn connect(service: &Service, mut request: ConnectRequest) -> Result<Connected, Error> {
     // A site entry's secrets are fetched here rather than in the window. A
     // password that never reaches the webview cannot be read out of it, and the

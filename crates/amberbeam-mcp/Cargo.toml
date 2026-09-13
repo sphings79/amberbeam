@@ -1,0 +1,23 @@
+[package]
+name = "amberbeam-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AmberBeam over MCP: the same core, spoken to by a program rather than a person"
+
+[lib]
+name = "amberbeam_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "amberbeam-mcp"
+path = "src/main.rs"
+
+[dependencies]
+amberbeam-core = { path = "../amberbeam-core" }
+amberbeam-commands = { path = "../amberbeam-commands" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The workspace set plus "io-std": standard input and output are the
+# transport here, and nowhere else in this program are they anything at all.
+tokio = { workspace = true, features = ["io-std"] }

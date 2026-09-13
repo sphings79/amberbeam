@@ -104,12 +104,25 @@ version = "0.1.7"
 dependencies = [
  "amberbeam-commands",
  "amberbeam-core",
+ "amberbeam-mcp",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-updater",
+ "tokio",
+]
+
+[[package]]
+name = "amberbeam-mcp"
+version = "0.1.7"
+dependencies = [
+ "amberbeam-commands",
+ "amberbeam-core",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

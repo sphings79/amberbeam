@@ -24,6 +24,13 @@ jobs:
       - run: cargo fmt --package amberbeam-core --check
       - run: cargo clippy --package amberbeam-core --all-targets -- -D warnings
       - run: cargo test --package amberbeam-core
+      # The two shells that are not the window. They build on Linux without a
+      # webview, which is exactly why they are checked here rather than left
+      # to the platform builds — a break in either is otherwise invisible
+      # until somebody cuts a release.
+      - run: cargo fmt --package amberbeam-commands --package amberbeam-serve --package amberbeam-mcp --check
+      - run: cargo clippy --package amberbeam-commands --package amberbeam-serve --package amberbeam-mcp --all-targets -- -D warnings
+      - run: cargo test --package amberbeam-commands --package amberbeam-mcp
       # The importers against whatever real files the machine happens to have.
       # Skips itself where there are none, which on a build runner is usually
       # the case — the value is on a developer's machine, where the files are

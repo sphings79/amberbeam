@@ -3,6 +3,7 @@ members = [
     "crates/amberbeam-core",
     "crates/amberbeam-commands",
     "crates/amberbeam-serve",
+    "crates/amberbeam-mcp",
     "src-tauri",
 ]
 resolver = "2"

@@ -88,6 +88,13 @@ pub struct Site {
     /// this file.
     #[serde(default)]
     pub wastebasket: Option<String>,
+    /// Whether a program driving AmberBeam over MCP may use this server.
+    ///
+    /// Off, and it stays off until somebody turns it on for this entry. A
+    /// server nobody opened is a server such a program cannot see, cannot
+    /// list and cannot name — not "may look but not touch", but absent.
+    #[serde(default)]
+    pub mcp: bool,
     /// Names a comparison and a watch never look at, as patterns.
     ///
     /// Per server because that is where it belongs: what counts as noise in a
@@ -425,6 +432,7 @@ mod tests {
             remember_password: false,
             wastebasket: None,
             excludes: Vec::new(),
+            mcp: false,
             colour: None,
         }
     }
@@ -536,7 +544,7 @@ mod tests {
         // A site file may hold exactly these. Adding a field fails this test
         // until somebody has decided it carries no secret — which is the point,
         // because these files sit on disk in the open.
-        const ALLOWED: [&str; 22] = [
+        const ALLOWED: [&str; 23] = [
             // A path on a server whose address is already in this file, so it
             // gives away nothing that was not already here.
             "wastebasket",
@@ -562,6 +570,9 @@ mod tests {
             "keepAlive",
             // File names, on a server whose address is already in this file.
             "excludes",
+            // A switch, and the one that decides whether a program driving
+            // this one can see the entry at all.
+            "mcp",
             "rememberPassword",
             "colour",
         ];

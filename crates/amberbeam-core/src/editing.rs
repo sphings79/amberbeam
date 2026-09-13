@@ -502,6 +502,28 @@ impl Edits {
     }
 }
 
+/// A file's text, without taking a copy of it.
+///
+/// The same rules an editor is held to — too large is refused, not text is
+/// refused, and what is not UTF-8 is read as Latin-1 — for the cases that
+/// want to *see* a file rather than work on one. Sharing the rules is the
+/// point: a file this refuses to show is a file the editor would refuse to
+/// open, and two answers to that question is one too many.
+pub async fn read_as_text(
+    sessions: &Sessions,
+    endpoint: &EndpointId,
+    path: &str,
+) -> Result<String> {
+    let bytes = sessions.read_all(endpoint, path, LARGEST).await?;
+    if looks_binary(&bytes) {
+        return Err(Error::NotTextToEdit {
+            path: path.to_string(),
+        });
+    }
+    let (encoding, _, crlf) = shape_of(&bytes);
+    Ok(decode(&bytes, encoding, crlf))
+}
+
 /// Whether two looks at a file found the same one.
 ///
 /// The size has to match. The time only counts when both ends offered one:

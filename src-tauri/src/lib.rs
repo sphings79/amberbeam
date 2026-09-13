@@ -340,6 +340,7 @@ fn import_apply(
             remember_password: take_passwords && entry.has_password,
             wastebasket: None,
             excludes: Vec::new(),
+            mcp: false,
             colour: None,
         };
 
@@ -536,8 +537,56 @@ fn read_text_file(path: PathBuf) -> Result<String, Error> {
     std::fs::read_to_string(&path).map_err(Error::from)
 }
 
+/// Runs the model context protocol on standard input and output.
+///
+/// Its own runtime, because Tauri's is never started on this path.
+fn over_stdio() {
+    let config = Config::default_location().unwrap_or_else(|_| Config::at("."));
+    let events = Events::new();
+    let sessions = Arc::new(Sessions::new(events.clone()));
+    let service = Arc::new(Service {
+        sessions: Arc::clone(&sessions),
+        queue: Runner::new(
+            Arc::clone(&sessions),
+            events.clone(),
+            config.root().join("mcp-queue.json"),
+        ),
+        secrets: Box::new(SystemStore::default()),
+        session: MemoryStore::default(),
+        edits: Edits::beneath_temp(),
+        events: events.clone(),
+        watches: amberbeam_core::watch::Watches::new(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        config,
+    });
+
+    let journal = amberbeam_mcp::Journal::beside(service.config.root());
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(runtime) => runtime,
+        Err(why) => {
+            eprintln!("there is no runtime to run on: {why}");
+            std::process::exit(1);
+        }
+    };
+    if let Err(why) = runtime.block_on(amberbeam_mcp::serve(service, journal)) {
+        eprintln!("the connection ended badly: {why}");
+        std::process::exit(1);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // The same program, spoken to by a program rather than by a person. No
+    // window is built at all on this path — it is the transport that differs,
+    // not the core, and a window would have nobody looking at it.
+    //
+    // The same binary on purpose. A keychain grants access per program, so the
+    // one that stored a password is the one that can use it again without
+    // asking somebody who is not there.
+    if std::env::args().any(|argument| argument == "--mcp") {
+        return over_stdio();
+    }
+
     let events = Events::new();
     let config = Config::default_location().unwrap_or_else(|_| Config::at("."));
     let sessions = Arc::new(Sessions::new(events.clone()));

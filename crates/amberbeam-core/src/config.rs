@@ -291,6 +291,7 @@ impl Config {
             remember_password: false,
             wastebasket: None,
             excludes: Vec::new(),
+            mcp: false,
             colour: None,
         };
 

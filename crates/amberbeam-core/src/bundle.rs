@@ -157,6 +157,7 @@ pub fn apply(
             remember_password: entry.password.is_some(),
             wastebasket: None,
             excludes: Vec::new(),
+            mcp: false,
             ..entry.site.clone()
         };
         let folder = match (into.trim(), entry.folder.as_str()) {
@@ -207,6 +208,7 @@ mod tests {
             remember_password: true,
             wastebasket: None,
             excludes: Vec::new(),
+            mcp: false,
             colour: None,
         }
     }
