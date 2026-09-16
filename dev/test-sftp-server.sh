@@ -13,7 +13,12 @@ set -eu
 NAME=amberbeam-test-sftp
 IMAGE=linuxserver/openssh-server:latest
 PORT=2222
-KEYS="$(cd "$(dirname "$0")" && pwd)/sftp-test/keys"
+# Resolved rather than as typed: the path is handed to Docker, whose daemon
+# runs inside a virtual machine and cannot follow a symlink that leads out of
+# the directory shared with it. A checkout reached through one -- a projects
+# folder living on another disk, say -- would mount an empty /keys, and the
+# server would come up without host keys and without a word about why.
+KEYS="$(cd "$(dirname "$0")" && pwd -P)/sftp-test/keys"
 
 # The directory the listing tests read. Built here rather than by the tests so
 # the tests need nothing but a network connection — and so the awkward names
