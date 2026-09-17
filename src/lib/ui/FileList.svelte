@@ -102,6 +102,31 @@
   /** Longer than a double click, short enough not to catch two separate ones. */
   const SLOW = 1200;
 
+  /**
+   * The rename a second click has asked for, waiting to see if a third event
+   * turns up.
+   *
+   * A double click arrives as click, click, double-click — so the second click
+   * of *entering a folder* looks exactly like the second click of renaming it,
+   * and both used to happen. The rename box then landed under the pointer and
+   * swallowed the double-click that would have opened the directory, leaving
+   * somebody who only wanted to go in with a box asking for a new name.
+   *
+   * So the rename waits a moment. A double-click cancels it on its way past;
+   * two unhurried clicks find the timer still there and go through with it.
+   */
+  let pending: ReturnType<typeof setTimeout> | null = null;
+
+  /** How long to wait — longer than any double click a system will report. */
+  const SETTLE = 400;
+
+  function dropPendingRename(): void {
+    if (pending !== null) {
+      clearTimeout(pending);
+      pending = null;
+    }
+  }
+
   function onRowClick(index: number, entry: DirEntry, event: MouseEvent): void {
     // Shift first: holding it means "everything from where I was to here",
     // and that has to be read before the cursor moves, because where I was is
@@ -123,10 +148,15 @@
     lastClick = { name: entry.name, at: event.timeStamp };
 
     if (again) {
-      startRename(side, entry.name);
+      dropPendingRename();
+      pending = setTimeout(() => {
+        pending = null;
+        startRename(side, entry.name);
+      }, SETTLE);
       return;
     }
 
+    dropPendingRename();
     setCursor(side, index);
     if (event.metaKey || event.ctrlKey) {
       toggleSelection(side, entry.name);
@@ -229,7 +259,12 @@
                 if (event.dataTransfer) event.dataTransfer.effectAllowed = "copy";
               }}
               onclick={(event) => onRowClick(item.index, entry, event)}
-              ondblclick={() => onenter(entry)}
+              ondblclick={() => {
+                // Past the rename the second click asked for: a double click
+                // is not two unhurried ones, whatever the clock says.
+                dropPendingRename();
+                onenter(entry);
+              }}
               oncontextmenu={(event) => onRowContext(item.index, entry, event)}
               onkeydown={() => {}}
             >

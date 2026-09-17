@@ -56,9 +56,24 @@
 
   function childrenOf(path: string): DirEntry[] | null {
     if (path === view.path) {
-      return view.entries.filter(isDirectory);
+      return byName(view.entries.filter(isDirectory));
     }
     return children[path] ?? null;
+  }
+
+  /**
+   * Directories in the order somebody would look for one.
+   *
+   * By name, always, whatever the list beside it is sorted by — a tree sorted
+   * by size or by date is a tree nobody can find anything in. The server's own
+   * order is no order at all: it is whatever the filesystem handed over.
+   *
+   * The same comparison the list uses, so `Bild2` comes before `Bild10`.
+   */
+  function byName(entries: DirEntry[]): DirEntry[] {
+    return [...entries].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
   }
 
   /** A different connection means a different tree. */
@@ -83,7 +98,7 @@
       api
         .listDir(endpoint, path)
         .then((listing) => {
-          children = { ...children, [path]: listing.entries.filter(isDirectory) };
+          children = { ...children, [path]: byName(listing.entries.filter(isDirectory)) };
         })
         .catch(() => {
           // A directory that cannot be read shows as empty rather than
