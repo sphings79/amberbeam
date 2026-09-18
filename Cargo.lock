@@ -71,7 +71,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-commands"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "amberbeam-core",
  "serde",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-core"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "dirs 7.0.0",
  "keyring",
@@ -100,7 +100,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-desktop"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "amberbeam-commands",
  "amberbeam-core",
@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-mcp"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "amberbeam-commands",
  "amberbeam-core",
@@ -127,7 +127,7 @@ dependencies = [
 
 [[package]]
 name = "amberbeam-serve"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "amberbeam-commands",
  "amberbeam-core",

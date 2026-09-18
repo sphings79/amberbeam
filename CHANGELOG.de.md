@@ -7,6 +7,35 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## 0.1.13
+
+Zwei Dinge, die die letzte Veröffentlichung kaputt gemacht oder schief gelassen
+hat.
+
+### Behoben
+
+- **Ein Ordner ließ sich per Doppelklick nicht mehr betreten.** Stattdessen bot
+  er jedes Mal einen neuen Namen an.
+
+  Ein Doppelklick kommt als Klick, Klick, Doppelklick an, und der zweite davon
+  sieht genauso aus wie der zweite von zwei gemächlichen Klicks — also denen,
+  die „benenn das um" heißen. Beides passierte, schon lange; gemerkt hat es
+  niemand, weil das Umbenennen-Feld bis 0.1.12 eine Haaresbreite zu breit für
+  seine Spalte war und die Spalte es durch „…" ersetzte. Sichtbar gemacht lag
+  es unter dem Zeiger und schluckte den Doppelklick, der das Verzeichnis
+  geöffnet hätte.
+
+  Gefragt wird jetzt der Browser statt einer Stoppuhr: Er zählt aufeinander
+  folgende Klicks nach dem Doppelklick-Intervall, das tatsächlich eingestellt
+  ist. So ist der zweite Klick eines Doppelklicks von einem später
+  nachgeschobenen zu unterscheiden. Umbenannt wird nur beim zweiten Fall, und
+  sofort.
+- **Der Ordnerbaum war in keiner bestimmten Reihenfolge.** Er zeigte, was das
+  Dateisystem oder der Server gerade herausgab, und das ist bei einem
+  Verzeichnis nennenswerter Größe gar keine Reihenfolge. Jetzt nach Namen,
+  immer — ein Baum nach Größe sortiert ist ein Baum, in dem niemand etwas
+  findet.
+
 ## 0.1.12
 
 Drei Dinge, die im Weg standen, und ein Zählen, auf das niemand warten muss.

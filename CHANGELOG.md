@@ -7,6 +7,31 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## 0.1.13
+
+Two things the last release broke or left crooked.
+
+### Fixed
+
+- **A folder could not be opened by double-clicking it.** It offered a new name
+  instead, every time.
+
+  A double click arrives as click, click, double-click, and the second of those
+  looks exactly like the second of two unhurried clicks — the ones that mean
+  "rename this". Both happened, and had for a long time; nobody noticed because
+  until 0.1.12 the rename box was a hair too wide for its column and the column
+  replaced it with an ellipsis. Made visible, it landed under the pointer and
+  swallowed the double click that would have opened the directory.
+
+  The browser is asked now rather than a stopwatch: it counts consecutive
+  clicks by the double-click interval the system is actually set to, so the
+  second click of a double click is told apart from a second click that simply
+  came later. Renaming happens only on the latter, and at once.
+- **The folder tree was in no particular order.** It showed whatever order the
+  filesystem or the server handed over, which on a directory of any size is not
+  an order at all. By name now, always — a tree sorted by size is a tree nobody
+  can find anything in.
+
 ## 0.1.12
 
 Three things that were in the way, and a count nobody has to wait for.
