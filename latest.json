@@ -1,0 +1,19 @@
+{
+  "version": "0.1.13",
+  "notes": "## 0.1.13\n\nTwo things the last release broke or left crooked.\n\n### Fixed\n\n- **A folder could not be opened by double-clicking it.** It offered a new name\n  instead, every time.\n\n  A double click arrives as click, click, double-click, and the second of those\n  looks exactly like the second of two unhurried clicks \u2014 the ones that mean\n  \"rename this\". Both happened, and had for a long time; nobody noticed because\n  until 0.1.12 the rename box was a hair too wide for its column and the column\n  replaced it with an ellipsis. Made visible, it landed under the pointer and\n  swallowed the double click that would have opened the directory.\n\n  The browser is asked now rather than a stopwatch: it counts consecutive\n  clicks by the double-click interval the system is actually set to, so the\n  second click of a double click is told apart from a second click that simply\n  came later. Renaming happens only on the latter, and at once.\n- **The folder tree was in no particular order.** It showed whatever order the\n  filesystem or the server handed over, which on a directory of any size is not\n  an order at all. By name now, always \u2014 a tree sorted by size is a tree nobody\n  can find anything in.",
+  "pub_date": "2026-09-18T10:12:05Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFg2ZmgwTGZaTTBEb2tVU1h4MGREbUxZWHV1cHRxcHg4ejBoWWY2d2crN3g0elgwRDFaVy9oUmRxRU41SjR1VzBuK3IxQnZ6azUxeWFlN3lmQlN4ekFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzI1ODYyCWZpbGU6QW1iZXJCZWFtLmFwcC50YXIuZ3oKM0lRV3N0N0pYTWZEYTI5b0VwTTNvQlQ1L08vK08ySURoY1ZaTmlZY2d4bTBNdDc5cU5xeG8xeDNoUnVyK24xM0VDMyt0RVhSdFVaZTN5eDZnbE9CQnc9PQo=",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.13/AmberBeam.app.tar.gz"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcGJRaW5jaVBYdEdpeGFrZ283cGlYc2EvQVF2cGtIZ0RXS2kzWGlBNlhJMzF3TWg3YS80dTlKcmxtVmdEeDBLZC9VOWhmSWpOYldaZGs0WTB5bXJpb1FrPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzI2MjQ3CWZpbGU6QW1iZXJCZWFtXzAuMS4xM194NjQtc2V0dXAuZXhlCjVoQ2lLeksyYTlpWlNrakg1YlUrMDZaNGFuc0IzMDMyN0ZkaTdubFYwMC9hS2VoYUduL1cxTWdEOHEzNlFlRENzS1ErbEpnd0VYMmlyMDhGb0JGK0FRPT0K",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.13/AmberBeam_0.1.13_x64-setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFhyVzNWOS9kUVFOSS9aUGJsVlJGTDVEN0dvdTNvWXBlckRYa0tKMFFjNzE1VStuSmxjSEtMK0xHbDZicnhqOWRrSUo3dkM2ekQ4TkRQUXc2blMyQVFjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg5NzI1OTgyCWZpbGU6QW1iZXJCZWFtXzAuMS4xM19hbWQ2NC5BcHBJbWFnZQpvRnRjc0xVZ05rSUV3U0xSTEZtK09KT1lEeWoyRVdLYmszYW4wdGNHd2tHdWtuYk5VNFRMaTRxSUQyeHA0aVlIcVZ2ekV1QlZjbkNyTEdKRmsra3dCUT09Cg==",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.13/AmberBeam_0.1.13_amd64.AppImage"
+    }
+  }
+}
