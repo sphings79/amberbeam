@@ -6,7 +6,7 @@
 //! two readers say what to do with each element.
 
 use quick_xml::events::Event;
-use quick_xml::Reader;
+use quick_xml::{Reader, XmlVersion};
 
 /// One element, as these formats use them: a name, its attributes, and the text
 /// directly inside it.
@@ -62,9 +62,8 @@ pub fn walk(text: &str) -> Vec<Step> {
             }
             Ok(Event::Text(chunk)) => {
                 let Some(&index) = open.last() else { continue };
-                let Ok(value) = chunk.decode() else { continue };
                 if let Some(Step::Open(element)) = steps.get_mut(index) {
-                    element.text.push_str(value.as_ref());
+                    element.text.push_str(&chunk);
                 }
             }
             // An entity arrives as an event of its own, splitting the text
@@ -74,10 +73,7 @@ pub fn walk(text: &str) -> Vec<Step> {
                 let Some(&index) = open.last() else { continue };
                 let resolved = match reference.resolve_char_ref() {
                     Ok(Some(character)) => Some(character),
-                    Ok(None) => reference
-                        .decode()
-                        .ok()
-                        .and_then(|name| named_entity(name.as_ref())),
+                    Ok(None) => named_entity(&reference),
                     Err(_) => None,
                 };
                 if let (Some(character), Some(Step::Open(element))) =
@@ -88,9 +84,7 @@ pub fn walk(text: &str) -> Vec<Step> {
             }
             Ok(Event::End(end)) => {
                 open.pop();
-                steps.push(Step::Close(
-                    String::from_utf8_lossy(end.name().as_ref()).into_owned(),
-                ));
+                steps.push(Step::Close(end.name().as_ref().to_owned()));
             }
             Ok(Event::Eof) => break,
             // A document that stops making sense half way through still gave up
@@ -115,17 +109,17 @@ fn named_entity(name: &str) -> Option<char> {
     }
 }
 
-fn element_of(name: &[u8], attributes: quick_xml::events::attributes::Attributes<'_>) -> Element {
+fn element_of(name: &str, attributes: quick_xml::events::attributes::Attributes<'_>) -> Element {
     Element {
-        name: String::from_utf8_lossy(name).into_owned(),
+        name: name.to_owned(),
         text: String::new(),
         attributes: attributes
             .flatten()
             .map(|attribute| {
                 (
-                    String::from_utf8_lossy(attribute.key.as_ref()).into_owned(),
+                    attribute.key.as_ref().to_owned(),
                     attribute
-                        .unescape_value()
+                        .normalized_value(XmlVersion::Implicit1_0)
                         .map(|value| value.into_owned())
                         .unwrap_or_default(),
                 )

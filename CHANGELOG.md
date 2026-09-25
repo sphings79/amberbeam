@@ -7,6 +7,23 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
+## Unreleased
+
+Two libraries brought up to versions with their security fixes in.
+
+### Fixed
+
+- **FTPS and the update check ran on a TLS library with a known flaw.** rustls
+  0.23.44 accepted certain TLS 1.3 handshake messages across a boundary where
+  they have no business (RUSTSEC-2026-0285). 0.23.45 does not.
+- **Importing a server list used an XML reader that could be made to crawl.** A
+  start tag with many attributes cost quadratic time to check for duplicate
+  names (RUSTSEC-2026-0194).
+
+  The file is one you pick yourself, so this was never more than a slow
+  import, but quick-xml 0.42 no longer does it — and it is the version Tauri
+  already brings, so there is one copy of it now instead of two.
+
 ## 0.1.13
 
 Two things the last release broke or left crooked.

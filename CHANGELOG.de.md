@@ -7,6 +7,25 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
+## Unreleased
+
+Zwei Bibliotheken auf Versionen gebracht, die ihre Sicherheitskorrekturen
+enthalten.
+
+### Behoben
+
+- **FTPS und die Update-Prüfung liefen über eine TLS-Bibliothek mit bekanntem
+  Fehler.** rustls 0.23.44 nahm bestimmte TLS-1.3-Handshake-Nachrichten über
+  eine Grenze hinweg an, an der sie nichts verloren haben (RUSTSEC-2026-0285).
+  0.23.45 tut das nicht mehr.
+- **Der Import einer Serverliste nutzte einen XML-Leser, den man ausbremsen
+  konnte.** Ein Start-Tag mit vielen Attributen kostete beim Prüfen auf
+  doppelte Namen quadratische Zeit (RUSTSEC-2026-0194).
+
+  Die Datei wählst du selbst aus, mehr als ein langsamer Import war das also
+  nie; quick-xml 0.42 tut es trotzdem nicht mehr — und es ist die Version, die
+  Tauri ohnehin mitbringt, es gibt jetzt also eine Kopie davon statt zwei.
+
 ## 0.1.13
 
 Zwei Dinge, die die letzte Veröffentlichung kaputt gemacht oder schief gelassen

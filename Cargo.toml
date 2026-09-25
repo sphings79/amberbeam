@@ -41,7 +41,7 @@ keyring = { version = "4.2", features = [
 ] }
 # Two of the six site formats are XML. Writing an XML reader by hand would be
 # the wrong sort of thrift.
-quick-xml = "0.38"
+quick-xml = "0.42"
 # Already in the tree through rustls, so declaring it costs nothing in the
 # binary. Used for the one thing this program encrypts itself: an export that
 # carries passwords.
