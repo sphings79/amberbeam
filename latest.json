@@ -1,0 +1,19 @@
+{
+  "version": "0.1.14",
+  "notes": "## 0.1.14\n\nTwo libraries brought up to versions with their security fixes in.\n\n### Fixed\n\n- **FTPS and the update check ran on a TLS library with a known flaw.** rustls\n  0.23.44 accepted certain TLS 1.3 handshake messages across a boundary where\n  they have no business (RUSTSEC-2026-0285). 0.23.45 does not.\n- **Importing a server list used an XML reader that could be made to crawl.** A\n  start tag with many attributes cost quadratic time to check for duplicate\n  names (RUSTSEC-2026-0194).\n\n  The file is one you pick yourself, so this was never more than a slow\n  import, but quick-xml 0.42 no longer does it \u2014 and it is the version Tauri\n  already brings, so there is one copy of it now instead of two.",
+  "pub_date": "2026-09-25T10:52:40Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFZoUEdCb3BTbG1WUDNQRDhINHN5aWtEU1dMV3J2bWlWZUxTb1FpaXFJYVQ3MTBFaW1mZDJPNGM2NDc2VXUxOHVFZ1JkcDlIVnJiWll6TEdhbVQyRlFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMzMzMDc1CWZpbGU6QW1iZXJCZWFtLmFwcC50YXIuZ3oKQ1dkbldsT3pwYXpJeEx1Zkhzd3lxS0FkeXRQYkQzcUhsTE1QajBiMVYzdDZuZVFkeHlQVzdmMk9DY3ZpWkVtK3Q3dXNkc1FNVy9jWlFnRHR5VEo3QlE9PQo=",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.14/AmberBeam.app.tar.gz"
+    },
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcFMrT2xZdVRzdEpJOXdxbVVHaWhQN0FzRG85VDZGeFZ4M2FMRHc1MWIyUnlMVzREVndvOVZqNkR5K0hBakY1bXE2SFovOFdiR21jZDc0UVhEQ0FOeGdvPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMzMzNDgwCWZpbGU6QW1iZXJCZWFtXzAuMS4xNF94NjQtc2V0dXAuZXhlCm8zYVo4NFVsQ0Y4cmF3WEQzYmduOE9rNnpxc0IrQnByMzdnWVFmNUpGSUhNSnFVeWRJMnZTUTlORjN0cjFQOHdCM0NYeE4wYjRqeHBLZ0pGazRrekRnPT0K",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.14/AmberBeam_0.1.14_x64-setup.exe"
+    },
+    "linux-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUdmlaaFJ2dGdUcGVIVjhKblZKS0grMjlPUHRMeDBYNkNOZ3diZXBEbEVqajExMmxnVTMzOElYK213MjE2SnUvTnBBbmhzbCtOZW5OdWhuRldmY0tJcXkweS90N2NrRmdFPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkwMzMzMjA2CWZpbGU6QW1iZXJCZWFtXzAuMS4xNF9hbWQ2NC5BcHBJbWFnZQo4elExQU9aOHRvM3NkWUJRRUt6NHE0Zk8wQUdOU1c5MlR4UEtKZTRmSHNVNVNIc1JlTjVzcFoybDRWZjFRYXJIbyttcHBma1FuaVNBT0FqdnV0NEJCZz09Cg==",
+      "url": "https://github.com/sphings79/amberbeam/releases/download/v0.1.14/AmberBeam_0.1.14_amd64.AppImage"
+    }
+  }
+}
