@@ -7,7 +7,7 @@ state of the program rather than a technicality: it does what it says, it is
 tested, and it is not finished. The update notice inside AmberBeam reads
 pre-releases for exactly that reason.
 
-## Unreleased
+## 0.1.14
 
 Two libraries brought up to versions with their security fixes in.
 

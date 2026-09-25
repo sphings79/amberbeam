@@ -7,7 +7,7 @@ Jede Veröffentlichung bis 1.0 ist eine Vorabversion, und das ist eine Aussage
 geprüft, und es ist nicht fertig. Die Update-Benachrichtigung in AmberBeam
 liest Vorabversionen genau deshalb.
 
-## Unreleased
+## 0.1.14
 
 Zwei Bibliotheken auf Versionen gebracht, die ihre Sicherheitskorrekturen
 enthalten.
